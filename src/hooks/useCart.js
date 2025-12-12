@@ -44,29 +44,60 @@ const normalizeCartItems = (items) => {
 
 /**
  * Custom Hook: useCart
- * Manages shopping cart state and operations
+ * Manages shopping cart state and operations with session persistence
  * 
  * @returns {Object} Cart state and methods
  */
 export const useCart = () => {
-  const [cartId, setCartId] = useState(null);
+  const [cartId, setCartId] = useState(() => {
+    // Try to restore cart ID from session storage
+    const savedCartId = sessionStorage.getItem('cartId');
+    console.log('🛒 Restoring cart ID from session:', savedCartId);
+    return savedCartId;
+  });
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Initialize cart on mount
+  // Save cart ID to session storage whenever it changes
+  useEffect(() => {
+    if (cartId) {
+      sessionStorage.setItem('cartId', cartId);
+      console.log('🛒 Saved cart ID to session:', cartId);
+    }
+  }, [cartId]);
+
+  // Initialize cart on mount - only if we don't have a cart ID
   useEffect(() => {
     const initializeCart = async () => {
+      // Check if we already have a cart ID
+      if (cartId) {
+        console.log('🛒 Cart already exists, skipping initialization. Cart ID:', cartId);
+        // Try to refresh existing cart to get current items
+        try {
+          await refreshCart();
+        } catch (err) {
+          console.warn('🛒 Failed to refresh existing cart, creating new one:', err);
+          // If existing cart is invalid, clear it and create new
+          sessionStorage.removeItem('cartId');
+          setCartId(null);
+          // Recursive call will create new cart
+          await initializeCart();
+        }
+        return;
+      }
+
       try {
         setLoading(true);
-        console.log('🛒 Initializing cart...');
+        console.log('🛒 Initializing new cart...');
         
         // Add a small delay to ensure API is ready
         await new Promise(resolve => setTimeout(resolve, 100));
         
         const newCart = await cartApi.create();
         console.log('✅ Cart created successfully:', newCart);
-        setCartId(newCart.cart_id || newCart.id); // Handle both possible response formats
+        const newCartId = newCart.cart_id || newCart.id;
+        setCartId(newCartId);
         setError(null);
       } catch (err) {
         const errorMessage = 'Failed to initialize cart';
@@ -86,7 +117,7 @@ export const useCart = () => {
 
     console.log('🛒 Starting cart initialization...');
     initializeCart();
-  }, []);
+  }, []); // Remove cartId dependency to avoid infinite loops
 
   // Refresh cart data
   const refreshCart = useCallback(async () => {
@@ -124,6 +155,13 @@ export const useCart = () => {
     } catch (err) {
       setError('Failed to refresh cart');
       console.error('❌ RefreshCart error:', err);
+      // If cart doesn't exist anymore, clear the stored ID
+      if (err.message.includes('404') || err.message.includes('not found')) {
+        console.log('🛒 Cart no longer exists, clearing session storage');
+        sessionStorage.removeItem('cartId');
+        setCartId(null);
+        setItems([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -253,6 +291,7 @@ export const useCart = () => {
       
       setItems([]);
       setError(null);
+      console.log('🛒 Cart cleared successfully, keeping cart ID for reuse:', cartId);
     } catch (err) {
       setError('Failed to clear cart');
       console.error('Clear cart error:', err);
@@ -261,6 +300,30 @@ export const useCart = () => {
       setLoading(false);
     }
   }, [cartId, items]);
+
+  // Create new cart (for special cases like when current cart becomes invalid)
+  const createNewCart = useCallback(async () => {
+    try {
+      setLoading(true);
+      console.log('🛒 Creating new cart...');
+      
+      const newCart = await cartApi.create();
+      console.log('✅ New cart created successfully:', newCart);
+      const newCartId = newCart.cart_id || newCart.id;
+      setCartId(newCartId);
+      setItems([]);
+      setError(null);
+      
+      return newCartId;
+    } catch (err) {
+      const errorMessage = 'Failed to create new cart';
+      setError(errorMessage);
+      console.error('❌ Create new cart error:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   // Hold cart transaction
   const holdCart = useCallback(async () => {
@@ -326,6 +389,7 @@ export const useCart = () => {
     updateItemQuantity,
     removeItem,
     clearCart,
+    createNewCart,
     holdCart,
     resumeCart,
     refreshCart,

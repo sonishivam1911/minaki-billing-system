@@ -8,15 +8,18 @@ import { demifiedProductsApi } from '../services/api';
  * @param {Object} options - Hook options
  * @param {number} options.initialPage - Initial page number (default: 1)
  * @param {number} options.pageSize - Number of items per page (default: 20)
+ * @param {boolean} options.autoFetch - Whether to auto-fetch on mount (default: true)
  * @returns {Object} Demified products state and methods
  */
 export const useDemifiedProducts = ({ 
   initialPage = 1, 
-  pageSize = 20 
+  pageSize = 20,
+  autoFetch = true 
 } = {}) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(initialPage);
@@ -73,6 +76,7 @@ export const useDemifiedProducts = ({
       setTotalPages(paginationData.totalPages);
       setTotalItems(paginationData.totalItems);
       setCurrentPage(paginationData.currentPage);
+      setHasInitiallyLoaded(true);
       setError(null);
       
       return paginationData;
@@ -88,8 +92,14 @@ export const useDemifiedProducts = ({
   };
 
   useEffect(() => {
+    if (!autoFetch) {
+      console.log('📦 useDemifiedProducts - Auto-fetch disabled, skipping initial load');
+      setLoading(false);
+      return;
+    }
+
     fetchProducts(currentPage);
-  }, []); // Only run on mount
+  }, [autoFetch]); // Only run on mount and when autoFetch changes
 
   const refetch = async () => {
     // Clear cache and refetch current page
@@ -107,6 +117,26 @@ export const useDemifiedProducts = ({
       console.error('Error navigating to page:', page, err);
       throw err;
     }
+  };
+
+  const goToPageIfNeeded = async (page) => {
+    // Only navigate if we're not already on the page and have no cached data for it
+    if (page === currentPage) return;
+    
+    const cacheKey = JSON.stringify({ page, pageSize });
+    if (cachedPages.has(cacheKey)) {
+      // Use cached data instead of making API call
+      const cachedData = cachedPages.get(cacheKey);
+      setProducts(cachedData.products);
+      setTotalPages(cachedData.totalPages);
+      setTotalItems(cachedData.totalItems);
+      setCurrentPage(page);
+      setError(null);
+      return cachedData;
+    }
+    
+    // Only fetch if we don't have cached data
+    return await fetchProducts(page);
   };
 
   const nextPage = async () => {
@@ -161,6 +191,7 @@ export const useDemifiedProducts = ({
     products,
     loading,
     error,
+    hasInitiallyLoaded,
     // Pagination data
     currentPage,
     totalPages,
@@ -170,6 +201,7 @@ export const useDemifiedProducts = ({
     refetch,
     searchProducts,
     goToPage,
+    goToPageIfNeeded,
     nextPage,
     prevPage,
   };

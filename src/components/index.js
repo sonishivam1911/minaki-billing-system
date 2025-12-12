@@ -13,3 +13,5 @@ export { CustomerModal } from './CustomerModal';
 export { DrawerCart } from './DrawerCart';
 export { Breadcrumbs } from './Breadcrumbs';
 export { CartPreviewStrip } from './CartPreviewStrip';
+export { CheckoutSuccess } from './CheckoutSuccess';
+export { InvoiceActions } from './InvoiceActions';

@@ -1,12 +1,20 @@
 // API Base URL - update this to your backend URL
 // In development, use proxy. In production, use full URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/billing_system/api';
+let VITE_API_URL = import.meta.env.VITE_API_URL;
+
+// Force relative URL for development to ensure proxy works
+if (!VITE_API_URL || VITE_API_URL.startsWith('http://localhost:')) {
+  VITE_API_URL = null; // Use the default relative path
+}
+
+const API_BASE_URL = VITE_API_URL || '/billing_system/api';
 
 console.log('🌐 API_BASE_URL:', API_BASE_URL);
 console.log('🌐 Environment variables:', {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   NODE_ENV: import.meta.env.NODE_ENV,
-  MODE: import.meta.env.MODE
+  MODE: import.meta.env.MODE,
+  forcedRelative: !VITE_API_URL
 });
 
 
@@ -18,13 +26,131 @@ console.log('🌐 Environment variables:', {
 // Products API
 export const productsApi = {
   /**
-   * Fetch all products
-   * GET /api/products
+   * Fetch all products (Real Jewelry)
+   * GET /products
    */
-  getAll: async () => {
-    const response = await fetch(`${API_BASE_URL}/products`);
-    if (!response.ok) throw new Error('Failed to fetch products');
-    return response.json();
+  getAll: async (params = {}) => {
+    try {
+      // Set default parameters
+      const defaultParams = {
+        page: '1',
+        page_size: '20',
+      };
+      
+      // Merge with provided params
+      const finalParams = { ...defaultParams, ...params };
+      const queryString = new URLSearchParams(finalParams).toString();
+      const url = `${API_BASE_URL}/products${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('💎 Real Jewelry API - Fetching URL:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+      
+      const data = await response.json();
+      
+      console.log('💎 Real Jewelry API - Raw response:', {
+        hasProducts: !!data.products,
+        productsLength: data.products?.length,
+        total: data.total,
+        page: data.page,
+        page_size: data.page_size
+      });
+
+      // Transform API response to match frontend structure
+      const transformedProducts = data.products?.map(product => {
+        // Get the first variant for display
+        const variant = product.variants?.[0];
+        const pricingBreakdown = variant?.pricing_breakdown;
+        
+        return {
+          id: product.id,
+          variant_id: variant?.id,
+          name: product.title,
+          description: product.description,
+          vendor: product.vendor,
+          category: product.product_type,
+          price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
+          base_price: parseFloat(variant?.base_cost || variant?.price || 0),
+          sku: variant?.sku,
+          sku_name: variant?.sku_name,
+          handle: product.handle,
+          
+          // Weight and purity information
+          weight: parseFloat(variant?.weight_g || 0),
+          net_weight: parseFloat(variant?.net_weight_g || 0),
+          purity: `${variant?.purity_k}K`,
+          
+          // Pricing breakdown
+          metal_cost: parseFloat(pricingBreakdown?.metal_cost || 0),
+          stone_cost: parseFloat(pricingBreakdown?.stone_cost || 0),
+          making_charges: parseFloat(pricingBreakdown?.making_charges || 0),
+          gst_amount: parseFloat(pricingBreakdown?.gst_amount || 0),
+          
+          // Metal and diamond components
+          metal_components: variant?.metal_components || [],
+          diamond_components: variant?.diamond_components || [],
+          
+          // Status and metadata
+          status: variant?.status,
+          tags: product.tags || [],
+          is_active: product.is_active,
+          created_at: product.created_at,
+          updated_at: product.updated_at,
+          
+          // Stock information
+          stock: 1, // Jewelry items are typically unique pieces
+          track_serials: variant?.track_serials || false,
+          
+          // Display image (placeholder for now)
+          image: '💍',
+          
+          // Flag to identify as real jewelry
+          isRealJewelry: true,
+          isDemified: false,
+          
+          // Full product and variant data for cart operations
+          productData: product,
+          variantData: variant
+        };
+      }) || [];
+
+      console.log('💎 Real Jewelry API - Transformed products:', {
+        transformedCount: transformedProducts.length,
+        firstProduct: transformedProducts[0] ? {
+          id: transformedProducts[0].id,
+          name: transformedProducts[0].name,
+          price: transformedProducts[0].price
+        } : null
+      });
+
+      // Return both products and metadata - simplified structure
+      const result = {
+        products: transformedProducts,
+        total: data.total || 0,
+        page: parseInt(data.page) || 1,
+        page_size: parseInt(data.page_size) || 20,
+        pagination: {
+          currentPage: parseInt(data.page) || 1,
+          totalPages: Math.ceil((data.total || 0) / parseInt(data.page_size || 20)),
+          totalItems: data.total || 0,
+          pageSize: parseInt(data.page_size) || 20
+        }
+      };
+
+      console.log('💎 Real Jewelry API - Final result:', {
+        hasProducts: result.products && result.products.length > 0,
+        productCount: result.products?.length,
+        total: result.total,
+        pagination: result.pagination
+      });
+
+      // For backwards compatibility, return just the products array if called in simple mode
+      return result;
+    } catch (error) {
+      console.error('🚨 Real Jewelry API - Error in getAll:', error);
+      throw error;
+    }
   },
 
   /**
@@ -76,6 +202,20 @@ export const productsApi = {
     if (!response.ok) throw new Error('Failed to delete product');
     return response.json();
   },
+
+  /**
+   * Search products
+   * GET /api/products/search
+   */
+  search: async (query, params = {}) => {
+    const searchParams = new URLSearchParams({
+      q: query,
+      ...params
+    });
+    const response = await fetch(`${API_BASE_URL}/products/search?${searchParams}`);
+    if (!response.ok) throw new Error('Failed to search products');
+    return response.json();
+  },
 };
 
 // Demified Products API
@@ -100,9 +240,22 @@ export const demifiedProductsApi = {
       const url = `${API_BASE_URL}/products/zakya/products${queryString ? `?${queryString}` : ''}`;
       
       console.log('🌐 Demified API - Fetching URL:', url);
+      console.log('🌐 Demified API - Full URL construction:', {
+        API_BASE_URL,
+        finalUrl: url,
+        isRelativeUrl: !url.startsWith('http'),
+        willUseProxy: !url.startsWith('http')
+      });
       console.log('🌐 Demified API - Parameters:', finalParams);
       
       const response = await fetch(url);
+      
+      console.log('🌐 Demified API - Response status:', response.status, response.statusText);
+      console.log('🌐 Demified API - Response headers:', {
+        contentType: response.headers.get('content-type'),
+        server: response.headers.get('server'),
+        date: response.headers.get('date')
+      });
       
       if (!response.ok) {
         console.error('🚨 Demified API - Response not ok:', response.status, response.statusText);
@@ -782,15 +935,51 @@ export const checkoutApi = {
 
   /**
    * Complete sale transaction
-   * POST /api/checkout/complete
+   * POST /api/checkout/process
    */
   completeSale: async (checkoutData) => {
-    const response = await fetch(`${API_BASE_URL}/checkout/complete`, {
+    const response = await fetch(`${API_BASE_URL}/checkout/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(checkoutData),
     });
     if (!response.ok) throw new Error('Failed to complete sale');
+    return response.json();
+  },
+
+  /**
+   * Hold/park a transaction for later completion
+   * POST /api/checkout/hold
+   */
+  hold: async (holdData) => {
+    const response = await fetch(`${API_BASE_URL}/checkout/hold`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(holdData),
+    });
+    if (!response.ok) throw new Error('Failed to hold transaction');
+    return response.json();
+  },
+
+  /**
+   * Get all held/parked transactions
+   * GET /api/checkout/held
+   */
+  getHeldTransactions: async () => {
+    const response = await fetch(`${API_BASE_URL}/checkout/held`);
+    if (!response.ok) throw new Error('Failed to get held transactions');
+    return response.json();
+  },
+
+  /**
+   * Calculate change for cash payment
+   * GET /api/checkout/cash-payment
+   */
+  calculateChange: async (totalAmount, amountTendered) => {
+    const response = await fetch(
+      `${API_BASE_URL}/checkout/cash-payment?total_amount=${totalAmount}&amount_tendered=${amountTendered}`
+    );
+    if (!response.ok) throw new Error('Failed to calculate change');
     return response.json();
   },
 };
@@ -898,6 +1087,119 @@ export const invoicesApi = {
   },
 
   /**
+   * Download invoice PDF
+   * GET /api/invoices/{id}/pdf
+   * Returns: Direct PDF file download
+   */
+  downloadPDF: async (invoiceId) => {
+    try {
+      console.log('📄 Invoice API - Download PDF request:', { invoiceId });
+      
+      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/pdf`);
+      console.log('📄 Invoice API - Download PDF response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('📄 Invoice API - Download PDF error response:', errorText);
+        throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      console.log('📄 Invoice API - Download PDF success:', { blobSize: blob.size, blobType: blob.type });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice_${invoiceId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      return { success: true, message: 'PDF downloaded successfully' };
+    } catch (error) {
+      console.error('📄 Invoice API - Download PDF error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Send invoice via WhatsApp
+   * POST /api/invoices/{id}/send/whatsapp
+   */
+  sendWhatsApp: async (invoiceId, phoneNumber, message = null) => {
+    try {
+      console.log('📱 Invoice API - Send WhatsApp request:', { invoiceId, phoneNumber, message });
+      
+      const body = { phone_number: phoneNumber };
+      if (message) {
+        body.message = message;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/send/whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      console.log('📱 Invoice API - Send WhatsApp response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('📱 Invoice API - Send WhatsApp error response:', errorText);
+        throw new Error(`Failed to send WhatsApp: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📱 Invoice API - Send WhatsApp success:', result);
+      return result;
+    } catch (error) {
+      console.error('📱 Invoice API - Send WhatsApp error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Send invoice via Email
+   * POST /api/invoices/{id}/send/email
+   */
+  sendEmail: async (invoiceId, email, subject = null, message = null) => {
+    try {
+      console.log('📧 Invoice API - Send Email request:', { invoiceId, email, subject, message });
+      
+      const body = { email };
+      if (subject) {
+        body.subject = subject;
+      }
+      if (message) {
+        body.message = message;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/send/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      console.log('📧 Invoice API - Send Email response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('📧 Invoice API - Send Email error response:', errorText);
+        throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📧 Invoice API - Send Email success:', result);
+      return result;
+    } catch (error) {
+      console.error('📧 Invoice API - Send Email error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Print invoice
    * POST /api/invoices/{id}/print
    */
@@ -910,17 +1212,11 @@ export const invoicesApi = {
   },
 
   /**
-   * Email invoice to customer
+   * Email invoice to customer (legacy method for backwards compatibility)
    * POST /api/invoices/{id}/email
    */
   email: async (id, emailAddress) => {
-    const response = await fetch(`${API_BASE_URL}/invoices/${id}/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: emailAddress }),
-    });
-    if (!response.ok) throw new Error('Failed to email invoice');
-    return response.json();
+    return await invoicesApi.sendEmail(id, emailAddress);
   },
 
   /**

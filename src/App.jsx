@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage } from './pages';
+import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage } from './pages';
 import { useCart } from './context/CartContext';
 import './styles/App.css';
 
@@ -27,9 +27,14 @@ const ProtectedRoute = ({ element, requiresCart = false, children }) => {
 function App() {
   const { totals } = useCart();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const openDrawer = () => setIsDrawerOpen(true);
   const closeDrawer = () => setIsDrawerOpen(false);
+  
+  const handleSidebarToggle = (isOpen) => {
+    setIsSidebarOpen(isOpen);
+  };
 
   return (
     <Router>
@@ -37,48 +42,54 @@ function App() {
         <Navigation 
           cartItemCount={totals.itemCount} 
           onCartClick={openDrawer}
+          onSidebarToggle={handleSidebarToggle}
         />
         
-        <Breadcrumbs />
-        
-        <main className="main-content">
-          <Routes>
-            {/* Default to catalog */}
-            <Route path="/" element={<Navigate to="/catalog" replace />} />
+        <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+          <div className="main-content">
+            <Breadcrumbs />
             
-            {/* Always accessible */}
-            <Route path="/catalog" element={<CatalogPage />} />
-            
-            {/* Protected routes - require items in cart */}
-            <Route 
-              path="/cart" 
-              element={
-                <ProtectedRoute requiresCart={true}>
-                  <CartPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/checkout" 
-              element={
-                <ProtectedRoute requiresCart={true}>
-                  <CheckoutPage />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/customers" 
-              element={
-                <ProtectedRoute requiresCart={true}>
-                  <CustomersPage />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Fallback for invalid routes */}
-            <Route path="*" element={<Navigate to="/catalog" replace />} />
-          </Routes>
-        </main>
+            <div className="page-content">
+              <Routes>
+                {/* Default to catalog */}
+                <Route path="/" element={<Navigate to="/catalog" replace />} />
+                
+                {/* Always accessible */}
+                <Route path="/catalog" element={<CatalogPage />} />
+                <Route path="/invoices" element={<InvoicesPage />} />
+                
+                {/* Protected routes - require items in cart */}
+                <Route 
+                  path="/cart" 
+                  element={
+                    <ProtectedRoute requiresCart={true}>
+                      <CartPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/checkout" 
+                  element={
+                    <ProtectedRoute requiresCart={true}>
+                      <CheckoutPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/customers" 
+                  element={
+                    <ProtectedRoute requiresCart={true}>
+                      <CustomersPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* Fallback for invalid routes */}
+                <Route path="*" element={<Navigate to="/catalog" replace />} />
+              </Routes>
+            </div>
+          </div>
+        </div>
 
         {/* Cart Preview Strip */}
         <CartPreviewStrip onCartClick={openDrawer} />

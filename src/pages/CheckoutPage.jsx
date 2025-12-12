@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreditCard, Receipt, UserCheck, User } from 'lucide-react';
-import { useCustomers } from '../hooks';
+import { useCustomers, useInvoices } from '../hooks';
 import { useCart } from '../context/CartContext';
-import { checkoutApi, cartApi } from '../services/api';
-import { OrderSummary, CustomerModal } from '../components';
+import { checkoutApi } from '../services/api';
+import { OrderSummary, CustomerModal, CheckoutSuccess } from '../components';
 
 /**
  * CheckoutPage Component
@@ -14,11 +14,20 @@ export const CheckoutPage = () => {
   const navigate = useNavigate();
   const { cartId, items, totals, clearCart } = useCart();
   const { selectedCustomer, clearSelection, selectCustomer } = useCustomers();
+  const { autoSendInvoice } = useInvoices();
   
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [cashAmount, setCashAmount] = useState('');
   const [processing, setProcessing] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [checkoutResult, setCheckoutResult] = useState(null);
+  
+  // Auto-send preferences (could come from settings in future)
+  const [autoSendPreferences] = useState({
+    autoSendWhatsApp: false, // Set to true to auto-send via WhatsApp
+    autoSendEmail: false     // Set to true to auto-send via Email
+  });
 
   const total = totals.total;
   const change = cashAmount ? Math.max(0, parseFloat(cashAmount) - total) : 0;
@@ -35,26 +44,70 @@ export const CheckoutPage = () => {
     try {
       setProcessing(true);
 
+      // Debug: Log selected customer to see what fields are available
+      console.log('Selected customer for checkout:', selectedCustomer);
+
       const checkoutData = {
         cart_id: cartId,
-        customer_id: selectedCustomer?.id || null,
-        payment_method: paymentMethod,
-        cash_amount: paymentMethod === 'cash' ? parseFloat(cashAmount) : null,
+        customer_id: selectedCustomer?.id || selectedCustomer?.["Contact ID"] || null,
+        payments: [
+          {
+            payment_method: paymentMethod,
+            payment_amount: paymentMethod === 'cash' ? parseFloat(cashAmount) : total
+          }
+        ],
+        tax_rate_percent: 3.0, // Default tax rate - you might want to make this configurable
+        notes: null,
+        sales_person: null // You might want to add sales person tracking
       };
+
+      // Debug: Log checkout data to see what's being sent
+      console.log('Checkout data being sent:', checkoutData);
 
       const result = await checkoutApi.completeSale(checkoutData);
 
-      alert(`Sale completed! Invoice #${result.invoice_number}`);
+      console.log('✅ Checkout completed successfully:', result);
+      console.log('✅ Checkout result structure:', {
+        hasInvoiceId: !!result.invoice_id,
+        hasInvoiceNumber: !!result.invoice_number,
+        hasTotalAmount: !!result.total_amount,
+        invoiceId: result.invoice_id,
+        invoiceNumber: result.invoice_number,
+        totalAmount: result.total_amount,
+        allKeys: Object.keys(result || {})
+      });
 
-      // Clear cart and create new one
-      await clearCart();
-      const newCart = await cartApi.create();
+      // Store the result for the success modal
+      setCheckoutResult(result);
+
+      // Auto-send invoice if preferences are enabled
+      if (result.invoice_id && selectedCustomer && (autoSendPreferences.autoSendWhatsApp || autoSendPreferences.autoSendEmail)) {
+        try {
+          const autoSendResults = await autoSendInvoice(result.invoice_id, selectedCustomer, autoSendPreferences);
+          console.log('🤖 Auto-send results:', autoSendResults);
+          
+          // Add auto-send results to the checkout result for display
+          result.autoSendResults = autoSendResults;
+        } catch (autoSendError) {
+          console.warn('⚠️ Auto-send failed:', autoSendError);
+          // Don't fail the checkout if auto-send fails
+        }
+      }
+
+      // Show success modal instead of alert
+      setShowSuccessModal(true);
+
+      // DON'T clear cart immediately - wait for user to finish with invoice
+      // await clearCart();
+      // console.log('🛒 Cart cleared after successful checkout, ready for next transaction');
       
-      // Navigate back to catalog
-      navigate('/catalog');
     } catch (error) {
       console.error('Checkout error:', error);
-      alert('Failed to complete sale. Please try again.');
+      // Instead of just showing alert, show option to go back to catalog
+      const userChoice = confirm(`Failed to complete sale: ${error.message}\n\nWould you like to go back to the catalog? (OK = Yes, Cancel = Stay here)`);
+      if (userChoice) {
+        navigate('/catalog');
+      }
     } finally {
       setProcessing(false);
     }
@@ -65,6 +118,30 @@ export const CheckoutPage = () => {
       return cashAmount && parseFloat(cashAmount) >= total;
     }
     return true; // Other payment methods are assumed valid
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    setCheckoutResult(null);
+    // Don't auto-navigate - let user stay where they are
+  };
+
+  const handleNewTransaction = async () => {
+    // Clear cart and reset state for new transaction
+    await clearCart();
+    console.log('🛒 Cart cleared for new transaction');
+    setShowSuccessModal(false);
+    setCheckoutResult(null);
+    clearSelection();
+    navigate('/catalog');
+  };
+
+  const handleViewInvoices = async () => {
+    // Clear cart since we're moving to invoices
+    await clearCart();
+    console.log('🛒 Cart cleared before viewing invoices');
+    setShowSuccessModal(false);
+    navigate('/invoices');
   };
 
   return (
@@ -221,6 +298,16 @@ export const CheckoutPage = () => {
         isOpen={isCustomerModalOpen}
         onClose={() => setIsCustomerModalOpen(false)}
         onSelectCustomer={handleCustomerSelect}
+      />
+
+      {/* Checkout Success Modal */}
+      <CheckoutSuccess
+        isOpen={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        onNewTransaction={handleNewTransaction}
+        onViewInvoices={handleViewInvoices}
+        invoiceData={checkoutResult}
+        customerData={selectedCustomer}
       />
     </div>
   );
