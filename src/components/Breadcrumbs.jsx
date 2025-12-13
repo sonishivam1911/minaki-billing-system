@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users } from 'lucide-react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 /**
@@ -9,6 +9,7 @@ import { useCart } from '../context/CartContext';
  */
 export const Breadcrumbs = () => {
   const location = useLocation();
+  const params = useParams();
   const { totals } = useCart();
   const hasItemsInCart = totals.itemCount > 0;
 
@@ -44,8 +45,21 @@ export const Breadcrumbs = () => {
     }
   };
 
-  // Get current page config
-  const currentConfig = breadcrumbConfig[location.pathname];
+  // Handle dynamic product routes
+  const isProductRoute = location.pathname.match(/^\/product\/([^/]+)\/([^/]+)$/);
+  let currentConfig = breadcrumbConfig[location.pathname];
+  
+  if (isProductRoute) {
+    const [, type, id] = isProductRoute;
+    const productType = type === 'demified' ? 'Demified' : 'Real';
+    currentConfig = {
+      title: `${productType} Product`,
+      subtitle: `ID: ${decodeURIComponent(id)}`,
+      icon: Eye,
+      parent: '/catalog',
+      protected: false
+    };
+  }
   
   // If no config found or it's a protected route without cart items, don't show breadcrumbs
   if (!currentConfig || (currentConfig.protected && !hasItemsInCart)) {
@@ -56,6 +70,20 @@ export const Breadcrumbs = () => {
   const buildBreadcrumbPath = (pathname) => {
     const path = [];
     let current = pathname;
+    
+    // Handle product route first
+    if (isProductRoute) {
+      const [, type, id] = isProductRoute;
+      const productType = type === 'demified' ? 'Demified' : 'Real';
+      path.unshift({
+        path: pathname,
+        title: `${productType} Product`,
+        subtitle: `${decodeURIComponent(id)}`,
+        icon: Eye,
+        protected: false
+      });
+      current = '/catalog';
+    }
     
     while (current && breadcrumbConfig[current]) {
       const config = breadcrumbConfig[current];
@@ -106,7 +134,10 @@ export const Breadcrumbs = () => {
                   aria-label={`Go to ${crumb.title}`}
                 >
                   <Icon size={16} />
-                  <span>{crumb.title}</span>
+                  <div className="breadcrumb-text">
+                    <span>{crumb.title}</span>
+                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
+                  </div>
                 </Link>
               ) : (
                 <span 
@@ -114,7 +145,10 @@ export const Breadcrumbs = () => {
                   aria-current={isLast ? 'page' : undefined}
                 >
                   <Icon size={16} />
-                  <span>{crumb.title}</span>
+                  <div className="breadcrumb-text">
+                    <span>{crumb.title}</span>
+                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
+                  </div>
                 </span>
               )}
             </li>

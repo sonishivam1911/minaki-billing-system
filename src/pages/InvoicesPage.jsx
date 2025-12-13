@@ -3,6 +3,7 @@ import { Search, FileText, Calendar, User, IndianRupee } from 'lucide-react';
 import { customersApi } from '../services/api';
 import { useInvoices } from '../hooks';
 import { LoadingSpinner, ErrorMessage, Pagination, InvoiceActions } from '../components';
+import { formatRupees } from '../utils';
 
 /**
  * InvoicesPage Component
@@ -143,7 +144,7 @@ export const InvoicesPage = () => {
         </div>
         <div className="stat-card">
           <div className="stat-value">
-            ₹{stats.totalAmount.toLocaleString()}
+            {formatRupees(stats.totalAmount)}
           </div>
           <div className="stat-label">Total Amount</div>
         </div>
@@ -197,13 +198,22 @@ export const InvoicesPage = () => {
                           </div>
                         </td>
                         <td>
-                          <div className="customer-info">
+                          <div 
+                            className="customer-info"
+                            data-customer={customerName}
+                          >
                             <User size={16} />
                             <span>{customerName}</span>
                           </div>
                         </td>
                         <td>
-                          <div className="date-info">
+                          <div 
+                            className="date-info"
+                            data-date={invoice.created_at 
+                              ? new Date(invoice.created_at).toLocaleDateString()
+                              : 'N/A'
+                            }
+                          >
                             <Calendar size={16} />
                             <span>
                               {invoice.created_at 
@@ -216,7 +226,7 @@ export const InvoicesPage = () => {
                         <td>
                           <div className="amount-info">
                             <IndianRupee size={16} />
-                            <strong>₹{(invoice.total_amount || 0).toLocaleString()}</strong>
+                            <strong>{formatRupees(invoice.total_amount)}</strong>
                           </div>
                         </td>
                         <td>

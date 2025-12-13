@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage } from './pages';
+import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage } from './pages';
 import { useCart } from './context/CartContext';
 import './styles/App.css';
 
@@ -57,6 +57,11 @@ function App() {
                 {/* Always accessible */}
                 <Route path="/catalog" element={<CatalogPage />} />
                 <Route path="/invoices" element={<InvoicesPage />} />
+                <Route path="/store-locator" element={<StoreLocatorPage />} />
+                <Route path="/store-management" element={<StoreManagementPage />} />
+                
+                {/* Product detail pages - accessible without cart */}
+                <Route path="/product/:type/:id" element={<ProductDetailPage />} />
                 
                 {/* Protected routes - require items in cart */}
                 <Route 
@@ -75,14 +80,14 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
+                
+                {/* Always accessible */}
                 <Route 
                   path="/customers" 
-                  element={
-                    <ProtectedRoute requiresCart={true}>
-                      <CustomersPage />
-                    </ProtectedRoute>
-                  } 
+                  element={<CustomersPage />} 
                 />
+
+                
                 
                 {/* Fallback for invalid routes */}
                 <Route path="*" element={<Navigate to="/catalog" replace />} />

@@ -146,16 +146,19 @@ export const useInvoices = () => {
 
   // Helper functions
   const getInvoiceStats = useCallback(() => {
-    const totalAmount = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    const totalAmount = invoices.reduce((sum, inv) => {
+      const amount = parseFloat(inv.total_amount) || 0;
+      return sum + amount;
+    }, 0);
     const paidInvoices = invoices.filter(inv => inv.status === 'Paid').length;
     const pendingInvoices = invoices.filter(inv => inv.status === 'Pending').length;
 
     return {
       total: invoices.length,
-      totalAmount,
+      totalAmount: Math.round(totalAmount * 100) / 100, // Round to 2 decimal places
       paid: paidInvoices,
       pending: pendingInvoices,
-      averageAmount: invoices.length > 0 ? totalAmount / invoices.length : 0
+      averageAmount: invoices.length > 0 ? Math.round((totalAmount / invoices.length) * 100) / 100 : 0
     };
   }, [invoices]);
 

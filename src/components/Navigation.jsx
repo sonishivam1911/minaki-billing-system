@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2 } from 'lucide-react';
 
 /**
  * Navigation Component
@@ -153,6 +153,24 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
           >
             <FileText size={20} />
             <span>Invoices</span>
+          </Link>
+
+          <Link 
+            to="/store-locator" 
+            className={`sidebar-link ${isActive('/store-locator') ? 'active' : ''}`}
+            onClick={() => window.innerWidth <= 968 && closeSidebar()}
+          >
+            <MapPin size={20} />
+            <span>Store Locator</span>
+          </Link>
+
+          <Link 
+            to="/store-management" 
+            className={`sidebar-link ${isActive('/store-management') ? 'active' : ''}`}
+            onClick={() => window.innerWidth <= 968 && closeSidebar()}
+          >
+            <Building2 size={20} />
+            <span>Store Management</span>
           </Link>
 
           <Link 

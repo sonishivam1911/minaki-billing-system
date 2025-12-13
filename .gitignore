@@ -3,3 +3,9 @@ node_modules/
 *.env.example
 dist/
 .vite/
+.env.dev
+.env.production
+.firebase/
+.firebaserc
+firebase.json
+*.md

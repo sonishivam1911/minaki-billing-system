@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatCurrency, formatRupees } from '../utils';
 
 /**
  * CartItem Component
@@ -47,7 +48,7 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
           {purity && weight && <span>•</span>}
           {weight && <span>{weight}</span>}
           <span>•</span>
-          <span>₹{safePrice.toLocaleString()} each</span>
+          <span>₹{formatCurrency(safePrice)} each</span>
         </div>
       </div>
 
@@ -70,7 +71,7 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
       </div>
 
       <div className="cart-item-total">
-        ₹{itemTotal.toLocaleString()}
+        {formatRupees(itemTotal)}
       </div>
 
       <button

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Download, Send, Mail, X, Phone } from 'lucide-react';
+import { CheckCircle, Download, Send, Mail, Phone, X } from 'lucide-react';
 import { invoicesApi } from '../services/api';
+import { formatRupees } from '../utils';
 
 /**
  * CheckoutSuccess Component
@@ -158,7 +159,7 @@ export const CheckoutSuccess = ({
             
             <div className="invoice-summary">
               <h3>Invoice #{invoice_number || invoice_id || 'N/A'}</h3>
-              <p className="amount">Total: ₹{total_amount?.toLocaleString() || '0'}</p>
+              <p className="amount">Total: {formatRupees(total_amount)}</p>
               <p className="status">Status: {status}</p>
               {invoice_id && (
                 <div className="invoice-details">

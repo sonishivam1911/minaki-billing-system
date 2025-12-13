@@ -29,14 +29,14 @@ export const productsApi = {
    * Fetch all products (Real Jewelry)
    * GET /products
    */
-  getAll: async (params = {}) => {
+  getAll: async (params = {}, isPaginated = true) => {
     try {
       // Set default parameters
-      const defaultParams = {
+      const defaultParams = isPaginated ? {
         page: '1',
         page_size: '20',
-      };
-      
+      } : {};
+
       // Merge with provided params
       const finalParams = { ...defaultParams, ...params };
       const queryString = new URLSearchParams(finalParams).toString();
@@ -352,6 +352,124 @@ export const demifiedProductsApi = {
       with_images: 'true',
       ...additionalParams
     });
+  },
+
+  /**
+   * Get single demified product by SKU
+   * GET /products/zakya/products/{sku}?with_image=true
+   */
+  getById: async (sku) => {
+    try {
+      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(sku)}?with_image=true`;
+      console.log('🚀 Demified API - Get single product URL:', url);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        console.error('🚨 Demified API - Single product response not ok:', response.status, response.statusText);
+        throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🗂️ Demified API - Single product response:', data);
+
+      // Transform single product response to match our structure
+      const product = data.product || data;
+      return {
+        id: product.item_id,
+        name: product.name || product.item_name,
+        category: product.category_name || 'Uncategorized',
+        price: product.rate || 0,
+        rate: product.rate || 0,
+        stock: product.available_stock || product.stock_on_hand || 0,
+        stock_on_hand: product.available_stock || product.stock_on_hand || 0,
+        weight: null, // Not provided in API
+        purity: product.cf_finish || product.cf_work,
+        image: product.shopify_image?.url || '💎',
+        brand: product.brand,
+        description: product.description,
+        sku: product.sku,
+        gender: product.cf_gender,
+        work: product.cf_work,
+        finish: product.cf_finish,
+        finding: product.cf_finding,
+        collection: product.cf_collection,
+        isDemified: true, // Flag to identify demified products
+      };
+    } catch (error) {
+      console.error('🚨 Demified API - Error in getById:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update single demified product
+   * PATCH /products/zakya/products/{sku}
+   */
+  update: async (sku, updates) => {
+    try {
+      const params = new URLSearchParams();
+      
+      // Add updates as query parameters
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          params.append(key, value);
+        }
+      });
+
+      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(sku)}?${params.toString()}`;
+      console.log('🚀 Demified API - Update product URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+      });
+      
+      if (!response.ok) {
+        console.error('🚨 Demified API - Update response not ok:', response.status, response.statusText);
+        throw new Error(`Failed to update product: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🗂️ Demified API - Update response:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Demified API - Error in update:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Bulk update demified products
+   * PATCH /products/zakya/products/bulk-update
+   */
+  bulkUpdate: async (filterCriteria, updates) => {
+    try {
+      const url = `${API_BASE_URL}/products/zakya/products/bulk-update`;
+      console.log('🚀 Demified API - Bulk update URL:', url);
+      
+      const body = {
+        filter_criteria: filterCriteria,
+        updates: updates
+      };
+      
+      const response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      
+      if (!response.ok) {
+        console.error('🚨 Demified API - Bulk update response not ok:', response.status, response.statusText);
+        throw new Error(`Failed to bulk update products: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🗂️ Demified API - Bulk update response:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Demified API - Error in bulkUpdate:', error);
+      throw error;
+    }
   },
 };
 
@@ -1291,6 +1409,188 @@ export const inventoryApi = {
     if (!response.ok) throw new Error('Failed to remove from inventory');
     return response.json();
   },
+
+  /**
+   * Search product locations by SKU or product name
+   * GET /billing_system/api/inventory/products/search
+   */
+  searchLocations: async (query, filters = {}) => {
+    const params = { q: query, ...filters };
+    const queryString = new URLSearchParams(params).toString();
+    const url = `${API_BASE_URL}/inventory/products/search${queryString ? `?${queryString}` : ''}`;
+    console.log('📦 Inventory API - Search locations:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to search locations');
+    return response.json();
+  },
+
+  /**
+   * Get all products in a specific store
+   * GET /billing_system/api/inventory/store/{store_id}
+   */
+  getByStore: async (storeId, filters = {}) => {
+    const queryString = new URLSearchParams(filters).toString();
+    const url = `${API_BASE_URL}/inventory/store/${storeId}${queryString ? `?${queryString}` : ''}`;
+    console.log('📦 Inventory API - Get by store:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch store inventory');
+    return response.json();
+  },
+
+  /**
+   * Get all products in a specific section
+   * GET /billing_system/api/inventory/section/{section_id}
+   */
+  getBySection: async (sectionId) => {
+    const url = `${API_BASE_URL}/inventory/section/${sectionId}`;
+    console.log('📦 Inventory API - Get by section:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch section inventory');
+    return response.json();
+  },
+
+  /**
+   * Get all locations for a specific product
+   * GET /billing_system/api/inventory/product/{variant_id}
+   */
+  getLocations: async (variantId) => {
+    const url = `${API_BASE_URL}/inventory/product/${variantId}`;
+    console.log('📦 Inventory API - Get locations:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch product locations');
+    return response.json();
+  },
+
+  /**
+   * Update quantity at a location
+   * PATCH /billing_system/api/inventory/location/{location_id}
+   */
+  updateLocation: async (locationId, quantityData) => {
+    const url = `${API_BASE_URL}/inventory/location/${locationId}`;
+    console.log('📦 Inventory API - Update location:', url);
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(quantityData),
+    });
+    if (!response.ok) throw new Error('Failed to update location');
+    return response.json();
+  },
+
+  /**
+   * Transfer stock between locations
+   * POST /billing_system/api/inventory/transfer
+   */
+  transfer: async (transferData) => {
+    const url = `${API_BASE_URL}/inventory/transfer`;
+    console.log('📦 Inventory API - Transfer:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(transferData),
+    });
+    if (!response.ok) throw new Error('Failed to transfer stock');
+    return response.json();
+  },
+
+  /**
+   * Get inventory summary
+   * GET /billing_system/api/inventory/summary
+   */
+  getSummary: async (filters = {}) => {
+    const queryString = new URLSearchParams(filters).toString();
+    const url = `${API_BASE_URL}/inventory/summary${queryString ? `?${queryString}` : ''}`;
+    console.log('📦 Inventory API - Get summary:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch inventory summary');
+    return response.json();
+  },
+};
+
+// Stores/Locations API
+export const storesApi = {
+  /**
+   * Get all stores
+   * GET /billing_system/api/stores
+   */
+  getAll: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString();
+    const url = `${API_BASE_URL}/stores${queryString ? `?${queryString}` : ''}`;
+    console.log('🏢 Stores API - Get all:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch stores');
+    return response.json();
+  },
+
+  /**
+   * Get store by ID
+   * GET /billing_system/api/stores/{id}
+   */
+  getById: async (id) => {
+    const url = `${API_BASE_URL}/stores/${id}`;
+    console.log('🏢 Stores API - Get by ID:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch store');
+    return response.json();
+  },
+
+  /**
+   * Get sections for a specific store
+   * GET /billing_system/api/stores/{id}/sections
+   */
+  getSections: async (storeId) => {
+    const url = `${API_BASE_URL}/stores/${storeId}/sections`;
+    console.log('🏢 Stores API - Get sections:', url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch store sections');
+    return response.json();
+  },
+
+  /**
+   * Create new store
+   * POST /billing_system/api/stores
+   */
+  create: async (storeData) => {
+    const url = `${API_BASE_URL}/stores`;
+    console.log('🏢 Stores API - Create:', url);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(storeData),
+    });
+    if (!response.ok) throw new Error('Failed to create store');
+    return response.json();
+  },
+
+  /**
+   * Update store
+   * PATCH /billing_system/api/stores/{id}
+   */
+  update: async (id, storeData) => {
+    const url = `${API_BASE_URL}/stores/${id}`;
+    console.log('🏢 Stores API - Update:', url);
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(storeData),
+    });
+    if (!response.ok) throw new Error('Failed to update store');
+    return response.json();
+  },
+
+  /**
+   * Delete store
+   * DELETE /billing_system/api/stores/{id}
+   */
+  delete: async (id) => {
+    const url = `${API_BASE_URL}/stores/${id}`;
+    console.log('🏢 Stores API - Delete:', url);
+    const response = await fetch(url, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete store');
+    return response.json();
+  },
 };
 
 // Reports API
@@ -1319,5 +1619,6 @@ export default {
   discounts: discountsApi,
   invoices: invoicesApi,
   inventory: inventoryApi,
+  stores: storesApi,
   reports: reportsApi,
 };
