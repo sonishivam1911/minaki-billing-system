@@ -160,7 +160,63 @@ export const productsApi = {
   getById: async (id) => {
     const response = await fetch(`${API_BASE_URL}/products/${id}`);
     if (!response.ok) throw new Error('Failed to fetch product');
-    return response.json();
+    const data = await response.json();
+    
+    // Transform the API response to match our product structure
+    const product = data.product || data;
+    const variant = product.variants?.[0];
+    const pricingBreakdown = variant?.pricing_breakdown;
+    
+    return {
+      id: product.id,
+      variant_id: variant?.id,
+      name: product.title,
+      description: product.description,
+      vendor: product.vendor,
+      category: product.product_type,
+      price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
+      base_price: parseFloat(variant?.base_cost || variant?.price || 0),
+      sku: variant?.sku,
+      sku_name: variant?.sku_name,
+      handle: product.handle,
+      
+      // Weight and purity information
+      weight: parseFloat(variant?.weight_g || 0),
+      net_weight: parseFloat(variant?.net_weight_g || 0),
+      purity: `${variant?.purity_k}K`,
+      
+      // Pricing breakdown
+      metal_cost: parseFloat(pricingBreakdown?.metal_cost || 0),
+      stone_cost: parseFloat(pricingBreakdown?.stone_cost || 0),
+      making_charges: parseFloat(pricingBreakdown?.making_charges || 0),
+      gst_amount: parseFloat(pricingBreakdown?.gst_amount || 0),
+      
+      // Metal and diamond components
+      metal_components: variant?.metal_components || [],
+      diamond_components: variant?.diamond_components || [],
+      
+      // Status and metadata
+      status: variant?.status,
+      tags: product.tags || [],
+      is_active: product.is_active,
+      created_at: product.created_at,
+      updated_at: product.updated_at,
+      
+      // Stock information
+      stock: 1, // Jewelry items are typically unique pieces
+      track_serials: variant?.track_serials || false,
+      
+      // Display image (placeholder for now)
+      image: '💍',
+      
+      // Flag to identify as real jewelry
+      isRealJewelry: true,
+      isDemified: false,
+      
+      // Full product and variant data for cart operations
+      productData: product,
+      variantData: variant
+    };
   },
 
   /**

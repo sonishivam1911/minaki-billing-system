@@ -25,7 +25,7 @@ import { productsApi, demifiedProductsApi } from '../services/api';
 export const ProductDetailPage = () => {
   const { type, id } = useParams(); // type = 'real' | 'demified', id = product ID/SKU
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addItem } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -124,9 +124,18 @@ export const ProductDetailPage = () => {
     }));
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (product) {
-      addToCart(product);
+      try {
+        // Call addItem with proper parameters: (productId, quantity, productData)
+        // For demified products use item_id/id, for real jewelry use variant_id
+        const productId = isDemified ? (product.id || product.sku) : (product.variant_id || product.id);
+        await addItem(productId, 1, product);
+        alert('✅ Item added to cart successfully!');
+      } catch (err) {
+        console.error('❌ Error adding to cart:', err);
+        alert(`❌ Failed to add to cart: ${err.message}`);
+      }
     }
   };
 
