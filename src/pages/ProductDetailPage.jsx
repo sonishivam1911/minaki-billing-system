@@ -128,8 +128,19 @@ export const ProductDetailPage = () => {
     if (product) {
       try {
         // Call addItem with proper parameters: (productId, quantity, productData)
-        // For demified products use item_id/id, for real jewelry use variant_id
-        const productId = isDemified ? (product.id || product.sku) : (product.variant_id || product.id);
+        // For demified products use item_id/id/sku, for real jewelry use variant_id
+        const productId = isDemified || product.isDemified
+          ? (product.id || product.sku)
+          : (product.variant_id || product.id);
+        
+        console.log('🛍️ ProductDetailPage - Adding to cart:', {
+          productId,
+          isDemified: isDemified || product.isDemified,
+          isRealJewelry: product.isRealJewelry,
+          variant_id: product.variant_id,
+          product
+        });
+        
         await addItem(productId, 1, product);
         alert('✅ Item added to cart successfully!');
       } catch (err) {

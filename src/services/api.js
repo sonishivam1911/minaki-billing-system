@@ -624,36 +624,37 @@ export const cartApi = {
     const url = `${API_BASE_URL}/carts/${cartId}/items`;
     
     // Determine the correct format based on product data
+    // IMPORTANT: Check for real jewelry FIRST before demified products
     let body;
     
-    if (productData.isDemified || productData.item_id) {
-      // Zakya/Demified product
+    if (productData.isRealJewelry || productData.variant_id) {
+      // Real jewelry with variant - check this FIRST
+      body = {
+        item_type: "real_jewelry", 
+        item_id: productData.variant_id || productId,
+        quantity: quantity,
+        discount_percent: 0,
+        unit_price: productData.price || 0,
+        item_name: productData.name
+      };
+    } else if (productData.isDemified) {
+      // Zakya/Demified product - explicitly check isDemified flag
       body = {
         item_type: "zakya_product",
         item_id: productId,
         quantity: quantity,
         discount_percent: 0,
         // Add price as fallback if backend doesn't fetch it properly
-        unit_price: productData.price || 0,
+        unit_price: productData.price || productData.rate || 0,
         item_name: productData.name
       };
-    } else if (productData.variant_id) {
-      // Real jewelry with variant
-      body = {
-        item_type: "real_jewelry", 
-        item_id: productData.variant_id,
-        quantity: quantity,
-        discount_percent: 0,
-        unit_price: productData.price || 0,
-        item_name: productData.name
-      };
-    } else if (productData.sku) {
-      // Use SKU auto-detection (recommended)
+    } else if (productData.sku && !productData.variant_id) {
+      // Use SKU auto-detection (for demified products without variant_id)
       body = {
         sku: productData.sku,
         quantity: quantity,
         discount_percent: 0,
-        unit_price: productData.price || 0,
+        unit_price: productData.price || productData.rate || 0,
         item_name: productData.name
       };
     } else {
@@ -663,7 +664,7 @@ export const cartApi = {
         item_id: productId,
         quantity: quantity,
         discount_percent: 0,
-        unit_price: productData.price || 0,
+        unit_price: productData.price || productData.rate || 0,
         item_name: productData.name
       };
     }

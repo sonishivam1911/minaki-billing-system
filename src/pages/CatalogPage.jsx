@@ -84,9 +84,14 @@ export const CatalogPage = () => {
   const handleAddToCart = async (product) => {
     console.log('🛍️ CatalogPage - handleAddToCart called with product:', product);
     try {
-      console.log('🛍️ CatalogPage - calling addItem with product.id:', product.id);
+      // For real jewelry, use variant_id if available; for demified, use id or sku
+      const productId = product.isRealJewelry || product.variant_id 
+        ? (product.variant_id || product.id)
+        : (product.id || product.sku);
+      
+      console.log('🛍️ CatalogPage - calling addItem with productId:', productId, 'product type:', product.isRealJewelry ? 'real' : 'demified');
       // Pass the complete product object as productData for the new API
-      await addItem(product.id, 1, product);
+      await addItem(productId, 1, product);
       console.log('✅ CatalogPage - addItem completed successfully');
       alert('Item added to cart successfully!'); // Temporary success feedback
     } catch (err) {
