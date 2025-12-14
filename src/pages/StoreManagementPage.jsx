@@ -71,7 +71,8 @@ const StoreManagementPage = () => {
   // Fetch shelves when store is selected
   useEffect(() => {
     if (selectedStore) {
-      fetchShelvesByStore(selectedStore.id);
+      const locationId = selectedStore.location_id || selectedStore.id;
+      fetchShelvesByStore(locationId);
     }
   }, [selectedStore, fetchShelvesByStore]);
 
@@ -126,7 +127,8 @@ const StoreManagementPage = () => {
         await createMultipleShelves(shelfData);
       }
       if (selectedStore) {
-        await fetchShelvesByStore(selectedStore.id);
+        const locationId = selectedStore.location_id || selectedStore.id;
+        await fetchShelvesByStore(locationId);
       }
     } catch (err) {
       console.error('Error creating shelf:', err);
@@ -207,7 +209,8 @@ const StoreManagementPage = () => {
           setSelectedShelf(null);
         }
         if (selectedStore) {
-          await fetchShelvesByStore(selectedStore.id);
+          const locationId = selectedStore.location_id || selectedStore.id;
+          await fetchShelvesByStore(locationId);
         }
       } catch (err) {
         console.error('Error deleting shelf:', err);
@@ -655,7 +658,7 @@ const StoreManagementPage = () => {
         isOpen={showCreateShelf}
         onClose={() => setShowCreateShelf(false)}
         onSubmit={handleCreateShelf}
-        storeId={selectedStore?.id}
+        storeId={selectedStore?.location_id || selectedStore?.id}
         bulkMode={true}
         loading={loading}
       />

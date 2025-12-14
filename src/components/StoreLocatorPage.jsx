@@ -67,7 +67,8 @@ const StoreLocatorPage = () => {
   // Fetch sections when store is selected
   useEffect(() => {
     if (selectedStore) {
-      fetchStoreSections(selectedStore.id);
+      const locationId = selectedStore.location_id || selectedStore.id;
+      fetchStoreSections(locationId);
     }
   }, [selectedStore, fetchStoreSections]);
 
@@ -77,10 +78,12 @@ const StoreLocatorPage = () => {
       const allSectionsList = [];
       for (const store of stores) {
         try {
-          const storeSections = await fetchStoreSections(store.id);
+          const locationId = store.location_id || store.id;
+          const storeSections = await fetchStoreSections(locationId);
           allSectionsList.push(...storeSections);
         } catch (err) {
-          console.error(`Error loading sections for store ${store.id}:`, err);
+          const locationId = store.location_id || store.id;
+          console.error(`Error loading sections for location ${locationId}:`, err);
         }
       }
       setAllSections(allSectionsList);
@@ -109,7 +112,8 @@ const StoreLocatorPage = () => {
   const handleStoreSelect = async (store) => {
     setSelectedStore(store);
     setSelectedSection(null);
-    await getStoreInventory(store.id, filters);
+    const locationId = store.location_id || store.id;
+    await getStoreInventory(locationId, filters);
   };
 
   // Handle section click in grid view
@@ -130,7 +134,8 @@ const StoreLocatorPage = () => {
     
     // Re-fetch store inventory if in browse mode
     if (viewMode === 'browse' && selectedStore) {
-      getStoreInventory(selectedStore.id, newFilters);
+      const locationId = selectedStore.location_id || selectedStore.id;
+      getStoreInventory(locationId, newFilters);
     }
   };
 
@@ -151,7 +156,8 @@ const StoreLocatorPage = () => {
     if (viewMode === 'search' && searchQuery) {
       await handleSearch(searchQuery);
     } else if (selectedStore) {
-      await getStoreInventory(selectedStore.id, filters);
+      const locationId = selectedStore.location_id || selectedStore.id;
+      await getStoreInventory(locationId, filters);
     }
   };
 
@@ -172,7 +178,8 @@ const StoreLocatorPage = () => {
     if (viewMode === 'search' && searchQuery) {
       await handleSearch(searchQuery);
     } else if (selectedStore) {
-      await getStoreInventory(selectedStore.id, filters);
+      const locationId = selectedStore.location_id || selectedStore.id;
+      await getStoreInventory(locationId, filters);
     }
   };
 
@@ -188,7 +195,8 @@ const StoreLocatorPage = () => {
       
       // Refresh store inventory
       if (selectedStore) {
-        await getStoreInventory(selectedStore.id, filters);
+        const locationId = selectedStore.location_id || selectedStore.id;
+        await getStoreInventory(locationId, filters);
       }
     } catch (err) {
       throw err;

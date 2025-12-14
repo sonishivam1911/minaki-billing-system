@@ -61,6 +61,11 @@ export const Breadcrumbs = () => {
     };
   }
   
+  // Don't show breadcrumbs for customers page (standalone page like checkout)
+  if (location.pathname === '/customers') {
+    return null;
+  }
+
   // If no config found or it's a protected route without cart items, don't show breadcrumbs
   if (!currentConfig || (currentConfig.protected && !hasItemsInCart)) {
     return null;
@@ -157,7 +162,7 @@ export const Breadcrumbs = () => {
       </ol>
 
       {/* Optional: Show cart status in breadcrumbs */}
-      {hasItemsInCart && (location.pathname === '/cart' || location.pathname === '/checkout' || location.pathname === '/customers') && (
+      {hasItemsInCart && (location.pathname === '/cart' || location.pathname === '/checkout') && (
         <div className="breadcrumb-status">
           <span className="cart-items-count">{totals.itemCount} items</span>
           <span className="cart-total">₹{totals.total?.toLocaleString() || '0'}</span>
