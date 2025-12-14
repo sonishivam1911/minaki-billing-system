@@ -282,15 +282,20 @@ export const demifiedProductsApi = {
    */
   getAll: async (params = {}) => {
     try {
-      // Set default parameters but allow overrides from params
-      const defaultParams = {
-        page: '1',
-        page_size: '20',
+      // Build params - only include page/page_size if explicitly provided
+      // Backend returns ALL products when page/page_size are omitted
+      const finalParams = {
         with_images: 'true',
+        ...params
       };
       
-      // Merge with provided params (params take priority)
-      const finalParams = { ...defaultParams, ...params };
+      // Remove page/page_size if they're null/undefined to get all products
+      if (finalParams.page === null || finalParams.page === undefined) {
+        delete finalParams.page;
+      }
+      if (finalParams.page_size === null || finalParams.page_size === undefined) {
+        delete finalParams.page_size;
+      }
       
       const queryString = new URLSearchParams(finalParams).toString();
       const url = `${API_BASE_URL}/products/zakya/products${queryString ? `?${queryString}` : ''}`;

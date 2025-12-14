@@ -2,6 +2,7 @@
  * CreateBoxModal - Modal for creating boxes in a shelf
  */
 import React, { useState, useEffect } from 'react';
+import boxesApi from '../services/boxApi';
 
 const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, loading = false }) => {
   const [formMode, setFormMode] = useState('single'); // 'single' or 'bulk'
@@ -17,24 +18,123 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
     { name: 'Box 3', code: 'BOX_3', capacity: 50 }
   ]);
   const [errors, setErrors] = useState({});
+  const [existingBoxes, setExistingBoxes] = useState([]);
+  const [isLoadingBoxes, setIsLoadingBoxes] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setFormMode('single');
-      setFormData({
-        name: '',
-        code: '',
-        capacity: 50,
-        is_active: true
-      });
-      setBulkData([
-        { name: 'Box 1', code: 'BOX_1', capacity: 50 },
-        { name: 'Box 2', code: 'BOX_2', capacity: 50 },
-        { name: 'Box 3', code: 'BOX_3', capacity: 50 }
-      ]);
-      setErrors({});
+  /**
+   * Generate unique box code based on existing boxes
+   * Finds the highest number in existing box codes and increments
+   */
+  const generateUniqueBoxCode = (existingBoxes) => {
+    if (!existingBoxes || existingBoxes.length === 0) {
+      return 'BOX_1';
     }
-  }, [isOpen]);
+
+    // Extract all box codes and find the highest number
+    const boxCodes = existingBoxes
+      .map(box => box.box_code || box.code || '')
+      .filter(code => code && /^BOX_\d+$/i.test(code))
+      .map(code => {
+        const match = code.match(/^BOX_(\d+)$/i);
+        return match ? parseInt(match[1], 10) : 0;
+      });
+
+    const maxNumber = boxCodes.length > 0 ? Math.max(...boxCodes) : 0;
+    return `BOX_${maxNumber + 1}`;
+  };
+
+  /**
+   * Generate unique box name based on existing boxes
+   */
+  const generateUniqueBoxName = (existingBoxes) => {
+    if (!existingBoxes || existingBoxes.length === 0) {
+      return 'Box 1';
+    }
+
+    // Extract all box names and find the highest number
+    const boxNames = existingBoxes
+      .map(box => box.box_name || box.name || '')
+      .filter(name => name && /^Box \d+$/i.test(name))
+      .map(name => {
+        const match = name.match(/^Box (\d+)$/i);
+        return match ? parseInt(match[1], 10) : 0;
+      });
+
+    const maxNumber = boxNames.length > 0 ? Math.max(...boxNames) : 0;
+    return `Box ${maxNumber + 1}`;
+  };
+
+  /**
+   * Fetch existing boxes when modal opens to generate unique IDs
+   */
+  useEffect(() => {
+    const fetchExistingBoxes = async () => {
+      if (isOpen && shelfId) {
+        try {
+          setIsLoadingBoxes(true);
+          const boxes = await boxesApi.getByShelf(shelfId, false); // Get all boxes, not just active
+          const boxesList = Array.isArray(boxes) ? boxes : (boxes.items || boxes.boxes || []);
+          setExistingBoxes(boxesList);
+
+          // Generate unique codes/names based on existing boxes
+          const nextCode = generateUniqueBoxCode(boxesList);
+          const nextName = generateUniqueBoxName(boxesList);
+
+          // Update single form with unique values
+          setFormData({
+            name: nextName,
+            code: nextCode,
+            capacity: 50,
+            is_active: true
+          });
+
+          // Update bulk form with unique values
+          const bulkCount = 3;
+          const newBulkData = [];
+          let tempBoxes = [...boxesList];
+          
+          for (let i = 0; i < bulkCount; i++) {
+            const nextCode = generateUniqueBoxCode(tempBoxes);
+            const nextName = generateUniqueBoxName(tempBoxes);
+            
+            newBulkData.push({
+              name: nextName,
+              code: nextCode,
+              capacity: 50
+            });
+            
+            // Add to temp list so next iteration generates unique values
+            tempBoxes.push({ box_code: nextCode, box_name: nextName });
+          }
+          setBulkData(newBulkData);
+        } catch (err) {
+          console.error('Error fetching existing boxes:', err);
+          // If fetch fails, use defaults
+          setExistingBoxes([]);
+        } finally {
+          setIsLoadingBoxes(false);
+        }
+      } else if (!isOpen) {
+        // Reset when modal closes
+        setFormMode('single');
+        setFormData({
+          name: '',
+          code: '',
+          capacity: 50,
+          is_active: true
+        });
+        setBulkData([
+          { name: 'Box 1', code: 'BOX_1', capacity: 50 },
+          { name: 'Box 2', code: 'BOX_2', capacity: 50 },
+          { name: 'Box 3', code: 'BOX_3', capacity: 50 }
+        ]);
+        setErrors({});
+        setExistingBoxes([]);
+      }
+    };
+
+    fetchExistingBoxes();
+  }, [isOpen, shelfId]);
 
   const validateSingleForm = () => {
     const newErrors = {};
@@ -45,6 +145,14 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
     
     if (!formData.code.trim()) {
       newErrors.code = 'Box code is required';
+    } else {
+      // Check for duplicate code in existing boxes
+      const codeExists = existingBoxes.some(
+        box => (box.box_code || box.code || '').toLowerCase() === formData.code.trim().toLowerCase()
+      );
+      if (codeExists) {
+        newErrors.code = 'This box code already exists. Please use a unique code.';
+      }
     }
     
     if (formData.capacity <= 0) {
@@ -57,6 +165,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
 
   const validateBulkForm = () => {
     const newErrors = {};
+    const usedCodes = new Set();
     
     bulkData.forEach((box, index) => {
       if (!box.name.trim()) {
@@ -64,6 +173,23 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
       }
       if (!box.code.trim()) {
         newErrors[`bulk_code_${index}`] = 'Box code is required';
+      } else {
+        const codeLower = box.code.trim().toLowerCase();
+        
+        // Check for duplicate in existing boxes
+        const codeExists = existingBoxes.some(
+          existingBox => (existingBox.box_code || existingBox.code || '').toLowerCase() === codeLower
+        );
+        if (codeExists) {
+          newErrors[`bulk_code_${index}`] = 'This box code already exists in the database.';
+        }
+        
+        // Check for duplicate within the bulk data itself
+        if (usedCodes.has(codeLower)) {
+          newErrors[`bulk_code_${index}`] = 'Duplicate code in this form. Each box must have a unique code.';
+        } else {
+          usedCodes.add(codeLower);
+        }
       }
       if (box.capacity <= 0) {
         newErrors[`bulk_capacity_${index}`] = 'Capacity must be greater than 0';
@@ -107,9 +233,14 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
   };
 
   const addBulkBox = () => {
+    // Generate unique name and code based on existing boxes + current bulk data
+    const allBoxes = [...existingBoxes, ...bulkData];
+    const nextCode = generateUniqueBoxCode(allBoxes);
+    const nextName = generateUniqueBoxName(allBoxes);
+    
     setBulkData(prev => [...prev, {
-      name: `Box ${prev.length + 1}`,
-      code: `BOX_${prev.length + 1}`,
+      name: nextName,
+      code: nextCode,
       capacity: 50
     }]);
   };
@@ -188,6 +319,12 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
             >
               Multiple Boxes
             </button>
+          </div>
+        )}
+
+        {isLoadingBoxes && (
+          <div className="loading-indicator" style={{ padding: '20px', textAlign: 'center' }}>
+            <span>Loading existing boxes...</span>
           </div>
         )}
 

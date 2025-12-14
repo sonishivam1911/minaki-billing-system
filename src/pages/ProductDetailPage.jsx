@@ -44,13 +44,18 @@ export const ProductDetailPage = () => {
         setLoading(true);
         setError(null);
 
+        // Decode the ID parameter since React Router gives us URL-encoded values
+        // This is especially important for SKUs with special characters like "/"
+        const decodedId = decodeURIComponent(id);
+
         let response;
         if (isDemified) {
           // Fetch Zakya product by SKU
-          response = await demifiedProductsApi.getById(id);
+          // The API will encode it again, so we pass the decoded value
+          response = await demifiedProductsApi.getById(decodedId);
         } else {
           // Fetch real product by ID
-          response = await productsApi.getById(id);
+          response = await productsApi.getById(decodedId);
         }
 
         setProduct(response);

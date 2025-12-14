@@ -84,12 +84,13 @@ const AddProductToBoxModal = ({
    * Load all lab and demified products using product APIs (like CatalogPage)
    * Filter out INACTIVE ones and extract just SKUs
    * Only loads once and caches the results
+   * Fetches ALL products in a single call using large page_size
    */
   const loadAllProducts = async () => {
     try {
       setIsLoadingProducts(true);
       
-      // Fetch lab products directly from Real Jewelry API
+      // Fetch lab products directly from Real Jewelry API (non-paginated)
       const labResponse = await productsApi.getAll(
         {}, false
       );
@@ -99,10 +100,12 @@ const AddProductToBoxModal = ({
         isDemified: false
       }));
 
-      // Fetch demified products directly from Zakya API
-      const demifiedResponse = await demifiedProductsApi.getAll(
-        {}, false
-      );
+      // Fetch ALL demified products in a single call - don't pass page/page_size to get all products
+      const demifiedResponse = await demifiedProductsApi.getAll({
+        with_images: 'true'
+        // Don't pass page or page_size - API returns all products when these are omitted
+      });
+      
       const demifiedProds = (demifiedResponse?.products || []).map(p => ({ 
         ...p, 
         productType: 'demified',
@@ -142,26 +145,20 @@ const AddProductToBoxModal = ({
     }
   };
 
-  // Filter products by SKU search query and product type
+  // Filter products by SKU search query - Show ALL products (both Lab and Demified)
   useEffect(() => {
     const filterBySku = () => {
-      // First, filter by product type (Lab or Demified)
-      const typeFilteredProducts = allProducts.filter(product => {
-        if (formData.product_type === 'lab') {
-          return product.productType === 'lab';
-        } else {
-          return product.productType === 'demified';
-        }
-      });
-
-      // Then apply search query
+      // Show ALL products in dropdown (both Lab and Demified) - no type filtering
+      // The product type toggle only affects the form submission, not the dropdown display
+      
+      // Apply search query if provided
       if (skuSearchQuery.trim().length < 1) {
-        setFilteredProducts(typeFilteredProducts);
+        setFilteredProducts(allProducts);
         return;
       }
 
       const query = skuSearchQuery.toLowerCase();
-      const results = typeFilteredProducts.filter(product => {
+      const results = allProducts.filter(product => {
         const productSku = (product.sku || product.SKU || '').toString().toLowerCase();
         const productName = (product.name || product.product_name || '').toString().toLowerCase();
         // Search by both SKU and product name
@@ -173,7 +170,7 @@ const AddProductToBoxModal = ({
 
     const debounceTimer = setTimeout(filterBySku, 300);
     return () => clearTimeout(debounceTimer);
-  }, [skuSearchQuery, allProducts, formData.product_type]);
+  }, [skuSearchQuery, allProducts]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -368,12 +365,12 @@ const AddProductToBoxModal = ({
               {isLoadingProducts && <span className="search-spinner">⏳</span>}
             </div>
 
-            {/* SKU Dropdown List - Enhanced styling */}
+            {/* SKU Dropdown List - Shows ALL products, scrollable */}
             {showDropdown && !isLoadingProducts && (
               <div className="sku-dropdown-container">
                 {filteredProducts.length > 0 ? (
-                  <ul className="sku-dropdown-list">
-                    {filteredProducts.slice(0, 15).map((product) => (
+                  <ul className="sku-dropdown-list" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+                    {filteredProducts.map((product) => (
                       <li
                         key={`${product.id}-${product.productType}`}
                         className="sku-dropdown-item"
@@ -396,11 +393,6 @@ const AddProductToBoxModal = ({
                         </div>
                       </li>
                     ))}
-                    {filteredProducts.length > 15 && (
-                      <li className="dropdown-item-count">
-                        +{filteredProducts.length - 15} more products
-                      </li>
-                    )}
                   </ul>
                 ) : skuSearchQuery.length > 0 ? (
                   <div className="dropdown-no-results">
@@ -409,6 +401,12 @@ const AddProductToBoxModal = ({
                 ) : (
                   <div className="dropdown-hint">
                     {allProducts.length} active products available
+                    {allProducts.length > 0 && (
+                      <span style={{ display: 'block', fontSize: '0.85em', marginTop: '5px', color: '#666' }}>
+                        💍 Lab: {allProducts.filter(p => p.productType === 'lab').length} | 
+                        👜 Demified: {allProducts.filter(p => p.productType === 'demified').length}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

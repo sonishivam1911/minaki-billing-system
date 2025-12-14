@@ -43,13 +43,15 @@ const StoreGridView = ({
     }
   };
 
-  // Group inventory by section
+  // Group inventory by shelf_id
+  // Handle both old format (item.location.section_id) and new format (item.shelf_id)
   const inventoryBySection = inventory.reduce((acc, item) => {
-    const sectionId = item.location?.section_id || 'unknown';
-    if (!acc[sectionId]) {
-      acc[sectionId] = [];
+    // Try shelf_id first (new format), then location.shelf_id, then location.section_id (legacy)
+    const shelfId = item.shelf_id || item.location?.shelf_id || item.location?.section_id || 'unknown';
+    if (!acc[shelfId]) {
+      acc[shelfId] = [];
     }
-    acc[sectionId].push(item);
+    acc[shelfId].push(item);
     return acc;
   }, {});
 

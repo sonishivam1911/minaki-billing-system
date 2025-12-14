@@ -1,40 +1,81 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { cartApi } from '../services/api';
 
 /**
  * Transform cart items from API response to normalized format
  */
 const normalizeCartItems = (items) => {
-  if (!Array.isArray(items)) return [];
+  if (!Array.isArray(items)) {
+    console.warn('🔄 normalizeCartItems - items is not an array:', items);
+    return [];
+  }
   
-  return items.map(item => {
+  if (items.length === 0) {
+    console.log('🔄 normalizeCartItems - items array is empty');
+    return [];
+  }
+  
+  console.log('🔄 normalizeCartItems - Processing', items.length, 'items');
+  
+  return items.map((item, index) => {
     // Handle different possible field names from the API
+    // Real jewelry items might have different structure than demified items
     const normalizedItem = {
-      id: item.id || item.item_id,
-      cart_item_id: item.cart_item_id || item.id,
-      name: item.name || item.item_name || item.product_name || 'Unknown Item',
-      price: item.price || item.rate || item.unit_price || item.amount || 0,
+      id: item.id || item.item_id || item.variant_id || item.cart_item_id,
+      cart_item_id: item.cart_item_id || item.id || item.item_id,
+      name: item.name || item.item_name || item.product_name || item.title || 'Unknown Item',
+      price: item.price || item.rate || item.unit_price || item.amount || item.final_price || 0,
       quantity: item.quantity || item.qty || 1,
       purity: item.purity || item.cf_finish || item.cf_work,
-      weight: item.weight || item.net_weight,
+      weight: item.weight || item.net_weight || item.weight_g,
       image: item.image || (item.shopify_image && item.shopify_image.url) || '💎',
       // Keep original data for debugging
       _originalData: item
     };
     
     // Ensure price and quantity are numbers
-    normalizedItem.price = typeof normalizedItem.price === 'number' ? normalizedItem.price : parseFloat(normalizedItem.price) || 0;
-    normalizedItem.quantity = typeof normalizedItem.quantity === 'number' ? normalizedItem.quantity : parseInt(normalizedItem.quantity) || 1;
+    normalizedItem.price = typeof normalizedItem.price === 'number' 
+      ? normalizedItem.price 
+      : parseFloat(normalizedItem.price) || 0;
+    normalizedItem.quantity = typeof normalizedItem.quantity === 'number' 
+      ? normalizedItem.quantity 
+      : parseInt(normalizedItem.quantity) || 1;
     
-    console.log('🔄 Normalizing cart item:', {
+    // Validate that we have essential fields
+    if (!normalizedItem.id) {
+      console.warn(`🔄 normalizeCartItems - Item ${index} missing id:`, item);
+    }
+    if (!normalizedItem.cart_item_id) {
+      console.warn(`🔄 normalizeCartItems - Item ${index} missing cart_item_id:`, item);
+    }
+    if (normalizedItem.price === 0) {
+      console.warn(`🔄 normalizeCartItems - Item ${index} has zero price:`, item);
+    }
+    if (normalizedItem.quantity === 0) {
+      console.warn(`🔄 normalizeCartItems - Item ${index} has zero quantity:`, item);
+    }
+    
+    console.log(`🔄 Normalizing cart item ${index}:`, {
       original: item,
       normalized: normalizedItem,
       idFields: {
         item_id: item.id,
         cart_item_id: item.cart_item_id,
         item_id_field: item.item_id,
+        variant_id: item.variant_id,
         finalId: normalizedItem.id,
         finalCartItemId: normalizedItem.cart_item_id
+      },
+      priceFields: {
+        price: item.price,
+        rate: item.rate,
+        unit_price: item.unit_price,
+        finalPrice: normalizedItem.price
+      },
+      quantityFields: {
+        quantity: item.quantity,
+        qty: item.qty,
+        finalQuantity: normalizedItem.quantity
       }
     });
     
@@ -132,6 +173,7 @@ export const useCart = () => {
       const cartData = await cartApi.getById(cartId);
       console.log('🛒 RefreshCart - Cart data received:', cartData);
       console.log('🛒 RefreshCart - Items structure:', cartData.items);
+      console.log('🛒 RefreshCart - Items count:', cartData.items?.length || 0);
       
       // Log each item to see what data we have
       if (cartData.items && cartData.items.length > 0) {
@@ -139,19 +181,45 @@ export const useCart = () => {
           console.log(`🛒 Item ${index}:`, {
             id: item.id,
             cart_item_id: item.cart_item_id,
+            item_id: item.item_id,
+            variant_id: item.variant_id,
             name: item.name,
             price: item.price,
             quantity: item.quantity,
+            item_type: item.item_type,
+            allKeys: Object.keys(item),
             fullItem: item
           });
         });
+      } else {
+        console.warn('🛒 RefreshCart - No items in cart response');
       }
       
       // Normalize cart items to ensure consistent data structure
       const normalizedItems = normalizeCartItems(cartData.items || []);
+      console.log('🛒 RefreshCart - Normalized items count:', normalizedItems.length);
+      console.log('🛒 RefreshCart - Normalized items:', normalizedItems);
+      
+      // Calculate totals before setting state for logging
+      const itemCount = normalizedItems.reduce((sum, item) => {
+        const qty = typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 0;
+        return sum + qty;
+      }, 0);
+      const subtotal = normalizedItems.reduce((sum, item) => {
+        const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
+        const qty = typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 0;
+        return sum + (price * qty);
+      }, 0);
+      
+      console.log('🛒 RefreshCart - Calculated totals:', {
+        itemCount,
+        subtotal,
+        itemsLength: normalizedItems.length
+      });
+      
       setItems(normalizedItems);
       setError(null);
-      console.log('🛒 RefreshCart - Normalized items set:', normalizedItems);
+      console.log('🛒 RefreshCart - State updated with', normalizedItems.length, 'items');
     } catch (err) {
       setError('Failed to refresh cart');
       console.error('❌ RefreshCart error:', err);
@@ -360,24 +428,46 @@ export const useCart = () => {
     }
   }, [cartId, refreshCart]);
 
-  // Calculate totals
-  const totals = {
-    itemCount: items.reduce((sum, item) => {
-      const safeQuantity = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
+  // Calculate totals - use useMemo to ensure it updates when items change
+  const totals = useMemo(() => {
+    console.log('🛒 Calculating totals for', items.length, 'items');
+    
+    const itemCount = items.reduce((sum, item) => {
+      const safeQuantity = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : parseInt(item.quantity) || 0;
       return sum + safeQuantity;
-    }, 0),
-    subtotal: items.reduce((sum, item) => {
-      const safePrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0;
-      const safeQuantity = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : 0;
-      return sum + (safePrice * safeQuantity);
-    }, 0),
-    get tax() {
-      return this.subtotal * 0.03; // 3% GST
-    },
-    get total() {
-      return this.subtotal + this.tax;
-    },
-  };
+    }, 0);
+    
+    const subtotal = items.reduce((sum, item) => {
+      const safePrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : parseFloat(item.price) || 0;
+      const safeQuantity = typeof item.quantity === 'number' && !isNaN(item.quantity) ? item.quantity : parseInt(item.quantity) || 0;
+      const itemTotal = safePrice * safeQuantity;
+      return sum + itemTotal;
+    }, 0);
+    
+    const tax = subtotal * 0.03; // 3% GST
+    const total = subtotal + tax;
+    
+    console.log('🛒 Totals calculated:', {
+      itemCount,
+      subtotal,
+      tax,
+      total,
+      itemsLength: items.length,
+      items: items.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        itemTotal: (item.price || 0) * (item.quantity || 0)
+      }))
+    });
+    
+    return {
+      itemCount,
+      subtotal,
+      tax,
+      total
+    };
+  }, [items]);
 
   return {
     cartId,

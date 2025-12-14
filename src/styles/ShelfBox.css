@@ -114,18 +114,23 @@
   padding: 4px 6px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 10px;
   cursor: grab;
   transition: all 0.2s ease;
   overflow: hidden;
-  white-space: nowrap;
+  min-height: auto;
 }
 
-.draggable-product:hover {
-  background: #f9f9f9;
+.draggable-product.clickable {
+  cursor: pointer;
+}
+
+.draggable-product.clickable:hover {
+  background: #f0f7ff;
   border-color: #3498db;
-  cursor: grab;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.15);
 }
 
 .draggable-product.dragging {
@@ -135,25 +140,42 @@
   box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
 }
 
-.product-image {
-  font-size: 12px;
-  flex-shrink: 0;
+.draggable-product .product-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
-.product-name {
+.product-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.product-sku {
   color: #333;
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.product-box {
+  color: #666;
+  font-size: 9px;
+  font-weight: 400;
 }
 
 .product-qty {
-  background: #f0f0f0;
-  padding: 0 3px;
-  border-radius: 2px;
-  color: #666;
-  font-weight: 500;
+  background: #3498db;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 10px;
   flex-shrink: 0;
 }
 

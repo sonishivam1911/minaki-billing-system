@@ -10,6 +10,7 @@
 import { useState, useCallback } from 'react';
 import locationsApi from '../services/locationsApi';
 import shelvesApi from '../services/shelfApi';
+import boxesApi from '../services/boxApi';
 import productsApi from '../services/productLocationApi';
 
 export const useStoreLocator = () => {
@@ -95,15 +96,78 @@ export const useStoreLocator = () => {
   /**
    * Get inventory summary
    * GET /billing_system/api/inventory/products/inventory/summary
+   * Fetches inventory and maps box_codes to shelf_ids for proper grouping
    */
   const getStoreInventory = useCallback(async (locationId, filters = {}) => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Fetch inventory summary
       const data = await productsApi.getSummary(locationId);
       const inventoryList = Array.isArray(data) ? data : data.items || data;
-      setLocations(inventoryList);
-      return inventoryList;
+      
+      // Fetch shelves for the location
+      const shelvesList = await shelvesApi.getByLocation(locationId, true);
+      setShelves(shelvesList);
+      setSections(shelvesList);
+      
+      // Fetch boxes for all shelves to create box_code -> shelf_id mapping
+      const boxCodeToShelfMap = {};
+      for (const shelf of shelvesList) {
+        try {
+          const boxes = await boxesApi.getByShelf(shelf.id, true);
+          const boxesList = Array.isArray(boxes) ? boxes : boxes.items || boxes;
+          boxesList.forEach(box => {
+            if (box.box_code) {
+              boxCodeToShelfMap[box.box_code] = shelf.id;
+            }
+          });
+        } catch (err) {
+          console.warn(`Error fetching boxes for shelf ${shelf.id}:`, err);
+        }
+      }
+      
+      // Transform inventory items to include shelf_id based on box_codes
+      const transformedInventory = inventoryList.flatMap(item => {
+        // If item has box_codes array, create one entry per box_code
+        if (item.box_codes && Array.isArray(item.box_codes) && item.box_codes.length > 0) {
+          return item.box_codes.map(boxCode => {
+            const shelfId = boxCodeToShelfMap[boxCode];
+            // If we couldn't find the shelf for this box, try to find it by scanning the box QR
+            // For now, we'll assign it to the first shelf if mapping fails (fallback)
+            const assignedShelfId = shelfId || (shelvesList.length > 0 ? shelvesList[0].id : null);
+            
+            if (!shelfId) {
+              console.warn(`Could not find shelf for box_code: ${boxCode}. Assigning to first shelf.`);
+            }
+            
+            return {
+              ...item,
+              box_code: boxCode,
+              shelf_id: assignedShelfId,
+              // Distribute quantity across boxes (simple division)
+              // If we have num_boxes, divide evenly; otherwise assume 1 per box
+              quantity: item.num_boxes > 0 
+                ? Math.ceil(item.total_quantity / item.num_boxes)
+                : item.total_quantity,
+            };
+          });
+        }
+        // If no box_codes, try to find shelf_id from other fields or assign to first shelf
+        const assignedShelfId = item.shelf_id || (shelvesList.length > 0 ? shelvesList[0].id : null);
+        return [{
+          ...item,
+          shelf_id: assignedShelfId,
+          quantity: item.total_quantity || item.quantity || 0,
+        }];
+      });
+      
+      console.log('Transformed inventory:', transformedInventory);
+      console.log('Box code to shelf map:', boxCodeToShelfMap);
+      
+      setLocations(transformedInventory);
+      return transformedInventory;
     } catch (err) {
       setError(err.message || 'Failed to fetch inventory');
       console.error('Error fetching inventory:', err);

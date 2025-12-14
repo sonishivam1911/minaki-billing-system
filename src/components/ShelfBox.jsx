@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+import { useNavigate } from 'react-router-dom';
 import '../styles/ShelfBox.css';
 
 const ITEM_TYPE = 'PRODUCT';
@@ -29,7 +30,11 @@ const ShelfBox = ({
   });
 
   const totalQuantity = inventory.reduce(
-    (sum, item) => sum + (item.location?.quantity || 0),
+    (sum, item) => {
+      // Handle both old format (item.location.quantity) and new format (item.quantity or item.location.quantity)
+      const qty = item.location?.quantity || item.quantity || item.total_quantity || 0;
+      return sum + qty;
+    },
     0
   );
 
@@ -42,8 +47,8 @@ const ShelfBox = ({
       onClick={onClick}
     >
       <div className="shelf-header">
-        <h4>{section.name || section.type || 'Shelf'}</h4>
-        <span className="shelf-type">{section.type || 'N/A'}</span>
+        <h4>{section.shelf_name || section.name || section.type || 'Shelf'}</h4>
+        <span className="shelf-type">{section.shelf_code || section.type || 'N/A'}</span>
       </div>
 
       <div className="shelf-content">
@@ -75,9 +80,11 @@ const ShelfBox = ({
 
 /**
  * DraggableProduct Component
- * Individual product item that can be dragged
+ * Individual product item that can be dragged and clicked to view details
  */
 const DraggableProduct = ({ product = {}, location = {} }) => {
+  const navigate = useNavigate();
+  
   const [{ isDragging }, dragRef] = useDrag({
     type: ITEM_TYPE,
     item: {
@@ -89,17 +96,51 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
     }),
   });
 
+  // Get quantity from location, handling different data formats
+  const quantity = location.quantity || location.total_quantity || 0;
+  const productName = product.name || product.product_name || 'Product';
+  const sku = product.sku || location.sku || 'N/A';
+  const boxCode = location.box_code || 'N/A';
+  
+  // Determine product type for navigation
+  // product_type can be "zakya_product" or "real_jewelry"
+  const productType = location.product_type || product.product_type;
+  const isZakya = productType === 'zakya_product';
+  const routeType = isZakya ? 'demified' : 'real';
+  
+  // For zakya products, use SKU; for real jewelry, use product_id
+  const productIdentifier = isZakya 
+    ? (sku !== 'N/A' ? sku : location.product_id || product.product_id || product.id)
+    : (location.product_id || product.product_id || product.id || sku);
+  
+  // Create product detail link
+  const productDetailLink = productIdentifier ? `/product/${routeType}/${encodeURIComponent(productIdentifier)}` : null;
+
+  const handleClick = (e) => {
+    // Prevent navigation if dragging
+    if (isDragging) return;
+    
+    // Only navigate if we have a valid product ID
+    if (productDetailLink) {
+      e.stopPropagation(); // Prevent shelf click
+      navigate(productDetailLink);
+    }
+  };
+
   return (
     <div
       ref={dragRef}
-      className={`draggable-product ${isDragging ? 'dragging' : ''}`}
-      title={`${product.name || 'Product'} - Qty: ${location.quantity || 0}`}
+      className={`draggable-product ${isDragging ? 'dragging' : ''} ${productDetailLink ? 'clickable' : ''}`}
+      title={`${productName} - SKU: ${sku} - Box: ${boxCode} - Qty: ${quantity}`}
+      onClick={handleClick}
     >
-      <span className="product-image">{product.image || '💍'}</span>
-      <span className="product-name">
-        {product.name?.substring(0, 15) || 'Product'}
-      </span>
-      <span className="product-qty">x{location.quantity || 0}</span>
+      <div className="product-info">
+        <div className="product-details">
+          <span className="product-sku">{sku}</span>
+          <span className="product-box">Box: {boxCode}</span>
+        </div>
+        <span className="product-qty">x{quantity}</span>
+      </div>
     </div>
   );
 };

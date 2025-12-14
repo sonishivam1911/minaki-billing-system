@@ -1,14 +1,12 @@
 /**
  * StoreLocatorPage - In-Store Product Locator
- * Supports both product search and store browse modes
+ * Browse stores and view inventory by shelf
  */
 import React, { useState, useEffect } from 'react';
 import { 
-  SearchBar, 
   LoadingSpinner, 
   ErrorMessage 
 } from '../components';
-import ProductLocationCard from '../components/ProductLocationCard';
 import StoreGridView from '../components/StoreGridView';
 import TransferStockModal from '../components/TransferStockModal';
 import UpdateQuantityModal from '../components/UpdateQuantityModal';
@@ -17,12 +15,9 @@ import '../styles/App.css';
 
 const StoreLocatorPage = () => {
   // State
-  const [viewMode, setViewMode] = useState('search'); // 'search' or 'browse'
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
   const [filters, setFilters] = useState({
-    store_id: '',
     section_type: '',
     in_stock_only: false
   });
@@ -51,7 +46,6 @@ const StoreLocatorPage = () => {
     error,
     fetchStores,
     fetchStoreSections,
-    searchProductLocations,
     getStoreInventory,
     getSectionInventory,
     updateLocationQuantity,
@@ -91,21 +85,7 @@ const StoreLocatorPage = () => {
     }
   }, [stores, fetchStoreSections]);
 
-  // Handle search
-  const handleSearch = async (query) => {
-    setSearchQuery(query);
-    if (!query.trim()) return;
-
-    const searchFilters = {
-      ...filters,
-      store_id: filters.store_id || undefined,
-      section_type: filters.section_type || undefined,
-    };
-
-    await searchProductLocations(query, searchFilters);
-  };
-
-  // Handle store selection for browse mode
+  // Handle store selection
   const handleStoreSelect = async (store) => {
     setSelectedStore(store);
     setSelectedSection(null);
@@ -122,14 +102,9 @@ const StoreLocatorPage = () => {
   const handleFilterChange = (filterName, value) => {
     const newFilters = { ...filters, [filterName]: value };
     setFilters(newFilters);
-
-    // Re-run search if in search mode
-    if (viewMode === 'search' && searchQuery) {
-      searchProductLocations(searchQuery, newFilters);
-    }
     
-    // Re-fetch store inventory if in browse mode
-    if (viewMode === 'browse' && selectedStore) {
+    // Re-fetch store inventory when filters change
+    if (selectedStore) {
       getStoreInventory(selectedStore.id, newFilters);
     }
   };
@@ -148,9 +123,7 @@ const StoreLocatorPage = () => {
     setTransferModal({ isOpen: false, product: null, location: null });
     
     // Refresh current view
-    if (viewMode === 'search' && searchQuery) {
-      await handleSearch(searchQuery);
-    } else if (selectedStore) {
+    if (selectedStore) {
       await getStoreInventory(selectedStore.id, filters);
     }
   };
@@ -169,9 +142,7 @@ const StoreLocatorPage = () => {
     setUpdateModal({ isOpen: false, product: null, location: null });
     
     // Refresh current view
-    if (viewMode === 'search' && searchQuery) {
-      await handleSearch(searchQuery);
-    } else if (selectedStore) {
+    if (selectedStore) {
       await getStoreInventory(selectedStore.id, filters);
     }
   };
@@ -195,192 +166,109 @@ const StoreLocatorPage = () => {
     }
   };
 
-  // Group locations by product for search view
-  const groupedLocations = locations.reduce((acc, loc) => {
-    const variantId = loc.variant_id || loc.variant?.id;
-    if (!variantId) return acc;
-
-    if (!acc[variantId]) {
-      acc[variantId] = {
-        product: loc.variant || loc.product,
-        locations: []
-      };
-    }
-    acc[variantId].locations.push(loc);
-    return acc;
-  }, {});
-
   // Prepare inventory for grid view
-  const inventoryForGrid = locations.map(loc => ({
-    product: loc.variant || loc.product || {},
-    location: loc
-  }));
+  // Transform inventory data to match ShelfBox expected format
+  const inventoryForGrid = locations.map(loc => {
+    // Handle both old format (with variant/product) and new format (product info directly in loc)
+    const product = loc.variant || loc.product || {
+      id: loc.product_id,
+      name: loc.product_name,
+      sku: loc.sku,
+      product_type: loc.product_type,
+      product_id: loc.product_id,
+      product_name: loc.product_name,
+    };
+    
+    // Create location object with all necessary fields for navigation and display
+    const location = {
+      ...loc,
+      quantity: loc.quantity || loc.total_quantity || 0,
+      shelf_id: loc.shelf_id,
+      box_code: loc.box_code,
+      product_id: loc.product_id,
+      sku: loc.sku,
+      product_type: loc.product_type,
+      product_name: loc.product_name,
+    };
+    
+    return {
+      product,
+      location
+    };
+  });
 
   return (
     <div className="store-locator-page">
-      {/* Header */}
-      <div className="page-header">
-        <h1>📍 In-Store Product Locator</h1>
-        
-        <div className="view-mode-toggle">
-          <button
-            className={`toggle-btn ${viewMode === 'search' ? 'active' : ''}`}
-            onClick={() => setViewMode('search')}
-          >
-            🔍 Search Products
-          </button>
-          <button
-            className={`toggle-btn ${viewMode === 'browse' ? 'active' : ''}`}
-            onClick={() => setViewMode('browse')}
-          >
-            🏢 Browse Stores
-          </button>
-        </div>
-      </div>
-
-      {/* Search Mode */}
-      {viewMode === 'search' && (
-        <div className="search-mode">
-          <div className="search-controls">
-            <SearchBar
-              onSearch={handleSearch}
-              placeholder="Search by SKU or product name..."
-              value={searchQuery}
-            />
-            
-            <div className="filters">
-              <select
-                value={filters.store_id}
-                onChange={(e) => handleFilterChange('store_id', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Stores</option>
-                {stores.map(store => (
-                  <option key={store.id} value={store.id}>{store.location_name || store.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={filters.section_type}
-                onChange={(e) => handleFilterChange('section_type', e.target.value)}
-                className="filter-select"
-              >
-                <option value="">All Section Types</option>
-                <option value="display">Display</option>
-                <option value="vault">Vault</option>
-                <option value="storage">Storage</option>
-                <option value="counter">Counter</option>
-              </select>
-
-              <label className="filter-checkbox">
-                <input
-                  type="checkbox"
-                  checked={filters.in_stock_only}
-                  onChange={(e) => handleFilterChange('in_stock_only', e.target.checked)}
-                />
-                In Stock Only
-              </label>
-            </div>
-          </div>
-
-          {loading && <LoadingSpinner message="Searching locations..." />}
-          {error && <ErrorMessage message={error} />}
-
-          {!loading && !error && (
-            <div className="search-results">
-              {Object.keys(groupedLocations).length === 0 && searchQuery && (
-                <div className="no-results">
-                  <p>No locations found for "{searchQuery}"</p>
-                  <p className="hint">Try a different search term or adjust filters</p>
+      {/* Browse Mode */}
+      <div className="browse-mode">
+        {!selectedStore ? (
+          <div className="store-selection">
+            <h2>Select a Store</h2>
+            <div className="stores-grid">
+              {stores.map(store => (
+                <div
+                  key={store.id}
+                  className="store-card"
+                  onClick={() => handleStoreSelect(store)}
+                >
+                  <h3>{store.location_name || store.name}</h3>
+                  <p>{store.location_code || 'Location'}</p>
+                  {store.is_warehouse && (
+                    <span className="store-badge">Warehouse</span>
+                  )}
                 </div>
-              )}
-
-              {Object.values(groupedLocations).map((group) => (
-                <ProductLocationCard
-                  key={group.product.id}
-                  product={group.product}
-                  locations={group.locations}
-                  onTransfer={handleTransferClick}
-                  onUpdateQuantity={handleUpdateQuantityClick}
-                />
               ))}
             </div>
-          )}
-        </div>
-      )}
-
-      {/* Browse Mode */}
-      {viewMode === 'browse' && (
-        <div className="browse-mode">
-          {!selectedStore ? (
-            <div className="store-selection">
-              <h2>Select a Store</h2>
-              <div className="stores-grid">
-                {stores.map(store => (
-                  <div
-                    key={store.id}
-                    className="store-card"
-                    onClick={() => handleStoreSelect(store)}
-                  >
-                    <h3>{store.location_name || store.name}</h3>
-                    <p>{store.location_code || 'Location'}</p>
-                    {store.is_warehouse && (
-                      <span className="store-badge">Warehouse</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="store-view">
-              <div className="store-view-header">
-                <button 
-                  className="btn btn-secondary"
-                  onClick={() => setSelectedStore(null)}
+          </div>
+        ) : (
+          <div className="store-view">
+            <div className="store-view-header">
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setSelectedStore(null)}
+              >
+                ← Back to Stores
+              </button>
+              
+              <div className="filters">
+                <select
+                  value={filters.section_type}
+                  onChange={(e) => handleFilterChange('section_type', e.target.value)}
+                  className="filter-select"
                 >
-                  ← Back to Stores
-                </button>
-                
-                <div className="filters">
-                  <select
-                    value={filters.section_type}
-                    onChange={(e) => handleFilterChange('section_type', e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="">All Section Types</option>
-                    <option value="display">Display</option>
-                    <option value="vault">Vault</option>
-                    <option value="storage">Storage</option>
-                    <option value="counter">Counter</option>
-                  </select>
+                  <option value="">All Section Types</option>
+                  <option value="display">Display</option>
+                  <option value="vault">Vault</option>
+                  <option value="storage">Storage</option>
+                  <option value="counter">Counter</option>
+                </select>
 
-                  <label className="filter-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={filters.in_stock_only}
-                      onChange={(e) => handleFilterChange('in_stock_only', e.target.checked)}
-                    />
-                    In Stock Only
-                  </label>
-                </div>
+                <label className="filter-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={filters.in_stock_only}
+                    onChange={(e) => handleFilterChange('in_stock_only', e.target.checked)}
+                  />
+                  In Stock Only
+                </label>
               </div>
-
-              {loading && <LoadingSpinner message="Loading store layout..." />}
-              {error && <ErrorMessage message={error} />}
-
-              {!loading && !error && (
-                <StoreGridView
-                  store={selectedStore}
-                  sections={sections}
-                  inventory={inventoryForGrid}
-                  onProductMove={handleProductMove}
-                  onSectionClick={handleSectionClick}
-                />
-              )}
             </div>
-          )}
-        </div>
-      )}
+
+            {loading && <LoadingSpinner message="Loading store layout..." />}
+            {error && <ErrorMessage message={error} />}
+
+            {!loading && !error && (
+              <StoreGridView
+                store={selectedStore}
+                sections={sections}
+                inventory={inventoryForGrid}
+                onProductMove={handleProductMove}
+                onSectionClick={handleSectionClick}
+              />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Modals */}
       <TransferStockModal
