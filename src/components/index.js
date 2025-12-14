@@ -29,3 +29,4 @@ export { default as CreateStoreModal } from './CreateStoreModal';
 export { default as CreateShelfModal } from './CreateShelfModal';
 export { default as CreateBoxModal } from './CreateBoxModal';
 export { default as AddProductToBoxModal } from './AddProductToBoxModal';
+export { default as BoxProductsModal } from './BoxProductsModal';

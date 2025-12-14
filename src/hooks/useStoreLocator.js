@@ -178,20 +178,40 @@ export const useStoreLocator = () => {
   }, []);
 
   /**
-   * Get shelves in a location (replaces getSectionInventory)
-   * GET /billing_system/api/inventory/shelves/location/{location_id}
+   * Get products in a specific shelf (section)
+   * GET /billing_system/api/inventory/products/search?shelf_id={shelf_id}
+   * 
+   * This is called when a shelf is clicked to show all products in that shelf.
    */
-  const getSectionInventory = useCallback(async (locationId) => {
+  const getSectionInventory = useCallback(async (shelfId) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await shelvesApi.getByLocation(locationId, true);
-      const shelvesList = Array.isArray(data) ? data : data.items || data;
-      setShelves(shelvesList);
-      return shelvesList;
+      console.log('📦 Fetching products for shelf ID:', shelfId);
+      console.log('📦 API: GET /billing_system/api/inventory/products/search?shelf_id=' + shelfId);
+      
+      // Fetch products for this specific shelf
+      const data = await productsApi.search({ shelf_id: shelfId });
+      const productsList = Array.isArray(data) ? data : data.items || data || [];
+      
+      console.log('✅ Products fetched for shelf:', productsList.length, 'products');
+      console.log('✅ Sample product:', productsList[0]);
+      
+      // Ensure all products have shelf_id set (in case API doesn't return it)
+      const productsWithShelfId = productsList.map(product => ({
+        ...product,
+        shelf_id: product.shelf_id || shelfId,
+      }));
+      
+      // Update locations state with the products from this shelf
+      setLocations(productsWithShelfId);
+      return productsWithShelfId;
     } catch (err) {
-      setError(err.message || 'Failed to fetch shelves');
-      console.error('Error fetching shelves:', err);
+      const errorMsg = err.message || 'Failed to fetch products for shelf';
+      setError(errorMsg);
+      console.error('❌ Error fetching products for shelf:', err);
+      console.error('❌ Shelf ID:', shelfId);
+      // Don't clear locations on error, keep previous state
       return [];
     } finally {
       setLoading(false);

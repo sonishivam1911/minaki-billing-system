@@ -1,0 +1,193 @@
+/* Box Products Modal Styles */
+.box-products-modal {
+  width: 90vw;
+  max-width: 1000px;
+  max-height: 85vh;
+}
+
+.box-products-modal .modal-body {
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.box-code-text {
+  margin: 4px 0 0 0;
+  color: #666;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.empty-products {
+  padding: 60px 20px;
+  text-align: center;
+  color: #999;
+}
+
+.empty-products p {
+  font-size: 18px;
+  margin: 0;
+}
+
+.products-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.products-table thead {
+  background: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.products-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #dee2e6;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.products-table tbody tr {
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.products-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.products-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.products-table td {
+  padding: 12px 16px;
+  color: #333;
+  vertical-align: middle;
+}
+
+.sku-cell {
+  font-weight: 600;
+  color: #1976d2;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.name-cell {
+  color: #333;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.type-cell {
+  text-align: center;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.quantity-cell {
+  text-align: right;
+  font-weight: 600;
+  color: #1976d2;
+  font-size: 15px;
+}
+
+.products-table tfoot {
+  background: #f8f9fa;
+  border-top: 2px solid #dee2e6;
+}
+
+.products-table tfoot tr:last-child {
+  border-bottom: none;
+}
+
+.products-table tfoot td {
+  padding: 14px 16px;
+  font-weight: 600;
+}
+
+.total-label {
+  text-align: right;
+  color: #666;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.total-value {
+  text-align: right;
+  color: #1976d2;
+  font-size: 16px;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+  background: #fafafa;
+}
+
+.modal-footer .btn {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.modal-footer .btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.modal-footer .btn-secondary:hover {
+  background: #5a6268;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .box-products-modal {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .products-table {
+    font-size: 12px;
+  }
+
+  .products-table th,
+  .products-table td {
+    padding: 8px 12px;
+  }
+
+  .name-cell {
+    max-width: 150px;
+  }
+}
+

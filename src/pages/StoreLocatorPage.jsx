@@ -3,6 +3,7 @@
  * Browse stores and view inventory by shelf
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   LoadingSpinner, 
   ErrorMessage 
@@ -14,6 +15,8 @@ import { useStoreLocator } from '../hooks';
 import '../styles/App.css';
 
 const StoreLocatorPage = () => {
+  const navigate = useNavigate();
+  
   // State
   const [selectedStore, setSelectedStore] = useState(null);
   const [selectedSection, setSelectedSection] = useState(null);
@@ -96,10 +99,10 @@ const StoreLocatorPage = () => {
     await getStoreInventory(locationId, filters);
   };
 
-  // Handle section click in grid view
-  const handleSectionClick = async (section) => {
-    setSelectedSection(section);
-    await getSectionInventory(section.id);
+  // Handle section click in grid view - navigate to shelf detail page
+  const handleSectionClick = (section) => {
+    // Navigate to shelf detail page to show boxes and products
+    navigate(`/store-locator/shelf/${section.id}`);
   };
 
   // Handle filter changes
