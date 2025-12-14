@@ -184,16 +184,27 @@ export const productsApi = {
       weight: parseFloat(variant?.weight_g || 0),
       net_weight: parseFloat(variant?.net_weight_g || 0),
       purity: `${variant?.purity_k}K`,
+      purity_k: parseFloat(variant?.purity_k || 0),
       
-      // Pricing breakdown
+      // Pricing breakdown - preserve full structure
+      pricing_breakdown: pricingBreakdown,
       metal_cost: parseFloat(pricingBreakdown?.metal_cost || 0),
       stone_cost: parseFloat(pricingBreakdown?.stone_cost || 0),
       making_charges: parseFloat(pricingBreakdown?.making_charges || 0),
+      wastage_charges: parseFloat(pricingBreakdown?.wastage_charges || 0),
+      other_charges: parseFloat(pricingBreakdown?.other_charges || 0),
+      gst_rate_percent: parseFloat(pricingBreakdown?.gst_rate_percent || 0),
       gst_amount: parseFloat(pricingBreakdown?.gst_amount || 0),
+      final_price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
       
-      // Metal and diamond components
+      // Metal and diamond components - preserve full structure
       metal_components: variant?.metal_components || [],
       diamond_components: variant?.diamond_components || [],
+      
+      // Variant details
+      barcode: variant?.barcode,
+      variant_status: variant?.status,
+      track_serials: variant?.track_serials || false,
       
       // Status and metadata
       status: variant?.status,
@@ -204,7 +215,6 @@ export const productsApi = {
       
       // Stock information
       stock: 1, // Jewelry items are typically unique pieces
-      track_serials: variant?.track_serials || false,
       
       // Display image (placeholder for now)
       image: '💍',
