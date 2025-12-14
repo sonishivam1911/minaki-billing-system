@@ -285,9 +285,15 @@ export const demifiedProductsApi = {
       // Build params - only include page/page_size if explicitly provided
       // Backend returns ALL products when page/page_size are omitted
       const finalParams = {
-        with_images: 'true',
         ...params
       };
+      
+      // Only add with_images if not explicitly set to false/null
+      if (finalParams.with_images !== false && finalParams.with_images !== null) {
+        finalParams.with_images = finalParams.with_images || 'true';
+      } else {
+        delete finalParams.with_images;
+      }
       
       // Remove page/page_size if they're null/undefined to get all products
       if (finalParams.page === null || finalParams.page === undefined) {

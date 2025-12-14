@@ -101,8 +101,9 @@ const AddProductToBoxModal = ({
       }));
 
       // Fetch ALL demified products in a single call - don't pass page/page_size to get all products
+      // Don't include with_images for SKU dropdown
       const demifiedResponse = await demifiedProductsApi.getAll({
-        with_images: 'true'
+        with_images: false
         // Don't pass page or page_size - API returns all products when these are omitted
       });
       
@@ -145,20 +146,23 @@ const AddProductToBoxModal = ({
     }
   };
 
-  // Filter products by SKU search query - Show ALL products (both Lab and Demified)
+  // Filter products by SKU search query and product type
   useEffect(() => {
     const filterBySku = () => {
-      // Show ALL products in dropdown (both Lab and Demified) - no type filtering
-      // The product type toggle only affects the form submission, not the dropdown display
+      // Filter by product type first - show only lab products for lab, demified for demified
+      const typeFilteredProducts = allProducts.filter(product => {
+        const productType = product.productType || (product.isDemified ? 'demified' : 'lab');
+        return productType === formData.product_type;
+      });
       
       // Apply search query if provided
       if (skuSearchQuery.trim().length < 1) {
-        setFilteredProducts(allProducts);
+        setFilteredProducts(typeFilteredProducts);
         return;
       }
 
       const query = skuSearchQuery.toLowerCase();
-      const results = allProducts.filter(product => {
+      const results = typeFilteredProducts.filter(product => {
         const productSku = (product.sku || product.SKU || '').toString().toLowerCase();
         const productName = (product.name || product.product_name || '').toString().toLowerCase();
         // Search by both SKU and product name
@@ -170,7 +174,7 @@ const AddProductToBoxModal = ({
 
     const debounceTimer = setTimeout(filterBySku, 300);
     return () => clearTimeout(debounceTimer);
-  }, [skuSearchQuery, allProducts]);
+  }, [skuSearchQuery, allProducts, formData.product_type]);
 
   const validateForm = () => {
     const newErrors = {};
