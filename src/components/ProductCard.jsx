@@ -14,6 +14,7 @@ import { formatRupees } from '../utils';
 export const ProductCard = ({ product, onAddToCart }) => {
   const {
     id,
+    item_id,
     name,
     category,
     price,
@@ -31,7 +32,8 @@ export const ProductCard = ({ product, onAddToCart }) => {
   // Use the correct price and stock fields based on product type
   const finalPrice = isDemified ? (rate || price || 0) : (price || rate || 0);
   const finalStock = isDemified ? (stock_on_hand || stock || 0) : (stock || stock_on_hand || 0);
-  const productIdentifier = isDemified ? sku || id : id;
+  // For demified products, use item_id instead of sku
+  const productIdentifier = isDemified ? (item_id || id || sku) : id;
   const productType = isDemified ? 'demified' : 'real';
 
   const isOutOfStock = finalStock === 0;

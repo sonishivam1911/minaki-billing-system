@@ -356,6 +356,7 @@ export const demifiedProductsApi = {
       // Transform API response to match our product structure
       const transformedProducts = data.products?.map(product => ({
         id: product.item_id,
+        item_id: product.item_id, // Include item_id explicitly
         name: product.name || product.item_name,
         category: product.category_name || 'Uncategorized',
         price: product.rate || 0,
@@ -432,12 +433,12 @@ export const demifiedProductsApi = {
   },
 
   /**
-   * Get single demified product by SKU
-   * GET /products/zakya/products/{sku}?with_image=true
+   * Get single demified product by item_id or SKU
+   * GET /products/zakya/products/{item_id_or_sku}?with_image=true
    */
-  getById: async (sku) => {
+  getById: async (itemIdOrSku) => {
     try {
-      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(sku)}?with_image=true`;
+      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(itemIdOrSku)}?with_image=true`;
       console.log('🚀 Demified API - Get single product URL:', url);
       
       const response = await fetch(url);
@@ -454,6 +455,7 @@ export const demifiedProductsApi = {
       const product = data.product || data;
       return {
         id: product.item_id,
+        item_id: product.item_id, // Include item_id explicitly
         name: product.name || product.item_name,
         category: product.category_name || 'Uncategorized',
         price: product.rate || 0,
@@ -481,9 +483,9 @@ export const demifiedProductsApi = {
 
   /**
    * Update single demified product
-   * PATCH /products/zakya/products/{sku}
+   * PATCH /products/zakya/products/{item_id_or_sku}
    */
-  update: async (sku, updates) => {
+  update: async (itemIdOrSku, updates) => {
     try {
       const params = new URLSearchParams();
       
@@ -494,7 +496,7 @@ export const demifiedProductsApi = {
         }
       });
 
-      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(sku)}?${params.toString()}`;
+      const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(itemIdOrSku)}?${params.toString()}`;
       console.log('🚀 Demified API - Update product URL:', url);
       
       const response = await fetch(url, {
@@ -545,6 +547,129 @@ export const demifiedProductsApi = {
       return data;
     } catch (error) {
       console.error('🚨 Demified API - Error in bulkUpdate:', error);
+      throw error;
+    }
+  },
+};
+
+// Product Filters API
+export const productFiltersApi = {
+  /**
+   * Get unique values for a specific dropdown field
+   * GET /billing_system/api/product-filters/dropdown/{field_name}
+   */
+  getDropdownOptions: async (fieldName) => {
+    try {
+      const url = `${API_BASE_URL}/product-filters/dropdown/${fieldName}`;
+      console.log('🔍 Filters API - Fetching dropdown options for:', fieldName);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dropdown options: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔍 Filters API - Dropdown options:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Filters API - Error fetching dropdown options:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all dropdown filter options at once
+   * GET /billing_system/api/product-filters/dropdown
+   */
+  getAllDropdownOptions: async () => {
+    try {
+      const url = `${API_BASE_URL}/product-filters/dropdown`;
+      console.log('🔍 Filters API - Fetching all dropdown options');
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dropdown options: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔍 Filters API - All dropdown options:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Filters API - Error fetching all dropdown options:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get min/max for a specific range field
+   * GET /billing_system/api/product-filters/range/{field_name}
+   */
+  getRangeOptions: async (fieldName) => {
+    try {
+      const url = `${API_BASE_URL}/product-filters/range/${fieldName}`;
+      console.log('🔍 Filters API - Fetching range options for:', fieldName);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch range options: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔍 Filters API - Range options:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Filters API - Error fetching range options:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all range filter options at once
+   * GET /billing_system/api/product-filters/range
+   */
+  getAllRangeOptions: async () => {
+    try {
+      const url = `${API_BASE_URL}/product-filters/range`;
+      console.log('🔍 Filters API - Fetching all range options');
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch range options: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔍 Filters API - All range options:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Filters API - Error fetching all range options:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all filter options (dropdown + range) in a single call
+   * GET /billing_system/api/product-filters/all
+   */
+  getAllFilterOptions: async () => {
+    try {
+      const url = `${API_BASE_URL}/product-filters/all`;
+      console.log('🔍 Filters API - Fetching all filter options');
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch filter options: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('🔍 Filters API - All filter options:', data);
+      return data;
+    } catch (error) {
+      console.error('🚨 Filters API - Error fetching all filter options:', error);
       throw error;
     }
   },

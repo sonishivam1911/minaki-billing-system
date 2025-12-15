@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useProducts, useDemifiedProducts } from '../hooks';
 import { useCart } from '../context/CartContext';
-import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, Pagination } from '../components';
+import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, Pagination, DemifiedFilters } from '../components';
 
 /**
  * CatalogPage Component
@@ -11,6 +11,7 @@ export const CatalogPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('demified'); // Default to demified jewelry which will auto-load
   const [isSearching, setIsSearching] = useState(false);
+  const [filters, setFilters] = useState({});
   
   // Demified products - auto-fetch since it's the default tab
   const demifiedProductsHook = useDemifiedProducts({ 
@@ -111,8 +112,8 @@ export const CatalogPage = () => {
         if (query.trim()) {
           await demifiedProductsHook.searchProducts(query, 1);
         } else {
-          // If search is cleared, refetch original data
-          await demifiedProductsHook.refetch();
+          // If search is cleared, refetch with current filters
+          await demifiedProductsHook.applyFilters(filters);
         }
       } else if (activeTab === 'real') {
         // Ensure real products are loaded before searching
@@ -134,17 +135,41 @@ export const CatalogPage = () => {
     setIsSearching(false);
   };
 
-  // Handle tab changes with lazy loading
-  const handleTabChange = (tab) => {
+  // Handle filter changes
+  const handleFiltersChange = async (newFilters) => {
+    setFilters(newFilters);
+    
+    if (activeTab === 'demified') {
+      try {
+        if (searchQuery.trim()) {
+          // If searching, combine search with filters
+          await demifiedProductsHook.searchProducts(searchQuery, 1);
+        } else {
+          // Apply filters and reset to page 1
+          await demifiedProductsHook.applyFilters(newFilters);
+        }
+      } catch (err) {
+        console.error('Filter error:', err);
+      }
+    }
+  };
+
+  // Handle tab changes - auto-load products when tab is clicked
+  const handleTabChange = async (tab) => {
     console.log(`🔄 Switching to ${tab} tab...`);
     setActiveTab(tab);
     setSearchQuery('');
     setIsSearching(false);
     
-    // Lazy load real products only when user clicks on real tab for the first time
-    if (tab === 'real' && !realProductsLoaded) {
-      console.log('🚀 First time accessing Real tab, loading products...');
-      loadRealProducts();
+    // Clear filters when switching tabs
+    if (tab === 'real') {
+      setFilters({});
+    }
+    
+    // Auto-load real products when user clicks on real tab
+    if (tab === 'real' && !realProductsLoaded && !realProductsHook.loading) {
+      console.log('🚀 Loading real products...');
+      await loadRealProducts();
     }
     // Demified products auto-load since autoFetch is true
     
@@ -156,19 +181,18 @@ export const CatalogPage = () => {
     if (activeTab !== 'demified') return; // Only handle pagination for demified products
     
     if (searchQuery.trim()) {
-      // If we're in search mode, search with the new page
+      // If we're in search mode, search with the new page (filters are already applied)
       await demifiedProductsHook.searchProducts(searchQuery, page);
     } else {
-      // Normal pagination
+      // Normal pagination - filters are already applied via applyFilters
+      // The hook will use the current filters state
       await demifiedProductsHook.goToPage(page);
     }
   };
 
   // Get current state based on active tab
   const currentProducts = activeTab === 'real' ? realProductsHook.products : demifiedProductsHook.products;
-  const currentLoading = activeTab === 'real' ? 
-    (realProductsHook.loading && !realProductsLoaded) : 
-    demifiedProductsHook.loading;
+  const currentLoading = activeTab === 'real' ? realProductsHook.loading : demifiedProductsHook.loading;
   const currentError = activeTab === 'real' ? realProductsHook.error : demifiedProductsHook.error;
   const currentRefetch = activeTab === 'real' ? () => loadRealProducts() : () => demifiedProductsHook.refetch();
   const currentPagination = activeTab === 'real' ? 
@@ -183,13 +207,8 @@ export const CatalogPage = () => {
       totalItems: demifiedProductsHook.totalItems 
     };
 
-  // Show loading spinner only for initial loads
+  // Show loading spinner when loading
   const shouldShowFullPageLoader = currentLoading;
-
-  // Show load button only for real products when not loaded
-  const shouldShowLoadButton = (
-    activeTab === 'real' && !realProductsLoaded && !realProductsHook.loading
-  ) && !searchQuery;
 
   if (shouldShowFullPageLoader) {
     return <LoadingSpinner message={`Loading ${activeTab} products...`} />;
@@ -234,32 +253,24 @@ export const CatalogPage = () => {
         </button>
       </div>
 
+      {/* Filters - only show for demified tab */}
+      {activeTab === 'demified' && (
+        <DemifiedFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+        />
+      )}
+
       {/* Inline loading indicator for search/pagination */}
-      {(isSearching || (demifiedProductsHook.loading && demifiedProductsLoaded)) && (
+      {(isSearching || (currentLoading && !shouldShowFullPageLoader)) && (
         <div className="inline-loading">
           <div className="spinner"></div>
           <span>Loading...</span>
         </div>
       )}
 
-      {/* Load Products Button - only for Real Jewellery */}
-      {shouldShowLoadButton && (
-        <div className="load-products-container">
-          <div className="load-products-message">
-            <h3>Ready to browse real jewellery?</h3>
-            <p>Click the button below to load real products</p>
-            <button 
-              className="btn btn-primary btn-large"
-              onClick={() => loadRealProducts()}
-            >
-              Load Real Jewellery
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Products Grid */}
-      {!shouldShowLoadButton && (
+      {!shouldShowFullPageLoader && (
         <div className="products-grid">
           {(currentProducts || []).map((product) => (
             <ProductCard
@@ -272,7 +283,7 @@ export const CatalogPage = () => {
       )}
 
       {/* Empty State */}
-      {(!currentProducts || currentProducts.length === 0) && !shouldShowFullPageLoader && !isSearching && !shouldShowLoadButton && !(demifiedProductsHook.loading) && (
+      {(!currentProducts || currentProducts.length === 0) && !shouldShowFullPageLoader && !isSearching && !currentLoading && (
         <div className="empty-state">
           <p>No {activeTab} products found {searchQuery && `matching "${searchQuery}"`}</p>
           {searchQuery && (

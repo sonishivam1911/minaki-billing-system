@@ -101,6 +101,7 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
   const productName = product.name || product.product_name || 'Product';
   const sku = product.sku || location.sku || 'N/A';
   const boxCode = location.box_code || 'N/A';
+  const itemId = product.item_id || location.item_id;
   
   // Determine product type for navigation
   // product_type can be "zakya_product" or "real_jewelry"
@@ -108,9 +109,9 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
   const isZakya = productType === 'zakya_product';
   const routeType = isZakya ? 'demified' : 'real';
   
-  // For zakya products, use SKU; for real jewelry, use product_id
+  // For zakya products, use item_id (preferred) or fallback to product_id/sku; for real jewelry, use product_id
   const productIdentifier = isZakya 
-    ? (sku !== 'N/A' ? sku : location.product_id || product.product_id || product.id)
+    ? (itemId || location.product_id || product.product_id || product.id || (sku !== 'N/A' ? sku : null))
     : (location.product_id || product.product_id || product.id || sku);
   
   // Create product detail link

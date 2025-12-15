@@ -28,16 +28,55 @@ export const useDemifiedProducts = ({
   
   // Cache to avoid refetching the same page
   const [cachedPages, setCachedPages] = useState(new Map());
+  
+  // Filters state
+  const [filters, setFilters] = useState({});
 
-  const fetchProducts = async (page = currentPage, params = {}) => {
+  // Convert filters object to API params
+  const filtersToParams = (filterObj) => {
+    const params = {};
+    
+    // Dropdown filters
+    Object.keys(filterObj).forEach(key => {
+      if (key.endsWith('_min') || key.endsWith('_max')) {
+        // Range filters
+        params[key] = filterObj[key].toString();
+      } else {
+        // Dropdown filters
+        params[key] = filterObj[key];
+      }
+    });
+    
+    return params;
+  };
+
+  const fetchProducts = async (page = currentPage, params = {}, useFilters = true, filtersOverride = null) => {
     try {
       console.log(`🚀 useDemifiedProducts - Fetching page ${page}...`);
       setLoading(true);
       
-      // Check cache first
-      const cacheKey = JSON.stringify({ page, pageSize, ...params });
+      // Merge filters with additional params FIRST to build proper cache key
+      // Use filtersOverride if provided (for immediate filter application), otherwise use state
+      const activeFilters = filtersOverride !== null ? filtersOverride : filters;
+      const filterParams = useFilters ? filtersToParams(activeFilters) : {};
+      const finalParams = {
+        page: page.toString(),
+        page_size: pageSize.toString(),
+        with_images: 'true',
+        ...filterParams,
+        ...params
+      };
+      
+      console.log('🔍 useDemifiedProducts - Filters being applied:', {
+        filtersState: filters,
+        filterParams: filterParams,
+        finalParams: finalParams
+      });
+      
+      // Check cache first - cache key must include filters!
+      const cacheKey = JSON.stringify({ page, pageSize, filters: filterParams, ...params });
       if (cachedPages.has(cacheKey)) {
-        console.log(`📋 Using cached data for page ${page}`);
+        console.log(`📋 Using cached data for page ${page} with filters:`, filterParams);
         const cachedData = cachedPages.get(cacheKey);
         setProducts(cachedData.products);
         setTotalPages(cachedData.totalPages);
@@ -48,12 +87,7 @@ export const useDemifiedProducts = ({
         return cachedData;
       }
       
-      const response = await demifiedProductsApi.getAll({
-        page: page.toString(),
-        page_size: pageSize.toString(),
-        with_images: 'true',
-        ...params
-      });
+      const response = await demifiedProductsApi.getAll(finalParams);
       
       console.log('📦 useDemifiedProducts - API Response:', {
         products: response.products?.length,
@@ -102,17 +136,18 @@ export const useDemifiedProducts = ({
   }, [autoFetch]); // Only run on mount and when autoFetch changes
 
   const refetch = async () => {
-    // Clear cache and refetch current page
+    // Clear cache and refetch current page with current filters
     setCachedPages(new Map());
-    return await fetchProducts(currentPage);
+    return await fetchProducts(currentPage, {}, true);
   };
 
   const goToPage = async (page) => {
     if (page === currentPage || page < 1) return;
     
     // Allow going to any page - let the API handle invalid pages
+    // Filters are automatically applied via fetchProducts
     try {
-      return await fetchProducts(page);
+      return await fetchProducts(page, {}, true);
     } catch (err) {
       console.error('Error navigating to page:', page, err);
       throw err;
@@ -158,9 +193,13 @@ export const useDemifiedProducts = ({
       // Clear cache when searching
       setCachedPages(new Map());
       
+      // Include filters in search
+      const filterParams = filtersToParams(filters);
+      
       const response = await demifiedProductsApi.search(searchQuery, {
         page: page.toString(),
         page_size: pageSize.toString(),
+        ...filterParams
       });
       
       console.log('🔍 useDemifiedProducts - Search Response:', {
@@ -187,6 +226,18 @@ export const useDemifiedProducts = ({
     }
   };
 
+  // Apply filters and refetch
+  const applyFilters = async (newFilters) => {
+    // Clear cache when filters change
+    setCachedPages(new Map());
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+    // Update filters state
+    setFilters(newFilters);
+    // Fetch with new filters immediately (pass filters directly to avoid state timing issue)
+    return await fetchProducts(1, {}, true, newFilters);
+  };
+
   return {
     products,
     loading,
@@ -197,6 +248,8 @@ export const useDemifiedProducts = ({
     totalPages,
     totalItems,
     pageSize,
+    // Filters
+    filters,
     // Methods
     refetch,
     searchProducts,
@@ -204,5 +257,6 @@ export const useDemifiedProducts = ({
     goToPageIfNeeded,
     nextPage,
     prevPage,
+    applyFilters,
   };
 };

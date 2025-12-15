@@ -160,24 +160,188 @@
 }
 
 /* Responsive */
+@media (max-width: 1024px) {
+  .product-location-card {
+    padding: 1.25rem;
+  }
+
+  .product-image {
+    font-size: 40px;
+    min-width: 50px;
+  }
+
+  .product-name {
+    font-size: 0.95rem;
+  }
+}
+
 @media (max-width: 768px) {
+  .product-location-card {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
   .card-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .product-info {
+    width: 100%;
+  }
+
+  .product-image {
+    font-size: 36px;
+    min-width: 44px;
+  }
+
+  .product-details h3 {
+    margin-bottom: 0.25rem;
+  }
+
+  .product-name {
+    font-size: 0.9rem;
+  }
+
+  .product-sku {
+    font-size: 0.8rem;
+  }
+
+  .product-price {
+    font-size: 0.9rem;
   }
 
   .product-summary {
     text-align: left;
-    margin-top: 8px;
+    margin-top: 0;
+    width: 100%;
+  }
+
+  .total-quantity {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.85rem;
+  }
+
+  .total-quantity strong {
+    font-size: 1.25rem;
+  }
+
+  .locations-list {
+    margin-top: 1rem;
+  }
+
+  .locations-list h4 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
   }
 
   .locations-table {
-    font-size: 12px;
+    font-size: 0.8rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .locations-table th,
+  .locations-table thead,
+  .locations-table tbody,
+  .locations-table tr {
+    display: block;
+  }
+
+  .locations-table thead {
+    display: none;
+  }
+
+  .locations-table tr {
+    margin-bottom: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.75rem;
+    background: #f9f9f9;
+  }
+
   .locations-table td {
-    padding: 4px;
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+  }
+
+  .locations-table td:last-child {
+    border-bottom: none;
+  }
+
+  .locations-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #555;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  .quantity {
+    text-align: left;
+  }
+
+  .actions {
+    flex-direction: row;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+
+  .btn-small {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-location-card {
+    padding: 0.875rem;
+    margin: 0.75rem 0;
+  }
+
+  .card-header {
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .product-image {
+    font-size: 32px;
+    min-width: 40px;
+  }
+
+  .product-name {
+    font-size: 0.85rem;
+  }
+
+  .product-sku {
+    font-size: 0.75rem;
+  }
+
+  .product-price {
+    font-size: 0.85rem;
+  }
+
+  .total-quantity {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .total-quantity strong {
+    font-size: 1.1rem;
+  }
+
+  .locations-table td {
+    font-size: 0.75rem;
+    padding: 0.4rem 0;
   }
 
   .actions {
@@ -186,5 +350,6 @@
 
   .btn-small {
     width: 100%;
+    min-width: auto;
   }
 }

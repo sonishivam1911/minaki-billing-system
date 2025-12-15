@@ -1,33 +1,37 @@
 /* ShelfBox Styles */
 .shelf-box {
-  background: white;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  padding: 12px;
+  background: #ffffff;
+  border: 2px solid #d4c4a8;
+  border-radius: 12px;
+  padding: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  min-height: 200px;
+  height: 320px;
+  width: 100%;
+  max-width: 100%;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .shelf-box:hover {
-  border-color: #3498db;
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.1);
+  border-color: #8b6f47;
+  box-shadow: 0 4px 12px rgba(139, 111, 71, 0.15);
   transform: translateY(-2px);
 }
 
 .shelf-box.selected {
-  border-color: #2ecc71;
-  background: #f0fdf4;
-  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+  border-color: #8b6f47;
+  background: #f5f1e8;
+  box-shadow: 0 0 0 3px rgba(139, 111, 71, 0.1);
 }
 
 .shelf-box.drag-over {
-  border-color: #f39c12;
-  background: #fffbf0;
+  border-color: #c0673e;
+  background: #faf8f3;
   border-style: dashed;
-  box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.2);
+  box-shadow: 0 0 0 2px rgba(192, 103, 62, 0.2);
 }
 
 .shelf-header {
@@ -41,31 +45,37 @@
 
 .shelf-header h4 {
   margin: 0;
-  color: #333;
-  font-size: 14px;
+  color: #5d4e37;
+  font-size: 18px;
   font-weight: 600;
+  font-family: 'Cormorant Garamond', serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .shelf-type {
   display: inline-block;
-  background: #e3f2fd;
-  color: #1976d2;
+  background: #f5f1e8;
+  color: #8b6f47;
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 11px;
   font-weight: 500;
   text-transform: capitalize;
+  border: 1px solid #d4c4a8;
 }
 
 .shelf-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .empty-shelf {
   text-align: center;
-  color: #bbb;
+  color: #d4c4a8;
   margin: auto;
   font-size: 20px;
   font-weight: 300;
@@ -74,7 +84,10 @@
 .inventory-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .inventory-item {
@@ -98,28 +111,29 @@
 
 .quantity-badge {
   display: inline-block;
-  background: #3498db;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
+  background: #f5f1e8;
+  color: #8b6f47;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
   font-weight: 600;
+  border: 1px solid #d4c4a8;
 }
 
 /* Draggable Product Styles */
 .draggable-product {
   background: #fff;
   border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 4px 6px;
+  border-radius: 6px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  gap: 8px;
+  font-size: 12px;
   cursor: grab;
   transition: all 0.2s ease;
   overflow: hidden;
-  min-height: auto;
+  min-height: 40px;
 }
 
 .draggable-product.clickable {
@@ -127,17 +141,17 @@
 }
 
 .draggable-product.clickable:hover {
-  background: #f0f7ff;
-  border-color: #3498db;
+  background: #f5f1e8;
+  border-color: #8b6f47;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.15);
+  box-shadow: 0 2px 4px rgba(139, 111, 71, 0.15);
 }
 
 .draggable-product.dragging {
   opacity: 0.5;
-  background: #e3f2fd;
+  background: #faf8f3;
   cursor: grabbing;
-  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+  box-shadow: 0 2px 8px rgba(139, 111, 71, 0.3);
 }
 
 .draggable-product .product-info {
@@ -159,42 +173,50 @@
 
 .product-sku {
   color: #333;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .product-box {
   color: #666;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 400;
 }
 
 .product-qty {
-  background: #3498db;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
+  background: white;
+  color: #8b6f47;
+  padding: 4px 8px;
+  border-radius: 12px;
   font-weight: 600;
-  font-size: 10px;
+  font-size: 12px;
   flex-shrink: 0;
+  border: 1px solid #d4c4a8;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
   .shelf-box {
-    min-height: 160px;
+    height: 280px;
   }
 
   .shelf-header h4 {
-    font-size: 13px;
+    font-size: 16px;
   }
 
   .draggable-product {
-    font-size: 10px;
-    padding: 3px 4px;
+    font-size: 11px;
+    padding: 6px 8px;
+    min-height: 36px;
   }
 
   .product-image {
     font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .shelf-box {
+    height: 260px;
   }
 }

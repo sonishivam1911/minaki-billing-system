@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { LoadingSpinner, ErrorMessage } from '../components';
-import { productsApi, demifiedProductsApi } from '../services/api';
+import { productsApi, demifiedProductsApi, productFiltersApi } from '../services/api';
 
 /**
  * ProductDetailPage Component
@@ -37,6 +37,8 @@ export const ProductDetailPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProduct, setEditedProduct] = useState({});
   const [saveLoading, setSaveLoading] = useState(false);
+  const [filterOptions, setFilterOptions] = useState({});
+  const [loadingFilters, setLoadingFilters] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     basic: true,
     variant: true,
@@ -82,6 +84,39 @@ export const ProductDetailPage = () => {
     }
   }, [type, id, isDemified]);
 
+  // Load filter options for demified products
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      if (!isDemified) return;
+      
+      try {
+        setLoadingFilters(true);
+        const allOptions = await productFiltersApi.getAllFilterOptions();
+        
+        // Extract dropdown_filters from response
+        const dropdownData = allOptions.dropdown_filters || allOptions.dropdown || allOptions;
+        
+        // Map to our cf_ fields
+        const options = {
+          cf_collection: dropdownData.cf_collection || [],
+          cf_gender: dropdownData.cf_gender || [],
+          cf_work: dropdownData.cf_work || [],
+          cf_finish: dropdownData.cf_finish || [],
+          cf_finding: dropdownData.cf_finding || []
+        };
+        
+        setFilterOptions(options);
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+        setFilterOptions({});
+      } finally {
+        setLoadingFilters(false);
+      }
+    };
+
+    loadFilterOptions();
+  }, [isDemified]);
+
   const handleEditToggle = () => {
     if (isEditing) {
       setEditedProduct(product);
@@ -97,13 +132,15 @@ export const ProductDetailPage = () => {
         const updates = {};
         Object.keys(editedProduct).forEach(key => {
           if (editedProduct[key] !== product[key] && 
-              ['name', 'rate', 'stock_on_hand', 'brand', 'description'].includes(key)) {
+              ['name', 'rate', 'stock_on_hand', 'brand', 'description', 'cf_collection', 'cf_gender', 'cf_work', 'cf_finish', 'cf_finding'].includes(key)) {
             updates[key] = editedProduct[key];
           }
         });
 
         if (Object.keys(updates).length > 0) {
-          await demifiedProductsApi.update(product.sku, updates);
+          // Use item_id for demified products, fallback to sku if item_id not available
+          const identifier = product.item_id || product.sku;
+          await demifiedProductsApi.update(identifier, updates);
           const updatedProduct = await demifiedProductsApi.getById(id);
           setProduct(updatedProduct);
           setEditedProduct(updatedProduct);
@@ -286,7 +323,9 @@ export const ProductDetailPage = () => {
         <div className="product-breadcrumb">
           <span className="product-type">{isDemified ? 'Demified' : 'Real'} Jewelry</span>
           <span className="separator">•</span>
-          <span className="product-category">{product.category || product.category_name}</span>
+          <span className={`product-category ${(!product.category && !product.category_name) ? 'uncategorised' : ''}`}>
+            {product.category || product.category_name || 'Uncategorised'}
+          </span>
         </div>
       </div>
 
@@ -296,11 +335,12 @@ export const ProductDetailPage = () => {
         <div className="product-detail-grid">
           <div className="product-detail-image">
             <div className="image-container">
-              {product.image && typeof product.image === 'string' && 
-               (product.image.startsWith('http') || product.image.startsWith('https')) ? (
+              {(product.image && typeof product.image === 'string' && 
+               (product.image.startsWith('http') || product.image.startsWith('https'))) ||
+               (product.shopify_image && product.shopify_image.url) ? (
                 <img 
-                  src={product.image} 
-                  alt={product.name}
+                  src={product.image || product.shopify_image?.url} 
+                  alt={product.name || product.item_name}
                   className="product-img"
                   onError={(e) => {
                     e.target.style.display = 'none';
@@ -311,8 +351,9 @@ export const ProductDetailPage = () => {
               <div 
                 className="product-icon-large" 
                 style={{ 
-                  display: (product.image && 
-                    (product.image.startsWith('http') || product.image.startsWith('https'))) 
+                  display: ((product.image && typeof product.image === 'string' && 
+                    (product.image.startsWith('http') || product.image.startsWith('https'))) ||
+                    (product.shopify_image && product.shopify_image.url))
                     ? 'none' : 'flex' 
                 }}
               >
@@ -336,7 +377,7 @@ export const ProductDetailPage = () => {
               )}
               
               <div className="product-meta">
-                <span className="product-id">ID: {product.id || product.sku}</span>
+                <span className="product-id">ID: {isDemified ? (product.item_id || product.id || product.sku) : (product.id || product.sku)}</span>
                 <span className="product-type-badge">{isDemified ? 'Zakya' : 'Custom'}</span>
               </div>
             </div>
@@ -979,36 +1020,238 @@ export const ProductDetailPage = () => {
           </div>
         )}
 
-        {/* For Demified Products - Show Simple View */}
+        {/* For Demified Products - Show All Fields */}
         {isDemified && (
-            <div className="product-attributes">
-              {product.brand && (
-                <div className="attribute">
-                  <span className="attribute-label">Brand:</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      className="edit-input"
-                      value={editedProduct.brand || ''}
-                      onChange={(e) => handleInputChange('brand', e.target.value)}
-                    />
-                  ) : (
-                    <span className="attribute-value">{product.brand}</span>
+          <div className="product-detail-sections">
+            <div className="detail-section">
+              <div className="section-header">
+                <h2>Product Information</h2>
+              </div>
+              <div className="section-content">
+                <div className="info-grid">
+                  {product.item_id && (
+                    <div className="info-item">
+                      <label>Item ID</label>
+                      <span className="read-only">{product.item_id}</span>
+                    </div>
+                  )}
+                  {product.name && (
+                    <div className="info-item">
+                      <label>Name</label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedProduct.name || ''}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
+                          className="form-input"
+                        />
+                      ) : (
+                        <span>{product.name}</span>
+                      )}
+                    </div>
+                  )}
+                  {product.item_name && product.item_name !== product.name && (
+                    <div className="info-item">
+                      <label>Item Name</label>
+                      <span>{product.item_name}</span>
+                    </div>
+                  )}
+                  {product.category_name && (
+                    <div className="info-item">
+                      <label>Category</label>
+                      <span>{product.category_name}</span>
+                    </div>
+                  )}
+                  {product.brand && (
+                    <div className="info-item">
+                      <label>Brand</label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editedProduct.brand || ''}
+                          onChange={(e) => handleInputChange('brand', e.target.value)}
+                          className="form-input"
+                        />
+                      ) : (
+                        <span>{product.brand}</span>
+                      )}
+                    </div>
+                  )}
+                  <div className="info-item full-width">
+                    <label>Description</label>
+                    {isEditing ? (
+                      <textarea
+                        value={editedProduct.description || ''}
+                        onChange={(e) => handleInputChange('description', e.target.value)}
+                        className="form-textarea"
+                        rows="3"
+                      />
+                    ) : (
+                      <span>{product.description || 'No description'}</span>
+                    )}
+                  </div>
+                  {product.rate !== undefined && product.rate !== null && (
+                    <div className="info-item">
+                      <label>Rate (₹)</label>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={editedProduct.rate || ''}
+                          onChange={(e) => handleInputChange('rate', parseFloat(e.target.value) || 0)}
+                          className="form-input"
+                          step="0.01"
+                        />
+                      ) : (
+                        <span>₹{formatCurrency(product.rate)}</span>
+                      )}
+                    </div>
+                  )}
+                  {isDemified && product.item_id && (
+                    <div className="info-item">
+                      <label>Item ID</label>
+                      <span className="read-only">{product.item_id}</span>
+                    </div>
+                  )}
+                  {product.sku && (
+                    <div className="info-item">
+                      <label>SKU</label>
+                      <span className="read-only">{product.sku}</span>
+                    </div>
+                  )}
+                  {product.stock_on_hand !== undefined && product.stock_on_hand !== null && (
+                    <div className="info-item">
+                      <label>Stock on Hand</label>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          value={editedProduct.stock_on_hand || ''}
+                          onChange={(e) => handleInputChange('stock_on_hand', parseFloat(e.target.value) || 0)}
+                          className="form-input"
+                          step="0.01"
+                        />
+                      ) : (
+                        <span>{product.stock_on_hand}</span>
+                      )}
+                    </div>
+                  )}
+                  {product.available_stock !== undefined && product.available_stock !== null && (
+                    <div className="info-item">
+                      <label>Available Stock</label>
+                      <span>{product.available_stock}</span>
+                    </div>
+                  )}
+                  {isDemified && (
+                    <>
+                      <div className="info-item">
+                        <label>Collection</label>
+                        {isEditing ? (
+                          <select
+                            value={editedProduct.cf_collection || ''}
+                            onChange={(e) => handleInputChange('cf_collection', e.target.value)}
+                            className="form-input"
+                          >
+                            <option value="">Select Collection</option>
+                            {(filterOptions.cf_collection || []).map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{product.cf_collection || ''}</span>
+                        )}
+                      </div>
+                      <div className="info-item">
+                        <label>Gender</label>
+                        {isEditing ? (
+                          <select
+                            value={editedProduct.cf_gender || ''}
+                            onChange={(e) => handleInputChange('cf_gender', e.target.value)}
+                            className="form-input"
+                          >
+                            <option value="">Select Gender</option>
+                            {(filterOptions.cf_gender || []).map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{product.cf_gender || ''}</span>
+                        )}
+                      </div>
+                      <div className="info-item">
+                        <label>Work</label>
+                        {isEditing ? (
+                          <select
+                            value={editedProduct.cf_work || ''}
+                            onChange={(e) => handleInputChange('cf_work', e.target.value)}
+                            className="form-input"
+                          >
+                            <option value="">Select Work</option>
+                            {(filterOptions.cf_work || []).map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{product.cf_work || ''}</span>
+                        )}
+                      </div>
+                      <div className="info-item">
+                        <label>Finish</label>
+                        {isEditing ? (
+                          <select
+                            value={editedProduct.cf_finish || ''}
+                            onChange={(e) => handleInputChange('cf_finish', e.target.value)}
+                            className="form-input"
+                          >
+                            <option value="">Select Finish</option>
+                            {(filterOptions.cf_finish || []).map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{product.cf_finish || ''}</span>
+                        )}
+                      </div>
+                      <div className="info-item">
+                        <label>Finding</label>
+                        {isEditing ? (
+                          <select
+                            value={editedProduct.cf_finding || ''}
+                            onChange={(e) => handleInputChange('cf_finding', e.target.value)}
+                            className="form-input"
+                          >
+                            <option value="">Select Finding</option>
+                            {(filterOptions.cf_finding || []).map(option => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span>{product.cf_finding || ''}</span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  {product.shopify_image && product.shopify_image.url && (
+                    <div className="info-item full-width">
+                      <label>Image URL</label>
+                      <span className="read-only">
+                        <a href={product.shopify_image.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                          {product.shopify_image.url}
+                        </a>
+                      </span>
+                    </div>
                   )}
                 </div>
-              )}
-              {product.purity && (
-                <div className="attribute">
-                  <span className="attribute-label">Purity:</span>
-                  <span className="attribute-value">{product.purity}</span>
-                </div>
-              )}
-              {product.weight && (
-                <div className="attribute">
-                  <span className="attribute-label">Weight:</span>
-                  <span className="attribute-value">{product.weight}</span>
-                </div>
-              )}
+              </div>
+            </div>
           </div>
         )}
       </div>

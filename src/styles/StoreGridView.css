@@ -1,84 +1,252 @@
 /* StoreGridView Styles */
 .store-grid-view {
   padding: 20px;
+  display: block !important;
 }
 
 .store-header {
   margin-bottom: 24px;
-  border-bottom: 3px solid #3498db;
+  border-bottom: 3px solid #8b6f47;
   padding-bottom: 12px;
 }
 
 .store-header h2 {
   margin: 0 0 8px 0;
-  color: #333;
+  color: #5d4e37;
   font-size: 28px;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
 }
 
 .store-info {
-  color: #666;
+  color: #8b7355;
   margin: 0;
   font-size: 14px;
 }
 
 .shelves-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px;
   margin-bottom: 24px;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.shelves-grid > .shelf-box {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 320px;
+}
+
+/* Map layout for shelves with coordinates */
+.shelves-map-container {
+  width: 100%;
+  margin-bottom: 24px;
+  border: 2px solid #d4c4a8;
+  border-radius: 8px;
+  background: #faf8f3;
+  overflow: auto;
+  max-height: 80vh;
+}
+
+.shelves-map {
+  position: relative;
+  background: #faf8f3;
+  padding: 20px;
+}
+
+.shelves-map .shelf-box {
+  position: absolute;
+  width: 280px;
 }
 
 .no-sections {
-  grid-column: 1 / -1;
+  width: 100%;
   text-align: center;
   padding: 40px 20px;
-  background: #f9f9f9;
+  background: #faf8f3;
   border-radius: 8px;
-  color: #999;
+  color: #8b7355;
   font-size: 16px;
 }
 
 .section-detail {
-  background: #e8f4f8;
-  border-left: 4px solid #3498db;
+  background: #f5f1e8;
+  border-left: 4px solid #8b6f47;
   padding: 16px;
   border-radius: 4px;
 }
 
 .section-detail h3 {
   margin: 0 0 8px 0;
-  color: #2c3e50;
+  color: #5d4e37;
+  font-family: 'Cormorant Garamond', serif;
 }
 
 .section-detail p {
   margin: 4px 0;
-  color: #555;
+  color: #8b7355;
   font-size: 14px;
 }
 
 .hint {
   font-style: italic;
-  color: #7f8c8d;
+  color: #8b7355;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .store-grid-view {
-    padding: 12px;
-  }
-
-  .shelves-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
+    padding: 1.5rem;
   }
 
   .store-header h2 {
-    font-size: 22px;
+    font-size: 1.75rem;
+  }
+
+  .shelves-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem;
+  }
+
+  .shelves-map-container {
+    max-height: 70vh;
+  }
+
+  .shelves-map {
+    padding: 1rem;
+  }
+
+  .shelves-map .shelf-box {
+    width: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .store-grid-view {
+    padding: 1rem;
+  }
+
+  .store-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .store-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .store-info {
+    font-size: 0.85rem;
+  }
+
+  .shelves-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .shelf-box {
+    width: 100%;
+    min-width: auto;
+    height: 250px;
+  }
+
+  .shelves-map-container {
+    max-height: 60vh;
+    margin-bottom: 1.5rem;
+  }
+
+  .shelves-map {
+    padding: 0.75rem;
+    min-height: 400px;
+  }
+
+  .shelves-map .shelf-box {
+    width: 200px;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+
+  .no-sections {
+    padding: 2rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .section-detail {
+    padding: 1rem;
+  }
+
+  .section-detail h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .section-detail p {
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
   }
 }
 
 @media (max-width: 480px) {
+  .store-grid-view {
+    padding: 0.75rem;
+  }
+
+  .store-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .store-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .store-info {
+    font-size: 0.8rem;
+  }
+
   .shelves-grid {
-    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .shelf-box {
+    height: 200px;
+  }
+
+  .shelves-map-container {
+    max-height: 50vh;
+  }
+
+  .shelves-map {
+    padding: 0.5rem;
+    min-height: 300px;
+  }
+
+  .shelves-map .shelf-box {
+    width: 160px;
+    font-size: 0.85rem;
+  }
+
+  .no-sections {
+    padding: 1.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .section-detail {
+    padding: 0.875rem;
+  }
+
+  .section-detail h3 {
+    font-size: 0.95rem;
+  }
+
+  .section-detail p {
+    font-size: 0.8rem;
   }
 }
