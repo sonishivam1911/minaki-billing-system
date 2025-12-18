@@ -107,7 +107,7 @@ export const productsApi = {
           
           // Flag to identify as real jewelry
           isRealJewelry: true,
-          isDemified: false,
+          isDemistified: false,
           
           // Full product and variant data for cart operations
           productData: product,
@@ -221,7 +221,7 @@ export const productsApi = {
       
       // Flag to identify as real jewelry
       isRealJewelry: true,
-      isDemified: false,
+          isDemistified: false,
       
       // Full product and variant data for cart operations
       productData: product,
@@ -284,10 +284,10 @@ export const productsApi = {
   },
 };
 
-// Demified Products API
-export const demifiedProductsApi = {
+// Demistified Products API
+export const demistifiedProductsApi = {
   /**
-   * Fetch all demified products with optional filters
+   * Fetch all demistified products with optional filters
    * GET /products/zakya/products
    */
   getAll: async (params = {}) => {
@@ -316,32 +316,32 @@ export const demifiedProductsApi = {
       const queryString = new URLSearchParams(finalParams).toString();
       const url = `${API_BASE_URL}/products/zakya/products${queryString ? `?${queryString}` : ''}`;
       
-      console.log('🌐 Demified API - Fetching URL:', url);
-      console.log('🌐 Demified API - Full URL construction:', {
+      console.log('🌐 Demistified API - Fetching URL:', url);
+      console.log('🌐 Demistified API - Full URL construction:', {
         API_BASE_URL,
         finalUrl: url,
         isRelativeUrl: !url.startsWith('http'),
         willUseProxy: !url.startsWith('http')
       });
-      console.log('🌐 Demified API - Parameters:', finalParams);
+      console.log('🌐 Demistified API - Parameters:', finalParams);
       
       const response = await fetch(url);
       
-      console.log('🌐 Demified API - Response status:', response.status, response.statusText);
-      console.log('🌐 Demified API - Response headers:', {
+      console.log('🌐 Demistified API - Response status:', response.status, response.statusText);
+      console.log('🌐 Demistified API - Response headers:', {
         contentType: response.headers.get('content-type'),
         server: response.headers.get('server'),
         date: response.headers.get('date')
       });
       
       if (!response.ok) {
-        console.error('🚨 Demified API - Response not ok:', response.status, response.statusText);
-        throw new Error(`Failed to fetch demified products: ${response.status} ${response.statusText}`);
+        console.error('🚨 Demistified API - Response not ok:', response.status, response.statusText);
+        throw new Error(`Failed to fetch demistified products: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
       
-      console.log('🗂️ Demified API - Raw response structure:', {
+      console.log('🗂️ Demistified API - Raw response structure:', {
         hasProducts: !!data.products,
         productsLength: data.products?.length,
         totalPages: data.total_pages,
@@ -372,7 +372,7 @@ export const demifiedProductsApi = {
         finish: product.cf_finish,
         finding: product.cf_finding,
         collection: product.cf_collection,
-        isDemified: true, // Flag to identify demified products
+        isDemistified: true, // Flag to identify demistified products
       })) || [];
 
       // Return both products and pagination metadata
@@ -389,17 +389,17 @@ export const demifiedProductsApi = {
         rawCount: transformedProducts.length
       };
     } catch (error) {
-      console.error('🚨 Demified API - Error in getAll:', error);
+      console.error('🚨 Demistified API - Error in getAll:', error);
       throw error;
     }
   },
 
   /**
-   * Search demified products
+   * Search demistified products
    * GET /products/zakya/products with search_query
    */
   search: async (searchQuery, additionalParams = {}) => {
-    return await demifiedProductsApi.getAll({
+    return await demistifiedProductsApi.getAll({
       search_query: searchQuery,
       with_images: 'true',
       ...additionalParams
@@ -412,7 +412,7 @@ export const demifiedProductsApi = {
    */
   getByCategory: async (categories, additionalParams = {}) => {
     const categoryList = Array.isArray(categories) ? categories.join(',') : categories;
-    return await demifiedProductsApi.getAll({
+    return await demistifiedProductsApi.getAll({
       category_list: categoryList,
       with_images: 'true',
       ...additionalParams
@@ -424,7 +424,7 @@ export const demifiedProductsApi = {
    * GET /products/zakya/products with price filtering
    */
   getByPriceRange: async (minPrice, maxPrice, additionalParams = {}) => {
-    return await demifiedProductsApi.getAll({
+    return await demistifiedProductsApi.getAll({
       price_min: minPrice,
       price_max: maxPrice,
       with_images: 'true',
@@ -433,23 +433,23 @@ export const demifiedProductsApi = {
   },
 
   /**
-   * Get single demified product by item_id or SKU
+   * Get single demistified product by item_id or SKU
    * GET /products/zakya/products/{item_id_or_sku}?with_image=true
    */
   getById: async (itemIdOrSku) => {
     try {
       const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(itemIdOrSku)}?with_image=true`;
-      console.log('🚀 Demified API - Get single product URL:', url);
+      console.log('🚀 Demistified API - Get single product URL:', url);
       
       const response = await fetch(url);
       
       if (!response.ok) {
-        console.error('🚨 Demified API - Single product response not ok:', response.status, response.statusText);
+        console.error('🚨 Demistified API - Single product response not ok:', response.status, response.statusText);
         throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('🗂️ Demified API - Single product response:', data);
+      console.log('🗂️ Demistified API - Single product response:', data);
 
       // Transform single product response to match our structure
       const product = data.product || data;
@@ -473,16 +473,16 @@ export const demifiedProductsApi = {
         finish: product.cf_finish,
         finding: product.cf_finding,
         collection: product.cf_collection,
-        isDemified: true, // Flag to identify demified products
+        isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {
-      console.error('🚨 Demified API - Error in getById:', error);
+      console.error('🚨 Demistified API - Error in getById:', error);
       throw error;
     }
   },
 
   /**
-   * Update single demified product
+   * Update single demistified product
    * PATCH /products/zakya/products/{item_id_or_sku}
    */
   update: async (itemIdOrSku, updates) => {
@@ -497,34 +497,34 @@ export const demifiedProductsApi = {
       });
 
       const url = `${API_BASE_URL}/products/zakya/products/${encodeURIComponent(itemIdOrSku)}?${params.toString()}`;
-      console.log('🚀 Demified API - Update product URL:', url);
+      console.log('🚀 Demistified API - Update product URL:', url);
       
       const response = await fetch(url, {
         method: 'PATCH',
       });
       
       if (!response.ok) {
-        console.error('🚨 Demified API - Update response not ok:', response.status, response.statusText);
+        console.error('🚨 Demistified API - Update response not ok:', response.status, response.statusText);
         throw new Error(`Failed to update product: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('🗂️ Demified API - Update response:', data);
+      console.log('🗂️ Demistified API - Update response:', data);
       return data;
     } catch (error) {
-      console.error('🚨 Demified API - Error in update:', error);
+      console.error('🚨 Demistified API - Error in update:', error);
       throw error;
     }
   },
 
   /**
-   * Bulk update demified products
+   * Bulk update demistified products
    * PATCH /products/zakya/products/bulk-update
    */
   bulkUpdate: async (filterCriteria, updates) => {
     try {
       const url = `${API_BASE_URL}/products/zakya/products/bulk-update`;
-      console.log('🚀 Demified API - Bulk update URL:', url);
+      console.log('🚀 Demistified API - Bulk update URL:', url);
       
       const body = {
         filter_criteria: filterCriteria,
@@ -538,15 +538,15 @@ export const demifiedProductsApi = {
       });
       
       if (!response.ok) {
-        console.error('🚨 Demified API - Bulk update response not ok:', response.status, response.statusText);
+        console.error('🚨 Demistified API - Bulk update response not ok:', response.status, response.statusText);
         throw new Error(`Failed to bulk update products: ${response.status} ${response.statusText}`);
       }
       
       const data = await response.json();
-      console.log('🗂️ Demified API - Bulk update response:', data);
+      console.log('🗂️ Demistified API - Bulk update response:', data);
       return data;
     } catch (error) {
-      console.error('🚨 Demified API - Error in bulkUpdate:', error);
+      console.error('🚨 Demistified API - Error in bulkUpdate:', error);
       throw error;
     }
   },
@@ -770,7 +770,7 @@ export const cartApi = {
     const url = `${API_BASE_URL}/carts/${cartId}/items`;
     
     // Determine the correct format based on product data
-    // IMPORTANT: Check for real jewelry FIRST before demified products
+    // IMPORTANT: Check for real jewelry FIRST before demistified products
     let body;
     
     if (productData.isRealJewelry || productData.variant_id) {
@@ -783,8 +783,8 @@ export const cartApi = {
         unit_price: productData.price || 0,
         item_name: productData.name
       };
-    } else if (productData.isDemified) {
-      // Zakya/Demified product - explicitly check isDemified flag
+    } else if (productData.isDemistified) {
+      // Zakya/Demistified product - explicitly check isDemistified flag
       body = {
         item_type: "zakya_product",
         item_id: productId,
@@ -795,7 +795,7 @@ export const cartApi = {
         item_name: productData.name
       };
     } else if (productData.sku && !productData.variant_id) {
-      // Use SKU auto-detection (for demified products without variant_id)
+      // Use SKU auto-detection (for demistified products without variant_id)
       body = {
         sku: productData.sku,
         quantity: quantity,
@@ -1814,7 +1814,7 @@ export const reportsApi = {
 // Export all APIs as a single object for convenience
 export default {
   products: productsApi,
-  demifiedProducts: demifiedProductsApi,
+  demistifiedProducts: demistifiedProductsApi,
   cart: cartApi,
   customers: customersApi,
   checkout: checkoutApi,

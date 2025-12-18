@@ -16,7 +16,7 @@
  * 
  * Supported product types:
  * - real_jewelry: Physical jewelry items
- * - zakya_product: Demified/Other products
+ * - zakya_product: Demistified/Other products
  */
 
 import { useState, useCallback } from 'react';

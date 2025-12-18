@@ -103,6 +103,10 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
         </div>
 
         <div className="header-actions">
+          <div className="header-time">
+            <Clock size={18} />
+            <span className="time-text">{currentTime}</span>
+          </div>
           <button 
             className={`cart-icon ${!hasItemsInCart ? 'disabled' : ''}`}
             onClick={handleCartClick}
@@ -114,10 +118,6 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
               <span className="cart-badge">{cartItemCount}</span>
             )}
           </button>
-          <div className="header-time">
-            <Clock size={18} />
-            <span>{currentTime}</span>
-          </div>
         </div>
       </header>
 

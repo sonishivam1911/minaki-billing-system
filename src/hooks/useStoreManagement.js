@@ -272,7 +272,19 @@ export const useStoreManagement = () => {
       
       const data = await boxesApi.getByShelf(shelfId);
       const boxesList = Array.isArray(data) ? data : data.items || data;
-      setBoxes(boxesList);
+      
+      // Ensure each box has shelf_id set, and merge with existing boxes (replace boxes for this shelf)
+      setBoxes(prev => {
+        // Remove boxes from this shelf first
+        const otherBoxes = prev.filter(b => b.shelf_id !== shelfId);
+        // Add new boxes with shelf_id ensured
+        const newBoxes = boxesList.map(box => ({
+          ...box,
+          shelf_id: box.shelf_id || shelfId
+        }));
+        return [...otherBoxes, ...newBoxes];
+      });
+      
       return boxesList;
     } catch (err) {
       const errorMessage = err.message || 'Failed to fetch boxes';

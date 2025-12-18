@@ -3,14 +3,14 @@ import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { productFiltersApi } from '../services/api';
 
 /**
- * DemifiedFilters Component
- * Provides filtering options for demified products
+ * DemistifiedFilters Component
+ * Provides filtering options for demistified products
  * 
  * @param {Object} props
  * @param {Object} props.filters - Current filter values
  * @param {Function} props.onFiltersChange - Callback when filters change
  */
-export const DemifiedFilters = ({ filters = {}, onFiltersChange }) => {
+export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [filterOptions, setFilterOptions] = useState({
@@ -118,7 +118,7 @@ export const DemifiedFilters = ({ filters = {}, onFiltersChange }) => {
   const activeFilterCount = Object.keys(filters).length;
 
   return (
-    <div className="demified-filters">
+    <div className="demistified-filters">
       <button
         className="filters-toggle-btn"
         onClick={() => setIsOpen(!isOpen)}

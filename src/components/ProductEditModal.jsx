@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
-import { demifiedProductsApi } from '../services/api';
+import { demistifiedProductsApi } from '../services/api';
 
 /**
  * ProductEditModal Component
- * Modal for editing product details, especially for Zakya products
+ * Modal for editing product details, especially for Zoho products
  * 
  * @param {Object} props
  * @param {boolean} props.isOpen - Whether the modal is open
@@ -18,7 +18,7 @@ export const ProductEditModal = ({ isOpen, onClose, product, onSave }) => {
   const [error, setError] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const isDemified = product?.isDemified;
+  const isDemistified = product?.isDemistified;
 
   // Initialize form data when product changes
   useEffect(() => {
@@ -68,8 +68,8 @@ export const ProductEditModal = ({ isOpen, onClose, product, onSave }) => {
       setSaveLoading(true);
       setError(null);
 
-      if (isDemified) {
-        // Prepare updates for Zakya product
+      if (isDemistified) {
+        // Prepare updates for Zoho product
         const updates = {};
         
         // Only include changed fields
@@ -86,7 +86,7 @@ export const ProductEditModal = ({ isOpen, onClose, product, onSave }) => {
         });
 
         if (Object.keys(updates).length > 0) {
-          await demifiedProductsApi.update(product.sku, updates);
+          await demistifiedProductsApi.update(product.sku, updates);
           
           // Notify parent of successful save
           if (onSave) {
@@ -127,7 +127,7 @@ export const ProductEditModal = ({ isOpen, onClose, product, onSave }) => {
           <div>
             <h2 className="modal-title">Edit Product</h2>
             <p className="modal-subtitle">
-              {isDemified ? 'Zakya' : 'Custom'} Product • {product.sku || product.id}
+              {isDemistified ? 'Zoho' : 'Custom'} Product • {product.sku || product.id}
             </p>
           </div>
           

@@ -1,11 +1,11 @@
 /**
  * AddProductToBoxModal - Modal for adding products to boxes
  * Search by SKU and auto-fill product details
- * Supports both Lab (real_jewelry) and Demified (zakya_product) types
+ * Supports both Lab (real_jewelry) and Demistified (zakya_product) types
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useProductLocationTracking } from '../hooks';
-import { productsApi, demifiedProductsApi } from '../services/api';
+import { productsApi, demistifiedProductsApi } from '../services/api';
 
 const AddProductToBoxModal = ({ 
   isOpen, 
@@ -81,7 +81,7 @@ const AddProductToBoxModal = ({
   }, [isOpen]);
 
   /**
-   * Load all lab and demified products using product APIs (like CatalogPage)
+   * Load all lab and demistified products using product APIs (like CatalogPage)
    * Filter out INACTIVE ones and extract just SKUs
    * Only loads once and caches the results
    * Fetches ALL products in a single call using large page_size
@@ -97,24 +97,24 @@ const AddProductToBoxModal = ({
       const labProds = (labResponse?.products || []).map(p => ({ 
         ...p, 
         productType: 'lab',
-        isDemified: false
+        isDemistified: false
       }));
 
-      // Fetch ALL demified products in a single call - don't pass page/page_size to get all products
+      // Fetch ALL demistified products in a single call - don't pass page/page_size to get all products
       // Don't include with_images for SKU dropdown
-      const demifiedResponse = await demifiedProductsApi.getAll({
+      const demistifiedResponse = await demistifiedProductsApi.getAll({
         with_images: false
         // Don't pass page or page_size - API returns all products when these are omitted
       });
       
-      const demifiedProds = (demifiedResponse?.products || []).map(p => ({ 
+      const demistifiedProds = (demistifiedResponse?.products || []).map(p => ({ 
         ...p, 
-        productType: 'demified',
-        isDemified: true
+        productType: 'demistified',
+        isDemistified: true
       }));
 
       // Combine and filter
-      const allProds = [...labProds, ...demifiedProds];
+      const allProds = [...labProds, ...demistifiedProds];
       
       // Filter out products with -INACTIVE suffix in SKU
       const activeProds = allProds.filter(p => {
@@ -133,9 +133,9 @@ const AddProductToBoxModal = ({
         total: allProds.length,
         active: activeProds.length,
         lab: labProds.length,
-        demified: demifiedProds.length,
+        demistified: demistifiedProds.length,
         labSample: labProds.slice(0, 2),
-        demifiedSample: demifiedProds.slice(0, 2)
+        demistifiedSample: demistifiedProds.slice(0, 2)
       });
     } catch (err) {
       console.error('Error loading products:', err);
@@ -149,9 +149,9 @@ const AddProductToBoxModal = ({
   // Filter products by SKU search query and product type
   useEffect(() => {
     const filterBySku = () => {
-      // Filter by product type first - show only lab products for lab, demified for demified
+      // Filter by product type first - show only lab products for lab, demistified for demistified
       const typeFilteredProducts = allProducts.filter(product => {
-        const productType = product.productType || (product.isDemified ? 'demified' : 'lab');
+        const productType = product.productType || (product.isDemistified ? 'demistified' : 'lab');
         return productType === formData.product_type;
       });
       
@@ -229,7 +229,7 @@ const AddProductToBoxModal = ({
    */
   const handleProductSelect = (product) => {
     // Determine product type from the selected product
-    const productType = product.productType || (product.isDemified ? 'demified' : 'lab');
+    const productType = product.productType || (product.isDemistified ? 'demistified' : 'lab');
     
     setFormData(prev => ({
       ...prev,
@@ -330,11 +330,11 @@ const AddProductToBoxModal = ({
           </button>
           <button
             type="button"
-            className={`toggle-btn ${formData.product_type === 'demified' ? 'active' : ''}`}
-            onClick={() => handleProductTypeChange('demified')}
+            className={`toggle-btn ${formData.product_type === 'demistified' ? 'active' : ''}`}
+            onClick={() => handleProductTypeChange('demistified')}
             disabled={isLoading}
           >
-            👜 Demified
+            👜 Demistified
           </button>
         </div>
 
@@ -386,7 +386,7 @@ const AddProductToBoxModal = ({
                         <div className="dropdown-item-details">
                           <span className="item-name">{product.name || product.product_name}</span>
                           <span className="item-type">
-                            {product.productType === 'lab' ? '💍 Lab' : '👜 Demified'}
+                            {product.productType === 'lab' ? '💍 Lab' : '👜 Demistified'}
                           </span>
                           {product.metal_weight_g && (
                             <span className="item-meta">⚖️ {product.metal_weight_g}g</span>
@@ -408,7 +408,7 @@ const AddProductToBoxModal = ({
                     {allProducts.length > 0 && (
                       <span style={{ display: 'block', fontSize: '0.85em', marginTop: '5px', color: '#666' }}>
                         💍 Lab: {allProducts.filter(p => p.productType === 'lab').length} | 
-                        👜 Demified: {allProducts.filter(p => p.productType === 'demified').length}
+                        👜 Demistified: {allProducts.filter(p => p.productType === 'demistified').length}
                       </span>
                     )}
                   </div>

@@ -122,6 +122,35 @@ export const shelvesApi = {
   },
 
   /**
+   * Update single shelf coordinates
+   * PATCH /inventory/shelves/{shelf_id}/coordinates
+   * 
+   * @param {number} shelfId - Shelf ID
+   * @param {number} visualX - X coordinate
+   * @param {number} visualY - Y coordinate
+   * @returns {Promise<Object>} Updated shelf object
+   */
+  updateCoordinates: async (shelfId, visualX, visualY) => {
+    return await apiRequest('PATCH', `${BASE_PATH}/${shelfId}/coordinates`, {
+      visual_x: visualX,
+      visual_y: visualY
+    });
+  },
+
+  /**
+   * Bulk update shelf coordinates
+   * PATCH /inventory/shelves/bulk/coordinates
+   * 
+   * @param {Array} updates - Array of {id, visual_x, visual_y}
+   * @returns {Promise<Object>} {updated: [...], errors: [...], message: string}
+   */
+  bulkUpdateCoordinates: async (updates) => {
+    return await apiRequest('PATCH', `${BASE_PATH}/bulk/coordinates`, {
+      updates: updates
+    });
+  },
+
+  /**
    * Delete shelf
    * DELETE /inventory/shelves/{shelf_id}
    * 

@@ -107,7 +107,7 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
   // product_type can be "zakya_product" or "real_jewelry"
   const productType = location.product_type || product.product_type;
   const isZakya = productType === 'zakya_product';
-  const routeType = isZakya ? 'demified' : 'real';
+  const routeType = isZakya ? 'demistified' : 'real';
   
   // For zakya products, use item_id (preferred) or fallback to product_id/sku; for real jewelry, use product_id
   const productIdentifier = isZakya 

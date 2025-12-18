@@ -19,7 +19,7 @@ const normalizeCartItems = (items) => {
   
   return items.map((item, index) => {
     // Handle different possible field names from the API
-    // Real jewelry items might have different structure than demified items
+    // Real jewelry items might have different structure than demistified items
     const normalizedItem = {
       id: item.id || item.item_id || item.variant_id || item.cart_item_id,
       cart_item_id: item.cart_item_id || item.id || item.item_id,
@@ -242,7 +242,7 @@ export const useCart = () => {
       id: productData.id,
       price: productData.price,
       name: productData.name,
-      isDemified: productData.isDemified,
+      isDemistified: productData.isDemistified,
       item_id: productData.item_id,
       sku: productData.sku,
       fullData: productData

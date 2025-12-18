@@ -16,7 +16,7 @@ export { CartPreviewStrip } from './CartPreviewStrip';
 export { CheckoutSuccess } from './CheckoutSuccess';
 export { InvoiceActions } from './InvoiceActions';
 export { ProductEditModal } from './ProductEditModal';
-export { DemifiedFilters } from './DemifiedFilters';
+export { DemistifiedFilters } from './DemistifiedFilters';
 
 // Store Locator Components
 export { default as StoreGridView } from './StoreGridView';

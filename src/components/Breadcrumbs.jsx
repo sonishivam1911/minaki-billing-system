@@ -51,7 +51,7 @@ export const Breadcrumbs = () => {
   
   if (isProductRoute) {
     const [, type, id] = isProductRoute;
-    const productType = type === 'demified' ? 'Demified' : 'Real';
+    const productType = type === 'demistified' ? 'Demistified' : 'Real';
     currentConfig = {
       title: `${productType} Product`,
       subtitle: `ID: ${decodeURIComponent(id)}`,
@@ -79,7 +79,7 @@ export const Breadcrumbs = () => {
     // Handle product route first
     if (isProductRoute) {
       const [, type, id] = isProductRoute;
-      const productType = type === 'demified' ? 'Demified' : 'Real';
+      const productType = type === 'demistified' ? 'Demistified' : 'Real';
       path.unshift({
         path: pathname,
         title: `${productType} Product`,

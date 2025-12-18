@@ -19,15 +19,15 @@ import {
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { LoadingSpinner, ErrorMessage } from '../components';
-import { productsApi, demifiedProductsApi, productFiltersApi } from '../services/api';
+import { productsApi, demistifiedProductsApi, productFiltersApi } from '../services/api';
 
 /**
  * ProductDetailPage Component
  * Displays detailed view of a single product with edit capabilities
- * Handles both real (billing system) and demified (Zakya) products
+ * Handles both real (billing system) and demistified (Zoho) products
  */
 export const ProductDetailPage = () => {
-  const { type, id } = useParams(); // type = 'real' | 'demified', id = product ID/SKU
+  const { type, id } = useParams(); // type = 'real' | 'demistified', id = product ID/SKU
   const navigate = useNavigate();
   const { addItem } = useCart();
 
@@ -47,7 +47,7 @@ export const ProductDetailPage = () => {
     pricing: true
   });
 
-  const isDemified = type === 'demified';
+  const isDemistified = type === 'demistified';
   const isReal = type === 'real';
 
   // Fetch product data
@@ -60,8 +60,8 @@ export const ProductDetailPage = () => {
         const decodedId = decodeURIComponent(id);
 
         let response;
-        if (isDemified) {
-          response = await demifiedProductsApi.getById(decodedId);
+        if (isDemistified) {
+          response = await demistifiedProductsApi.getById(decodedId);
         } else {
           response = await productsApi.getById(decodedId);
         }
@@ -82,12 +82,12 @@ export const ProductDetailPage = () => {
       setError('Invalid product URL');
       setLoading(false);
     }
-  }, [type, id, isDemified]);
+  }, [type, id, isDemistified]);
 
-  // Load filter options for demified products
+  // Load filter options for demistified products
   useEffect(() => {
     const loadFilterOptions = async () => {
-      if (!isDemified) return;
+      if (!isDemistified) return;
       
       try {
         setLoadingFilters(true);
@@ -115,7 +115,7 @@ export const ProductDetailPage = () => {
     };
 
     loadFilterOptions();
-  }, [isDemified]);
+  }, [isDemistified]);
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -128,7 +128,7 @@ export const ProductDetailPage = () => {
     try {
       setSaveLoading(true);
       
-      if (isDemified) {
+      if (isDemistified) {
         const updates = {};
         Object.keys(editedProduct).forEach(key => {
           if (editedProduct[key] !== product[key] && 
@@ -138,10 +138,10 @@ export const ProductDetailPage = () => {
         });
 
         if (Object.keys(updates).length > 0) {
-          // Use item_id for demified products, fallback to sku if item_id not available
+          // Use item_id for demistified products, fallback to sku if item_id not available
           const identifier = product.item_id || product.sku;
-          await demifiedProductsApi.update(identifier, updates);
-          const updatedProduct = await demifiedProductsApi.getById(id);
+          await demistifiedProductsApi.update(identifier, updates);
+          const updatedProduct = await demistifiedProductsApi.getById(id);
           setProduct(updatedProduct);
           setEditedProduct(updatedProduct);
         }
@@ -205,7 +205,7 @@ export const ProductDetailPage = () => {
   const handleAddToCart = async () => {
     if (product) {
       try {
-        const productId = isDemified || product.isDemified
+        const productId = isDemistified || product.isDemistified
           ? (product.id || product.sku)
           : (product.variant_id || product.id);
         
@@ -267,7 +267,7 @@ export const ProductDetailPage = () => {
   }
 
   const stockInfo = getStockStatus(product.stock || product.stock_on_hand || 0);
-  const canEdit = isReal || isDemified; // Allow editing for both types
+  const canEdit = isReal || isDemistified; // Allow editing for both types
   const isOutOfStock = (product.stock || product.stock_on_hand || 0) === 0;
   const metalComponents = editedProduct.metal_components || product.metal_components || [];
   const diamondComponents = editedProduct.diamond_components || product.diamond_components || [];
@@ -321,7 +321,7 @@ export const ProductDetailPage = () => {
         </div>
 
         <div className="product-breadcrumb">
-          <span className="product-type">{isDemified ? 'Demified' : 'Real'} Jewelry</span>
+          <span className="product-type">{isDemistified ? 'Demistified' : 'Real'} Jewelry</span>
           <span className="separator">•</span>
           <span className={`product-category ${(!product.category && !product.category_name) ? 'uncategorised' : ''}`}>
             {product.category || product.category_name || 'Uncategorised'}
@@ -377,8 +377,8 @@ export const ProductDetailPage = () => {
               )}
               
               <div className="product-meta">
-                <span className="product-id">ID: {isDemified ? (product.item_id || product.id || product.sku) : (product.id || product.sku)}</span>
-                <span className="product-type-badge">{isDemified ? 'Zakya' : 'Custom'}</span>
+                <span className="product-id">ID: {isDemistified ? (product.item_id || product.id || product.sku) : (product.id || product.sku)}</span>
+                <span className="product-type-badge">{isDemistified ? 'Zoho' : 'Custom'}</span>
               </div>
             </div>
 
@@ -1020,8 +1020,8 @@ export const ProductDetailPage = () => {
           </div>
         )}
 
-        {/* For Demified Products - Show All Fields */}
-        {isDemified && (
+        {/* For Demistified Products - Show All Fields */}
+        {isDemistified && (
           <div className="product-detail-sections">
             <div className="detail-section">
               <div className="section-header">
@@ -1106,7 +1106,7 @@ export const ProductDetailPage = () => {
                       )}
                     </div>
                   )}
-                  {isDemified && product.item_id && (
+                  {isDemistified && product.item_id && (
                     <div className="info-item">
                       <label>Item ID</label>
                       <span className="read-only">{product.item_id}</span>
@@ -1140,7 +1140,7 @@ export const ProductDetailPage = () => {
                       <span>{product.available_stock}</span>
                     </div>
                   )}
-                  {isDemified && (
+                  {isDemistified && (
                     <>
                       <div className="info-item">
                         <label>Collection</label>

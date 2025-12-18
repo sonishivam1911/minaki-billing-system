@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { demifiedProductsApi } from '../services/api';
+import { demistifiedProductsApi } from '../services/api';
 
 /**
- * Custom Hook: useDemifiedProducts
- * Fetches and manages demified products data with pagination support
+ * Custom Hook: useDemistifiedProducts
+ * Fetches and manages demistified products data with pagination support
  * 
  * @param {Object} options - Hook options
  * @param {number} options.initialPage - Initial page number (default: 1)
  * @param {number} options.pageSize - Number of items per page (default: 20)
  * @param {boolean} options.autoFetch - Whether to auto-fetch on mount (default: true)
- * @returns {Object} Demified products state and methods
+ * @returns {Object} Demistified products state and methods
  */
-export const useDemifiedProducts = ({ 
+export const useDemistifiedProducts = ({ 
   initialPage = 1, 
   pageSize = 20,
   autoFetch = true 
@@ -52,7 +52,7 @@ export const useDemifiedProducts = ({
 
   const fetchProducts = async (page = currentPage, params = {}, useFilters = true, filtersOverride = null) => {
     try {
-      console.log(`🚀 useDemifiedProducts - Fetching page ${page}...`);
+      console.log(`🚀 useDemistifiedProducts - Fetching page ${page}...`);
       setLoading(true);
       
       // Merge filters with additional params FIRST to build proper cache key
@@ -67,7 +67,7 @@ export const useDemifiedProducts = ({
         ...params
       };
       
-      console.log('🔍 useDemifiedProducts - Filters being applied:', {
+      console.log('🔍 useDemistifiedProducts - Filters being applied:', {
         filtersState: filters,
         filterParams: filterParams,
         finalParams: finalParams
@@ -87,9 +87,9 @@ export const useDemifiedProducts = ({
         return cachedData;
       }
       
-      const response = await demifiedProductsApi.getAll(finalParams);
+      const response = await demistifiedProductsApi.getAll(finalParams);
       
-      console.log('📦 useDemifiedProducts - API Response:', {
+      console.log('📦 useDemistifiedProducts - API Response:', {
         products: response.products?.length,
         pagination: response.pagination,
         rawCount: response.rawCount
@@ -116,18 +116,18 @@ export const useDemifiedProducts = ({
       return paginationData;
       
     } catch (err) {
-      setError('Failed to load demified products');
-      console.error('Fetch demified products error:', err);
+      setError('Failed to load demistified products');
+      console.error('Fetch demistified products error:', err);
       throw err;
     } finally {
       setLoading(false);
-      console.log('✅ useDemifiedProducts - Loading set to false');
+      console.log('✅ useDemistifiedProducts - Loading set to false');
     }
   };
 
   useEffect(() => {
     if (!autoFetch) {
-      console.log('📦 useDemifiedProducts - Auto-fetch disabled, skipping initial load');
+      console.log('📦 useDemistifiedProducts - Auto-fetch disabled, skipping initial load');
       setLoading(false);
       return;
     }
@@ -196,13 +196,13 @@ export const useDemifiedProducts = ({
       // Include filters in search
       const filterParams = filtersToParams(filters);
       
-      const response = await demifiedProductsApi.search(searchQuery, {
+      const response = await demistifiedProductsApi.search(searchQuery, {
         page: page.toString(),
         page_size: pageSize.toString(),
         ...filterParams
       });
       
-      console.log('🔍 useDemifiedProducts - Search Response:', {
+      console.log('🔍 useDemistifiedProducts - Search Response:', {
         products: response.products?.length,
         pagination: response.pagination,
         query: searchQuery
@@ -219,8 +219,8 @@ export const useDemifiedProducts = ({
       setError(null);
       
     } catch (err) {
-      setError('Failed to search demified products');
-      console.error('Search demified products error:', err);
+      setError('Failed to search demistified products');
+      console.error('Search demistified products error:', err);
     } finally {
       setLoading(false);
     }
@@ -260,3 +260,4 @@ export const useDemifiedProducts = ({
     applyFilters,
   };
 };
+

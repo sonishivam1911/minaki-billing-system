@@ -9,7 +9,8 @@
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0"
+    "react-router-dom": "^6.20.0",
+    "react-zoom-pan-pinch": "^3.7.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",

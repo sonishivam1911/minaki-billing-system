@@ -25,16 +25,16 @@ export const ProductCard = ({ product, onAddToCart }) => {
     purity,
     image = '💎',
     brand,
-    isDemified = false,
+    isDemistified = false,
     sku,
   } = product;
 
   // Use the correct price and stock fields based on product type
-  const finalPrice = isDemified ? (rate || price || 0) : (price || rate || 0);
-  const finalStock = isDemified ? (stock_on_hand || stock || 0) : (stock || stock_on_hand || 0);
-  // For demified products, use item_id instead of sku
-  const productIdentifier = isDemified ? (item_id || id || sku) : id;
-  const productType = isDemified ? 'demified' : 'real';
+  const finalPrice = isDemistified ? (rate || price || 0) : (price || rate || 0);
+  const finalStock = isDemistified ? (stock_on_hand || stock || 0) : (stock || stock_on_hand || 0);
+  // For demistified products, use item_id instead of sku
+  const productIdentifier = isDemistified ? (item_id || id || sku) : id;
+  const productType = isDemistified ? 'demistified' : 'real';
 
   const isOutOfStock = finalStock === 0;
   const isLowStock = finalStock < 3 && finalStock > 0;
@@ -46,7 +46,7 @@ export const ProductCard = ({ product, onAddToCart }) => {
   const productDetailLink = `/product/${productType}/${encodeURIComponent(productIdentifier)}`;
 
   return (
-    <div className={`product-card ${isDemified ? 'demified' : ''}`}>
+    <div className={`product-card ${isDemistified ? 'demistified' : ''}`}>
       {/* Make the image clickable to view details */}
       <Link to={productDetailLink} className="product-image-link">
         <div className="product-image">
@@ -82,7 +82,7 @@ export const ProductCard = ({ product, onAddToCart }) => {
         </Link>
 
         <div className="product-details">
-          {brand && isDemified && <span className="detail-badge brand">{brand}</span>}
+          {brand && isDemistified && <span className="detail-badge brand">{brand}</span>}
           {purity && <span className="detail-badge">{purity}</span>}
           {weight && <span className="detail-badge">{weight}</span>}
           <span className={`stock-badge ${isLowStock ? 'low-stock' : ''} ${isOutOfStock ? 'out-of-stock' : ''}`}>

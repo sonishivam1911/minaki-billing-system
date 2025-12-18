@@ -140,18 +140,18 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
     const newErrors = {};
     
     if (!formData.name.trim()) {
-      newErrors.name = 'Box name is required';
+      newErrors.name = 'Storage Object is required';
     }
     
     if (!formData.code.trim()) {
-      newErrors.code = 'Box code is required';
+      newErrors.code = 'Storage Object code is required';
     } else {
       // Check for duplicate code in existing boxes
       const codeExists = existingBoxes.some(
         box => (box.box_code || box.code || '').toLowerCase() === formData.code.trim().toLowerCase()
       );
       if (codeExists) {
-        newErrors.code = 'This box code already exists. Please use a unique code.';
+        newErrors.code = 'This storage object code already exists. Please use a unique code.';
       }
     }
     
@@ -169,10 +169,10 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
     
     bulkData.forEach((box, index) => {
       if (!box.name.trim()) {
-        newErrors[`bulk_name_${index}`] = 'Box name is required';
+        newErrors[`bulk_name_${index}`] = 'Storage Object is required';
       }
       if (!box.code.trim()) {
-        newErrors[`bulk_code_${index}`] = 'Box code is required';
+        newErrors[`bulk_code_${index}`] = 'Storage Object code is required';
       } else {
         const codeLower = box.code.trim().toLowerCase();
         
@@ -181,12 +181,12 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
           existingBox => (existingBox.box_code || existingBox.code || '').toLowerCase() === codeLower
         );
         if (codeExists) {
-          newErrors[`bulk_code_${index}`] = 'This box code already exists in the database.';
+          newErrors[`bulk_code_${index}`] = 'This storage object code already exists in the database.';
         }
         
         // Check for duplicate within the bulk data itself
         if (usedCodes.has(codeLower)) {
-          newErrors[`bulk_code_${index}`] = 'Duplicate code in this form. Each box must have a unique code.';
+          newErrors[`bulk_code_${index}`] = 'Duplicate code in this form. Each storage object must have a unique code.';
         } else {
           usedCodes.add(codeLower);
         }
@@ -299,7 +299,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>📦 Create Boxes</h2>
+          <h2>📦 Create Storage Objects</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -310,21 +310,21 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
               className={`toggle-btn ${formMode === 'single' ? 'active' : ''}`}
               onClick={() => setFormMode('single')}
             >
-              Single Box
+              Single Storage Object
             </button>
             <button
               type="button"
               className={`toggle-btn ${formMode === 'bulk' ? 'active' : ''}`}
               onClick={() => setFormMode('bulk')}
             >
-              Multiple Boxes
+              Multiple Storage Objects
             </button>
           </div>
         )}
 
         {isLoadingBoxes && (
           <div className="loading-indicator" style={{ padding: '20px', textAlign: 'center' }}>
-            <span>Loading existing boxes...</span>
+            <span>Loading existing storage objects...</span>
           </div>
         )}
 
@@ -332,14 +332,14 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
           {formMode === 'single' ? (
             <>
               <div className="form-group">
-                <label htmlFor="name">Box Name *</label>
+                <label htmlFor="name">Storage Object *</label>
                 <input
                   id="name"
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g., Box A, Storage Box"
+                  placeholder="e.g., Storage Object A, Storage Box"
                   className={errors.name ? 'input-error' : ''}
                 />
                 {errors.name && <span className="error-text">{errors.name}</span>}
@@ -347,7 +347,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="code">Box Code/QR *</label>
+                  <label htmlFor="code">Storage Object Code/QR *</label>
                   <input
                     id="code"
                     type="text"
@@ -386,36 +386,37 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
                     checked={formData.is_active}
                     onChange={handleChange}
                   />
-                  <span>Active Box</span>
+                  <span>Active Storage Object</span>
                 </label>
               </div>
+
             </>
           ) : (
             <>
               <div className="bulk-form-container">
                 {bulkData.map((box, index) => (
-                  <div key={index} className="bulk-item">
-                    <div className="bulk-item-header">
-                      <h4>Box {index + 1}</h4>
-                      {bulkData.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          onClick={() => removeBulkBox(index)}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                    <div key={index} className="bulk-item">
+                      <div className="bulk-item-header">
+                        <h4>Storage Object {index + 1}</h4>
+                        {bulkData.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-danger"
+                            onClick={() => removeBulkBox(index)}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
 
                     <div className="form-row">
                       <div className="form-group">
-                        <label>Name *</label>
+                        <label>Storage Object *</label>
                         <input
                           type="text"
                           value={box.name}
                           onChange={(e) => handleBulkChange(index, 'name', e.target.value)}
-                          placeholder="Box name"
+                          placeholder="Storage Object"
                           className={errors[`bulk_name_${index}`] ? 'input-error' : ''}
                         />
                         {errors[`bulk_name_${index}`] && (
@@ -429,7 +430,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
                           type="text"
                           value={box.code}
                           onChange={(e) => handleBulkChange(index, 'code', e.target.value)}
-                          placeholder="Box code"
+                          placeholder="Storage Object code"
                           className={errors[`bulk_code_${index}`] ? 'input-error' : ''}
                         />
                         {errors[`bulk_code_${index}`] && (
@@ -451,6 +452,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
                         )}
                       </div>
                     </div>
+
                   </div>
                 ))}
               </div>
@@ -461,7 +463,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
                   className="btn btn-secondary"
                   onClick={addBulkBox}
                 >
-                  + Add Another Box
+                  + Add Another Storage Object
                 </button>
               </div>
             </>
@@ -481,7 +483,7 @@ const CreateBoxModal = ({ isOpen, onClose, onSubmit, shelfId, bulkMode = false, 
               className="btn btn-primary"
               disabled={loading}
             >
-              {loading ? 'Creating...' : formMode === 'bulk' ? `Create ${bulkData.length} Boxes` : 'Create Box'}
+              {loading ? 'Creating...' : formMode === 'bulk' ? `Create ${bulkData.length} Storage Objects` : 'Create Storage Object'}
             </button>
           </div>
         </form>

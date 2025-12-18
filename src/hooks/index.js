@@ -2,7 +2,7 @@
 export { useCart } from './useCart';
 export { useCustomers } from './useCustomers';
 export { useProducts } from './useProducts';
-export { useDemifiedProducts } from './useDemifiedProducts';
+export { useDemistifiedProducts } from './useDemistifiedProducts';
 export { useInvoices } from './useInvoices';
 export { useStoreLocator } from './useStoreLocator';
 export { useStoreManagement } from './useStoreManagement';

@@ -188,7 +188,7 @@ export const productsApi = {
    * GET /inventory/products/movements/{product_type}/{product_id}
    * Returns complete audit trail of all movements for the product
    * 
-   * @param {string} productType - "real_jewelry" or "zakya_product"
+   * @param {string} productType - "real_jewelry" or "zoho_product"
    * @param {string} productId - Product ID
    * @param {number} limit - Maximum records (optional, default: 100)
    * @returns {Promise<Array>} Array of movement records
