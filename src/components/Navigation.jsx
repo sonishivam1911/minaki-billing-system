@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2 } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Navigation Component
@@ -13,8 +14,11 @@ import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Men
  */
 export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { userInfo, logout, isAuthenticated } = useAuth();
   const [currentTime, setCurrentTime] = React.useState(new Date().toLocaleTimeString());
   const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed by default
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Update clock every second
   React.useEffect(() => {
@@ -36,6 +40,16 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     }
     onCartClick();
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -72,11 +86,29 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
       if (event.key === 'Escape' && sidebarOpen) {
         closeSidebar();
       }
+      // Escape to close user menu
+      if (event.key === 'Escape' && showUserMenu) {
+        setShowUserMenu(false);
+      }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, showUserMenu]);
+
+  // Close user menu when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showUserMenu && !event.target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showUserMenu]);
 
   return (
     <>
@@ -107,6 +139,45 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
             <Clock size={18} />
             <span className="time-text">{currentTime}</span>
           </div>
+          
+          {/* User Info */}
+          {userInfo && (
+            <div className="user-menu-container">
+              <button
+                className="user-menu-button"
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                title={`Logged in as ${userInfo.email || userInfo.name || 'User'}`}
+              >
+                <User size={20} />
+                <span className="user-name">
+                  {userInfo.name || userInfo.email?.split('@')[0] || 'User'}
+                </span>
+                {userInfo.role && (
+                  <span className="user-role">{userInfo.role}</span>
+                )}
+              </button>
+              
+              {showUserMenu && (
+                <div className="user-menu-dropdown">
+                  <div className="user-menu-info">
+                    <div className="user-menu-email">{userInfo.email}</div>
+                    {userInfo.role && (
+                      <div className="user-menu-role">Role: {userInfo.role}</div>
+                    )}
+                  </div>
+                  <div className="user-menu-divider"></div>
+                  <button
+                    className="user-menu-item logout-button"
+                    onClick={handleLogout}
+                  >
+                    <LogOut size={18} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
           <button 
             className={`cart-icon ${!hasItemsInCart ? 'disabled' : ''}`}
             onClick={handleCartClick}

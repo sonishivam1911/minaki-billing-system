@@ -1,18 +1,38 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, ShelfDetailPage } from './pages';
+import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, ShelfDetailPage, LoginPage } from './pages';
 import { useCart } from './context/CartContext';
+import { useAuth } from './context/AuthContext';
 import './styles/App.css';
 
 /**
  * ProtectedRoute Component
- * Protects routes based on cart state and workflow
+ * Protects routes based on authentication and cart state
  */
-const ProtectedRoute = ({ element, requiresCart = false, children }) => {
+const ProtectedRoute = ({ element, requiresCart = false, children, requireAuth = true }) => {
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { totals } = useCart();
   const hasItemsInCart = totals.itemCount > 0;
+  const location = useLocation();
 
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  // Check authentication first
+  if (requireAuth && !isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Check cart requirement
   if (requiresCart && !hasItemsInCart) {
     return <Navigate to="/catalog" replace />;
   }
@@ -26,6 +46,7 @@ const ProtectedRoute = ({ element, requiresCart = false, children }) => {
  */
 function App() {
   const { totals } = useCart();
+  const { isAuthenticated } = useAuth();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -36,39 +57,95 @@ function App() {
     setIsSidebarOpen(isOpen);
   };
 
+  // #region agent log
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/e8108bd9-bb63-4042-831f-98035e7b18c4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:60',message:'DndProvider initialized',data:{backend:'HTML5Backend'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  }, []);
+  // #endregion
+
   return (
-    <Router>
-      <div className="app">
-        <Navigation 
-          cartItemCount={totals.itemCount} 
-          onCartClick={openDrawer}
-          onSidebarToggle={handleSidebarToggle}
-        />
+    <DndProvider backend={HTML5Backend}>
+      <Router>
+        <div className="app">
+        {/* Only show navigation when authenticated */}
+        {isAuthenticated && (
+          <Navigation 
+            cartItemCount={totals.itemCount} 
+            onCartClick={openDrawer}
+            onSidebarToggle={handleSidebarToggle}
+          />
+        )}
         
-        <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        <div className={`app-layout ${isSidebarOpen && isAuthenticated ? 'sidebar-open' : 'sidebar-closed'}`}>
           <div className="main-content">
-            <Breadcrumbs />
+            {/* Only show breadcrumbs when authenticated */}
+            {isAuthenticated && <Breadcrumbs />}
             
             <div className="page-content">
               <Routes>
+                {/* Login page - public, redirect if already authenticated */}
+                <Route path="/login" element={<LoginPage />} />
+                
                 {/* Default to catalog */}
                 <Route path="/" element={<Navigate to="/catalog" replace />} />
                 
-                {/* Always accessible */}
-                <Route path="/catalog" element={<CatalogPage />} />
-                <Route path="/invoices" element={<InvoicesPage />} />
-                <Route path="/store-locator" element={<StoreLocatorPage />} />
-                <Route path="/store-locator/shelf/:shelfId" element={<ShelfDetailPage />} />
-                <Route path="/store-management" element={<StoreManagementPage />} />
+                {/* Protected routes - require authentication */}
+                <Route 
+                  path="/catalog" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CatalogPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/invoices" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <InvoicesPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/store-locator" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <StoreLocatorPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/store-locator/shelf/:shelfId" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ShelfDetailPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/store-management" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <StoreManagementPage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
-                {/* Product detail pages - accessible without cart */}
-                <Route path="/product/:type/:id" element={<ProductDetailPage />} />
+                {/* Product detail pages - require auth */}
+                <Route 
+                  path="/product/:type/:id" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ProductDetailPage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
-                {/* Protected routes - require items in cart */}
+                {/* Protected routes - require auth AND items in cart */}
                 <Route 
                   path="/cart" 
                   element={
-                    <ProtectedRoute requiresCart={true}>
+                    <ProtectedRoute requireAuth={true} requiresCart={true}>
                       <CartPage />
                     </ProtectedRoute>
                   } 
@@ -76,19 +153,21 @@ function App() {
                 <Route 
                   path="/checkout" 
                   element={
-                    <ProtectedRoute requiresCart={true}>
+                    <ProtectedRoute requireAuth={true} requiresCart={true}>
                       <CheckoutPage />
                     </ProtectedRoute>
                   } 
                 />
                 
-                {/* Always accessible */}
+                {/* Protected routes - require auth */}
                 <Route 
                   path="/customers" 
-                  element={<CustomersPage />} 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CustomersPage />
+                    </ProtectedRoute>
+                  } 
                 />
-
-                
                 
                 {/* Fallback for invalid routes */}
                 <Route path="*" element={<Navigate to="/catalog" replace />} />
@@ -97,18 +176,24 @@ function App() {
           </div>
         </div>
 
-        {/* Cart Preview Strip */}
-        <CartPreviewStrip onCartClick={openDrawer} />
-
-        <Footer />
+        {/* Only show cart preview and footer when authenticated */}
+        {isAuthenticated && (
+          <>
+            <CartPreviewStrip onCartClick={openDrawer} />
+            <Footer />
+          </>
+        )}
         
-        {/* Drawer Cart */}
-        <DrawerCart 
-          isOpen={isDrawerOpen} 
-          onClose={closeDrawer} 
-        />
+        {/* Drawer Cart - only show when authenticated */}
+        {isAuthenticated && (
+          <DrawerCart 
+            isOpen={isDrawerOpen} 
+            onClose={closeDrawer} 
+          />
+        )}
       </div>
     </Router>
+    </DndProvider>
   );
 }
 

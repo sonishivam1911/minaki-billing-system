@@ -8,7 +8,6 @@ import CreateStoreModal from '../components/CreateStoreModal';
 import CreateShelfModal from '../components/CreateShelfModal';
 import CreateBoxModal from '../components/CreateBoxModal';
 import AddProductToBoxModal from '../components/AddProductToBoxModal';
-import PositionStorageTypesModal from '../components/PositionStorageTypesModal';
 import ShopFloorMap from '../components/ShopFloorMap';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -20,7 +19,6 @@ const StoreManagementPage = () => {
   const [showCreateShelf, setShowCreateShelf] = useState(false);
   const [showCreateBox, setShowCreateBox] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [showPositionModal, setShowPositionModal] = useState(false);
 
   // Selection state
   const [selectedStore, setSelectedStore] = useState(null);
@@ -858,7 +856,7 @@ const StoreManagementPage = () => {
                   selectedShelf={selectedShelf}
                   onShelfClick={handleSelectShelf}
                   store={selectedStore}
-                  onPositionClick={() => setShowPositionModal(true)}
+                  onPositionUpdated={handlePositionUpdated}
                 />
               )}
             </div>
@@ -900,15 +898,6 @@ const StoreManagementPage = () => {
         boxCapacity={selectedBox?.capacity}
         onProductAdded={handleProductAdded}
         loading={loading}
-      />
-
-      <PositionStorageTypesModal
-        isOpen={showPositionModal}
-        onClose={() => setShowPositionModal(false)}
-        shelves={shelves}
-        boxes={boxes}
-        storeId={selectedStore?.location_id || selectedStore?.id}
-        onPositionUpdated={handlePositionUpdated}
       />
     </div>
   );

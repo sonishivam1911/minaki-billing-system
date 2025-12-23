@@ -230,16 +230,163 @@ export const productsApi = {
   },
 
   /**
-   * Create new product
-   * POST /api/products
+   * Create new lab-grown diamond product
+   * POST /api/agent/lab-grown-diamond/create
+   * Uses FormData with multipart/form-data for all requests
    */
-  create: async (productData) => {
-    const response = await fetch(`${API_BASE_URL}/products`, {
+  createLabGrownProduct: async (productData, images = []) => {
+    const formData = new FormData();
+    
+    // Base product fields
+    if (productData.category) formData.append('category', productData.category);
+    if (productData.jewelry_type) formData.append('jewelry_type', productData.jewelry_type);
+    if (productData.vendor) formData.append('vendor', productData.vendor);
+    if (productData.product_type) formData.append('product_type', productData.product_type);
+    if (productData.finish) formData.append('finish', productData.finish);
+    if (productData.title) formData.append('title', productData.title);
+    
+    // AI generation fields
+    if (productData.occasions) formData.append('occasions', productData.occasions);
+    if (productData.primary_color) formData.append('primary_color', productData.primary_color);
+    if (productData.secondary_color) formData.append('secondary_color', productData.secondary_color);
+    
+    // Tags (convert array to JSON string if needed)
+    if (productData.tags) {
+      const tagsValue = Array.isArray(productData.tags) 
+        ? JSON.stringify(productData.tags) 
+        : productData.tags;
+      formData.append('tags', tagsValue);
+    }
+    
+    // Variants JSON (required)
+    if (productData.variants_json) {
+      const variantsJson = typeof productData.variants_json === 'string'
+        ? productData.variants_json
+        : JSON.stringify(productData.variants_json);
+      formData.append('variants_json', variantsJson);
+    }
+    
+    // Note: Images are NOT sent with product creation - they are uploaded separately using uploadImagesForSku
+    
+    const response = await fetch(`${API_BASE_URL}/agent/lab-grown-diamond/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(productData),
+      body: formData,
+      // Don't set Content-Type header - browser will set it with boundary
     });
-    if (!response.ok) throw new Error('Failed to create product');
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create lab-grown product: ${errorText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Upload images for a SKU
+   * POST /api/gcs/sku/{sku}/upload-images
+   * Images are uploaded separately after product creation
+   */
+  uploadImagesForSku: async (sku, images, options = {}) => {
+    if (!sku || !sku.trim()) {
+      throw new Error('SKU is required for image upload');
+    }
+
+    if (!images || images.length === 0) {
+      throw new Error('At least one image is required');
+    }
+
+    const formData = new FormData();
+    
+    // Add all image files
+    images.forEach((image) => {
+      formData.append('files', image);
+    });
+    
+    // Add optional parameters
+    formData.append('compress', options.compress !== false ? 'true' : 'false');
+    formData.append('make_public', options.makePublic !== false ? 'true' : 'false');
+    
+    const response = await fetch(`${API_BASE_URL}/gcs/sku/${encodeURIComponent(sku)}/upload-images`, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - browser will set it with boundary
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to upload images: ${errorText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Get images for a SKU
+   * GET /api/gcs/sku/{sku}/images
+   */
+  getImagesForSku: async (sku, options = {}) => {
+    if (!sku || !sku.trim()) {
+      throw new Error('SKU is required');
+    }
+
+    const params = new URLSearchParams();
+    if (options.signed !== false) {
+      params.append('signed', 'true');
+      if (options.expiration) {
+        params.append('expiration', options.expiration.toString());
+      }
+    } else {
+      params.append('signed', 'false');
+    }
+
+    const url = `${API_BASE_URL}/gcs/sku/${encodeURIComponent(sku)}/images${params.toString() ? `?${params.toString()}` : ''}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to get images: ${errorText}`);
+    }
+    return response.json();
+  },
+
+  /**
+   * Create new product (legacy method - kept for backward compatibility)
+   * POST /api/products
+   * Supports both JSON-only and multipart/form-data (with images)
+   */
+  create: async (productData, images = []) => {
+    let response;
+    
+    if (images && images.length > 0) {
+      // Use FormData for multipart/form-data when images are present
+      const formData = new FormData();
+      
+      // Add product data as JSON string
+      formData.append('product_data', JSON.stringify(productData));
+      
+      // Add images
+      images.forEach((image, index) => {
+        formData.append(`images`, image);
+      });
+      
+      response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+    } else {
+      // Use JSON for product data without images
+      response = await fetch(`${API_BASE_URL}/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData),
+      });
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create product: ${errorText}`);
+    }
     return response.json();
   },
 

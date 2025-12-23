@@ -2,8 +2,7 @@
  * CreateShelfModal - Modal for creating shelves in a store
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useDrag, useDrop } from 'react-dnd';
 import shelvesApi from '../services/shelfApi';
 
 // Draggable Shelf Preview Component
@@ -404,8 +403,7 @@ const CreateShelfModal = ({ isOpen, onClose, onSubmit, storeId, bulkMode = false
   if (!isOpen) return null;
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>📚 Create Storage Types</h2>
@@ -643,7 +641,6 @@ const CreateShelfModal = ({ isOpen, onClose, onSubmit, storeId, bulkMode = false
           </form>
         </div>
       </div>
-    </DndProvider>
   );
 };
 

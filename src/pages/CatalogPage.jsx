@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useProducts, useDemistifiedProducts } from '../hooks';
 import { useCart } from '../context/CartContext';
-import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, DemistifiedFilters, Pagination } from '../components';
+import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, DemistifiedFilters, Pagination, CreateLabProductModal } from '../components';
+import { productsApi } from '../services/api';
+import { Plus } from 'lucide-react';
 
 /**
  * CatalogPage Component
@@ -12,6 +14,8 @@ export const CatalogPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({});
   const [productType, setProductType] = useState('lab'); // 'lab' or 'demistified'
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
   // Real products (Lab) - auto-fetch on mount since lab is default tab
   const realProductsHook = useProducts({ autoFetch: true });
@@ -94,6 +98,48 @@ export const CatalogPage = () => {
     }
   };
 
+  // Handle create product
+  const handleCreateProduct = async (productData, images) => {
+    setIsCreating(true);
+    try {
+      // Step 1: Create the product (without images)
+      const response = await productsApi.createLabGrownProduct(productData);
+      
+      // Step 2: Upload images if provided (using SKU from first variant)
+      if (images && images.length > 0 && response.product_summary && response.product_summary.variants && response.product_summary.variants.length > 0) {
+        const firstVariant = response.product_summary.variants[0];
+        const sku = firstVariant.sku;
+        
+        if (sku) {
+          try {
+            await productsApi.uploadImagesForSku(sku, images, {
+              compress: true,
+              makePublic: true
+            });
+            console.log(`Images uploaded successfully for SKU: ${sku}`);
+          } catch (imageErr) {
+            console.error('Error uploading images:', imageErr);
+            // Don't fail the whole operation if image upload fails
+            alert(`Product created but image upload failed: ${imageErr.message}`);
+          }
+        } else {
+          console.warn('No SKU found in response, skipping image upload');
+        }
+      }
+      
+      // Refresh the product list
+      await realProductsHook.refetch();
+      alert(`Product created successfully! ${response.message || ''}`);
+      setIsCreateModalOpen(false);
+    } catch (err) {
+      console.error('Error creating product:', err);
+      alert(`Failed to create product: ${err.message}`);
+      throw err; // Re-throw to let modal handle it
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // Show loading spinner when loading
   const shouldShowFullPageLoader = activeHook.loading;
 
@@ -121,23 +167,38 @@ export const CatalogPage = () => {
       </div>
 
       {/* Product Type Toggle */}
-      <div className="form-mode-toggle" style={{ marginBottom: '20px', marginTop: '20px' }}>
-        <button
-          type="button"
-          className={`toggle-btn ${productType === 'lab' ? 'active' : ''}`}
-          onClick={() => handleProductTypeChange('lab')}
-          disabled={shouldShowFullPageLoader}
-        >
-          💍 Lab
-        </button>
-        <button
-          type="button"
-          className={`toggle-btn ${productType === 'demistified' ? 'active' : ''}`}
-          onClick={() => handleProductTypeChange('demistified')}
-          disabled={shouldShowFullPageLoader}
-        >
-          👜 Demistified
-        </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', marginTop: '20px' }}>
+        <div className="form-mode-toggle">
+          <button
+            type="button"
+            className={`toggle-btn ${productType === 'lab' ? 'active' : ''}`}
+            onClick={() => handleProductTypeChange('lab')}
+            disabled={shouldShowFullPageLoader}
+          >
+            💍 Lab
+          </button>
+          <button
+            type="button"
+            className={`toggle-btn ${productType === 'demistified' ? 'active' : ''}`}
+            onClick={() => handleProductTypeChange('demistified')}
+            disabled={shouldShowFullPageLoader}
+          >
+            👜 Demistified
+          </button>
+        </div>
+
+        {/* Create Product Button - Only show on Lab tab */}
+        {productType === 'lab' && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setIsCreateModalOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Plus size={18} />
+            Create Product
+          </button>
+        )}
       </div>
 
       {/* Filters - show for demistified products */}
@@ -195,6 +256,14 @@ export const CatalogPage = () => {
           )}
         </div>
       )}
+
+      {/* Create Lab Product Modal */}
+      <CreateLabProductModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProduct}
+        loading={isCreating}
+      />
     </div>
   );
 };

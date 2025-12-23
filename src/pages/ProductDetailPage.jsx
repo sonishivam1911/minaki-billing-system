@@ -473,16 +473,59 @@ export const ProductDetailPage = () => {
                       )}
                     </div>
                     <div className="info-item">
-                      <label>Product Type</label>
+                      <label>Category</label>
+                      {isEditing ? (
+                        <select
+                          value={editedProduct.category || ''}
+                          onChange={(e) => handleInputChange('category', e.target.value)}
+                          className="form-select"
+                        >
+                          <option value="">Select Category</option>
+                          <option value="Rings">Rings</option>
+                          <option value="Earrings">Earrings</option>
+                          <option value="Bracelet">Bracelet</option>
+                          <option value="Necklace">Necklace</option>
+                          <option value="Set">Set</option>
+                        </select>
+                      ) : (
+                        <span>{product.category || 'N/A'}</span>
+                      )}
+                    </div>
+                    <div className="info-item">
+                      <label>Sub Category</label>
+                      {isEditing ? (
+                        <select
+                          value={editedProduct.sub_category || ''}
+                          onChange={(e) => handleInputChange('sub_category', e.target.value)}
+                          className="form-select"
+                        >
+                          <option value="">Select Sub Category</option>
+                          <option value="Studs">Studs</option>
+                          <option value="Engagement Ring">Engagement Ring</option>
+                          <option value="Band">Band</option>
+                          <option value="Paired">Paired</option>
+                          <option value="Danglers">Danglers</option>
+                          <option value="Bangle">Bangle</option>
+                          <option value="Tennis Bracelet">Tennis Bracelet</option>
+                          <option value="With pendant">With pendant</option>
+                          <option value="Without pendent">Without pendent</option>
+                        </select>
+                      ) : (
+                        <span>{product.sub_category || 'N/A'}</span>
+                      )}
+                    </div>
+                    <div className="info-item">
+                      <label>Finish</label>
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editedProduct.category || ''}
-                          onChange={(e) => handleInputChange('category', e.target.value)}
+                          value={editedProduct.finish || ''}
+                          onChange={(e) => handleInputChange('finish', e.target.value)}
                           className="form-input"
+                          placeholder="Enter finish"
                         />
                       ) : (
-                        <span>{product.category || 'N/A'}</span>
+                        <span>{product.finish || 'N/A'}</span>
                       )}
                     </div>
                     <div className="info-item">
@@ -802,8 +845,7 @@ export const ProductDetailPage = () => {
                             <th>Carat Weight</th>
                             <th>Clarity</th>
                             <th>Color</th>
-                            <th>Cut Grade</th>
-                            <th>Shape</th>
+                            <th>Cut</th>
                             <th>Certificate #</th>
                             <th>Rate/Carat (₹)</th>
                             <th>Stone Cost (₹)</th>
@@ -855,50 +897,56 @@ export const ProductDetailPage = () => {
                               </td>
                               <td>
                                 {isEditing ? (
-                                  <input
-                                    type="text"
+                                  <select
                                     value={stone.clarity || ''}
                                     onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.clarity`)}
-                                    className="form-input table-input"
-                                  />
+                                    className="form-select table-input"
+                                  >
+                                    <option value="">Select Clarity</option>
+                                    <option value="VS 1">VS 1</option>
+                                    <option value="VS 2">VS 2</option>
+                                    <option value="VSS 2">VSS 2</option>
+                                  </select>
                                 ) : (
                                   <span>{stone.clarity || 'N/A'}</span>
                                 )}
                               </td>
                               <td>
                                 {isEditing ? (
-                                  <input
-                                    type="text"
+                                  <select
                                     value={stone.color || ''}
                                     onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.color`)}
-                                    className="form-input table-input"
-                                  />
+                                    className="form-select table-input"
+                                  >
+                                    <option value="">Select Color</option>
+                                    <option value="D">D</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                  </select>
                                 ) : (
                                   <span>{stone.color || 'N/A'}</span>
                                 )}
                               </td>
                               <td>
                                 {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={stone.cut_grade || ''}
-                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.cut_grade`)}
-                                    className="form-input table-input"
-                                  />
+                                  <select
+                                    value={stone.cut || stone.shape || ''}
+                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.cut`)}
+                                    className="form-select table-input"
+                                  >
+                                    <option value="">Select Cut</option>
+                                    <option value="Round">Round</option>
+                                    <option value="Oval">Oval</option>
+                                    <option value="Pear">Pear</option>
+                                    <option value="Radiant">Radiant</option>
+                                    <option value="Square">Square</option>
+                                    <option value="Princess">Princess</option>
+                                    <option value="Emerald Cut">Emerald Cut</option>
+                                    <option value="Marquise">Marquise</option>
+                                    <option value="Heart">Heart</option>
+                                  </select>
                                 ) : (
-                                  <span>{stone.cut_grade || 'N/A'}</span>
-                                )}
-                              </td>
-                              <td>
-                                {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={stone.shape || ''}
-                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.shape`)}
-                                    className="form-input table-input"
-                                  />
-                                ) : (
-                                  <span>{stone.shape || 'N/A'}</span>
+                                  <span>{stone.cut || stone.shape || 'N/A'}</span>
                                 )}
                               </td>
                               <td>

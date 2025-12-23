@@ -742,8 +742,15 @@ const StoreLocatorPage = () => {
                         boxes={allBoxes}
                         selectedShelf={selectedShelf}
                         onShelfClick={handleShelfClick}
-                    store={selectedStore}
-                  />
+                        store={selectedStore}
+                        onPositionUpdated={async (updatedShelf) => {
+                          // Refresh sections to get updated positions
+                          if (selectedStore) {
+                            const locationId = selectedStore.location_id || selectedStore.id;
+                            await fetchStoreSections(locationId);
+                          }
+                        }}
+                      />
                     )}
                   </>
                 )}

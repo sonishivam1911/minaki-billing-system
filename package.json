@@ -4,6 +4,7 @@
   "description": "RealJewelry Point of Sale System - Frontend",
   "private": true,
   "dependencies": {
+    "firebase": "^12.7.0",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dnd": "^16.0.1",
@@ -20,7 +21,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "start": "vite preview --host 0.0.0.0 --port 3000"
+    "start": "vite preview --host 0.0.0.0 --port 3000",
+    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy:hosting": "firebase deploy --only hosting"
   },
   "eslintConfig": {
     "extends": [

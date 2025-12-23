@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import ShelfBox from './ShelfBox';
 import '../styles/StoreGridView.css';
 
@@ -82,8 +80,7 @@ const StoreGridView = ({
   const mapHeight = mapBounds ? (mapBounds.maxY - mapBounds.minY + mapPadding * 2) : null;
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="store-grid-view">
+    <div className="store-grid-view">
         <div className="store-header">
           <h2>🏬 {store.location_name || store.name || 'Store Layout'}</h2>
           <p className="store-info">
@@ -169,7 +166,6 @@ const StoreGridView = ({
           </div>
         )}
       </div>
-    </DndProvider>
   );
 };
 
