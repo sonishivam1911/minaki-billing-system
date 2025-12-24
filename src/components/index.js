@@ -32,3 +32,8 @@ export { default as CreateBoxModal } from './CreateBoxModal';
 export { default as AddProductToBoxModal } from './AddProductToBoxModal';
 export { default as BoxProductsModal } from './BoxProductsModal';
 export { default as CreateLabProductModal } from './CreateLabProductModal';
+
+// User Management Components
+export { CreateUserModal } from './CreateUserModal';
+export { EditUserModal } from './EditUserModal';
+export { PermissionMatrix } from './PermissionMatrix';

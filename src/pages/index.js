@@ -9,3 +9,5 @@ export { LoginPage } from './LoginPage';
 export { default as StoreLocatorPage } from './StoreLocatorPage';
 export { default as StoreManagementPage } from './StoreManagementPage';
 export { default as ShelfDetailPage } from './ShelfDetailPage';
+export { UserManagementPage } from './UserManagementPage';
+export { PermissionManagementPage } from './PermissionManagementPage';

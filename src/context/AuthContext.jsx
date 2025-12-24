@@ -133,13 +133,17 @@ export const AuthProvider = ({ children }) => {
 
   /**
    * Check if user has a specific role
+   * Case-insensitive comparison to handle any case variations
    */
   const hasRole = (role) => {
-    return userInfo?.role === role;
+    if (!userInfo?.role) return false;
+    // Compare lowercase to handle case variations
+    return userInfo.role.toLowerCase() === role.toLowerCase();
   };
 
   /**
    * Check if user is admin
+   * Role should be 'admin' (lowercase) in database
    */
   const isAdmin = () => {
     return hasRole('admin');
