@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { userInfo, logout, isAuthenticated } = useAuth();
+  const { userInfo, logout, isAuthenticated, isAdmin } = useAuth();
   const [currentTime, setCurrentTime] = React.useState(new Date().toLocaleTimeString());
   const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed by default
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -166,6 +166,34 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                     )}
                   </div>
                   <div className="user-menu-divider"></div>
+                  
+                  {/* Admin-only menu items */}
+                  {isAdmin() && (
+                    <>
+                      <button
+                        className="user-menu-item"
+                        onClick={() => {
+                          navigate('/user-management');
+                          setShowUserMenu(false);
+                        }}
+                      >
+                        <Shield size={18} />
+                        <span>User Management</span>
+                      </button>
+                      <button
+                        className="user-menu-item"
+                        onClick={() => {
+                          navigate('/permissions');
+                          setShowUserMenu(false);
+                        }}
+                      >
+                        <Lock size={18} />
+                        <span>Permissions</span>
+                      </button>
+                      <div className="user-menu-divider"></div>
+                    </>
+                  )}
+                  
                   <button
                     className="user-menu-item logout-button"
                     onClick={handleLogout}

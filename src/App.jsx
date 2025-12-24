@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, ShelfDetailPage, LoginPage } from './pages';
+import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, ShelfDetailPage, LoginPage, UserManagementPage, PermissionManagementPage } from './pages';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -165,6 +165,24 @@ function App() {
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <CustomersPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* Admin routes - require auth */}
+                <Route 
+                  path="/user-management" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <UserManagementPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/permissions" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <PermissionManagementPage />
                     </ProtectedRoute>
                   } 
                 />

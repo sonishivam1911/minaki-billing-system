@@ -115,10 +115,13 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
       }
 
       // Handle 401 Unauthorized - redirect to login
+      // BUT: Don't redirect if we're on admin pages (they handle their own access control)
       if (response.status === 401) {
-        // Clear auth state and redirect to login
-        if (typeof window !== 'undefined') {
-          const currentPath = window.location.pathname;
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isAdminPage = currentPath.includes('/user-management') || currentPath.includes('/permissions');
+        
+        // Only redirect if not on admin pages (admin pages will show their own error)
+        if (!isAdminPage && typeof window !== 'undefined') {
           if (currentPath !== '/login') {
             window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
           }
