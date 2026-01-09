@@ -5,7 +5,7 @@
  */
 import React, { useState, useCallback, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-import shelvesApi from '../services/shelfApi';
+import storageTypesApi from '../services/storageTypesApi';
 
 const ItemTypes = {
   STORAGE_TYPE: 'STORAGE_TYPE',
@@ -33,8 +33,8 @@ const DraggableStorageType = ({ shelf }) => {
       // #endregion
       return {
         id: shelf.id,
-        name: shelf.shelf_name || shelf.name,
-        code: shelf.shelf_code || shelf.code,
+        name: shelf.storage_type_name || shelf.shelf_name || shelf.name,
+        code: shelf.storage_type_code || shelf.shelf_code || shelf.code,
         type: 'new'
       };
     },
@@ -99,17 +99,17 @@ const DraggableStorageType = ({ shelf }) => {
       }}
     >
       <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
-        {shelf.shelf_name || shelf.name}
+        {shelf.storage_type_name || shelf.shelf_name || shelf.name}
       </div>
       <div style={{ fontSize: '12px', opacity: 0.9, marginTop: '4px' }}>
-        {shelf.shelf_code || shelf.code}
+        {shelf.storage_type_code || shelf.shelf_code || shelf.code}
       </div>
     </div>
   );
 };
 
 const DraggablePositionedShelf = ({ shelf, boxes, isSelected, onShelfClick, isEditMode, saving, error, originalX, originalY }) => {
-  const shelfBoxes = boxes.filter(b => b.shelf_id === shelf.id);
+  const shelfBoxes = boxes.filter(b => (b.storage_type_id || b.shelf_id) === shelf.id);
 
   const [{ isDragging, canDrag }, drag, dragPreview] = useDrag({
     type: ItemTypes.POSITIONED_SHELF,
@@ -223,10 +223,10 @@ const DraggablePositionedShelf = ({ shelf, boxes, isSelected, onShelfClick, isEd
       }}
     >
       <div style={{ fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>
-        {shelf.shelf_name || shelf.name}
+        {shelf.storage_type_name || shelf.shelf_name || shelf.name}
       </div>
       <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>
-        {shelf.shelf_code || shelf.code}
+        {shelf.storage_type_code || shelf.shelf_code || shelf.code}
       </div>
       <div style={{ fontSize: '11px', opacity: 0.7 }}>
         {shelfBoxes.length} Storage Object{shelfBoxes.length !== 1 ? 's' : ''}
@@ -699,7 +699,7 @@ const ShopFloorMap = ({
       fetch('http://127.0.0.1:7242/ingest/e8108bd9-bb63-4042-831f-98035e7b18c4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ShopFloorMap.jsx:590',message:'Calling API to update coordinates',data:{shelfId,x:Math.round(x),y:Math.round(y)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
       // #endregion
       
-      await shelvesApi.updateCoordinates(shelfId, Math.round(x), Math.round(y));
+      await storageTypesApi.updateCoordinates(shelfId, Math.round(x), Math.round(y));
 
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/e8108bd9-bb63-4042-831f-98035e7b18c4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ShopFloorMap.jsx:594',message:'API call succeeded',data:{shelfId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});

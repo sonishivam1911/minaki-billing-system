@@ -3,23 +3,26 @@
  * 
  * Uses the new inventory management API with proper hierarchy:
  * Location (Building/Store)
- *   └── Shelf (Physical Shelf)
- *         └── Box (Storage Container)
+ *   └── Storage Type
+ *         └── Storage Object
  *               └── Products (Inventory Items)
  */
 import { useState, useCallback } from 'react';
 import locationsApi from '../services/locationsApi';
-import shelvesApi from '../services/shelfApi';
-import boxesApi from '../services/boxApi';
+import storageTypesApi from '../services/storageTypesApi';
+import storageObjectsApi from '../services/storageObjectsApi';
 import productsApi from '../services/productLocationApi';
 
 export const useStoreLocator = () => {
   const [locations, setLocations] = useState([]);
   const [stores, setStores] = useState([]); // Using locations for "stores"
-  const [shelves, setShelves] = useState([]);
-  const [sections, setSections] = useState([]); // Using shelves for "sections"
+  const [storageTypes, setStorageTypes] = useState([]);
+  const [sections, setSections] = useState([]); // Using storage types for "sections"
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Legacy state names for backward compatibility
+  const shelves = storageTypes;
 
   /**
    * Fetch all storage locations (replaces fetchStores)
@@ -45,22 +48,22 @@ export const useStoreLocator = () => {
   }, []);
 
   /**
-   * Fetch shelves for a specific location (replaces fetchStoreSections)
-   * GET /billing_system/api/inventory/shelves/location/{location_id}
+   * Fetch storage types for a specific location (replaces fetchStoreSections)
+   * GET /billing_system/api/inventory/storage-types/location/{location_id}
    */
   const fetchStoreSections = useCallback(async (locationId) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await shelvesApi.getByLocation(locationId, true);
-      // data is an array of shelves
-      const shelvesList = Array.isArray(data) ? data : data.items || data;
-      setShelves(shelvesList);
-      setSections(shelvesList);
-      return shelvesList;
+      const data = await storageTypesApi.getByLocation(locationId, true);
+      // data is an array of storage types
+      const storageTypesList = Array.isArray(data) ? data : data.items || data;
+      setStorageTypes(storageTypesList);
+      setSections(storageTypesList);
+      return storageTypesList;
     } catch (err) {
-      setError(err.message || 'Failed to fetch shelves');
-      console.error('Error fetching shelves:', err);
+      setError(err.message || 'Failed to fetch storage types');
+      console.error('Error fetching storage types:', err);
       return [];
     } finally {
       setLoading(false);
@@ -96,7 +99,7 @@ export const useStoreLocator = () => {
   /**
    * Get inventory summary
    * GET /billing_system/api/inventory/products/inventory/summary
-   * Fetches inventory and maps box_codes to shelf_ids for proper grouping
+   * Fetches inventory and maps storage_object_codes to storage_type_ids for proper grouping
    */
   const getStoreInventory = useCallback(async (locationId, filters = {}) => {
     try {
@@ -107,64 +110,69 @@ export const useStoreLocator = () => {
       const data = await productsApi.getSummary(locationId);
       const inventoryList = Array.isArray(data) ? data : data.items || data;
       
-      // Fetch shelves for the location
-      const shelvesList = await shelvesApi.getByLocation(locationId, true);
-      setShelves(shelvesList);
-      setSections(shelvesList);
+      // Fetch storage types for the location
+      const storageTypesList = await storageTypesApi.getByLocation(locationId, true);
+      setStorageTypes(storageTypesList);
+      setSections(storageTypesList);
       
-      // Fetch boxes for all shelves to create box_code -> shelf_id mapping
-      const boxCodeToShelfMap = {};
-      for (const shelf of shelvesList) {
+      // Fetch storage objects for all storage types to create storage_object_code -> storage_type_id mapping
+      const storageObjectCodeToStorageTypeMap = {};
+      for (const storageType of storageTypesList) {
         try {
-          const boxes = await boxesApi.getByShelf(shelf.id, true);
-          const boxesList = Array.isArray(boxes) ? boxes : boxes.items || boxes;
-          boxesList.forEach(box => {
-            if (box.box_code) {
-              boxCodeToShelfMap[box.box_code] = shelf.id;
+          const storageObjects = await storageObjectsApi.getByStorageType(storageType.id, true);
+          const storageObjectsList = Array.isArray(storageObjects) ? storageObjects : storageObjects.items || storageObjects;
+          storageObjectsList.forEach(so => {
+            if (so.storage_object_code) {
+              storageObjectCodeToStorageTypeMap[so.storage_object_code] = storageType.id;
             }
           });
         } catch (err) {
-          console.warn(`Error fetching boxes for shelf ${shelf.id}:`, err);
+          console.warn(`Error fetching storage objects for storage type ${storageType.id}:`, err);
         }
       }
       
-      // Transform inventory items to include shelf_id based on box_codes
+      // Transform inventory items to include storage_type_id based on storage_object_codes
       const transformedInventory = inventoryList.flatMap(item => {
-        // If item has box_codes array, create one entry per box_code
-        if (item.box_codes && Array.isArray(item.box_codes) && item.box_codes.length > 0) {
-          return item.box_codes.map(boxCode => {
-            const shelfId = boxCodeToShelfMap[boxCode];
-            // If we couldn't find the shelf for this box, try to find it by scanning the box QR
-            // For now, we'll assign it to the first shelf if mapping fails (fallback)
-            const assignedShelfId = shelfId || (shelvesList.length > 0 ? shelvesList[0].id : null);
+        // Support both old field names (box_codes) and new field names (storage_object_codes)
+        const storageObjectCodes = item.storage_object_codes || item.box_codes;
+        // If item has storage_object_codes array, create one entry per storage_object_code
+        if (storageObjectCodes && Array.isArray(storageObjectCodes) && storageObjectCodes.length > 0) {
+          return storageObjectCodes.map(storageObjectCode => {
+            const storageTypeId = storageObjectCodeToStorageTypeMap[storageObjectCode];
+            // If we couldn't find the storage type for this storage object, assign to first storage type (fallback)
+            const assignedStorageTypeId = storageTypeId || (storageTypesList.length > 0 ? storageTypesList[0].id : null);
             
-            if (!shelfId) {
-              console.warn(`Could not find shelf for box_code: ${boxCode}. Assigning to first shelf.`);
+            if (!storageTypeId) {
+              console.warn(`Could not find storage type for storage_object_code: ${storageObjectCode}. Assigning to first storage type.`);
             }
             
             return {
               ...item,
-              box_code: boxCode,
-              shelf_id: assignedShelfId,
-              // Distribute quantity across boxes (simple division)
-              // If we have num_boxes, divide evenly; otherwise assume 1 per box
-              quantity: item.num_boxes > 0 
-                ? Math.ceil(item.total_quantity / item.num_boxes)
+              storage_object_code: storageObjectCode,
+              storage_type_id: assignedStorageTypeId,
+              // Legacy field names for backward compatibility
+              box_code: storageObjectCode,
+              shelf_id: assignedStorageTypeId,
+              // Distribute quantity across storage objects (simple division)
+              quantity: item.num_storage_objects > 0 || item.num_boxes > 0
+                ? Math.ceil(item.total_quantity / (item.num_storage_objects || item.num_boxes))
                 : item.total_quantity,
             };
           });
         }
-        // If no box_codes, try to find shelf_id from other fields or assign to first shelf
-        const assignedShelfId = item.shelf_id || (shelvesList.length > 0 ? shelvesList[0].id : null);
+        // If no storage_object_codes, try to find storage_type_id from other fields or assign to first storage type
+        const assignedStorageTypeId = item.storage_type_id || item.shelf_id || (storageTypesList.length > 0 ? storageTypesList[0].id : null);
         return [{
           ...item,
-          shelf_id: assignedShelfId,
+          storage_type_id: assignedStorageTypeId,
+          // Legacy field names for backward compatibility
+          shelf_id: assignedStorageTypeId,
           quantity: item.total_quantity || item.quantity || 0,
         }];
       });
       
       console.log('Transformed inventory:', transformedInventory);
-      console.log('Box code to shelf map:', boxCodeToShelfMap);
+      console.log('Storage object code to storage type map:', storageObjectCodeToStorageTypeMap);
       
       setLocations(transformedInventory);
       return transformedInventory;
@@ -178,39 +186,41 @@ export const useStoreLocator = () => {
   }, []);
 
   /**
-   * Get products in a specific shelf (section)
-   * GET /billing_system/api/inventory/products/search?shelf_id={shelf_id}
+   * Get products in a specific storage type (section)
+   * GET /billing_system/api/inventory/products/search?storage_type_id={storage_type_id}
    * 
-   * This is called when a shelf is clicked to show all products in that shelf.
+   * This is called when a storage type is clicked to show all products in that storage type.
    */
-  const getSectionInventory = useCallback(async (shelfId) => {
+  const getSectionInventory = useCallback(async (storageTypeId) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('📦 Fetching products for shelf ID:', shelfId);
-      console.log('📦 API: GET /billing_system/api/inventory/products/search?shelf_id=' + shelfId);
+      console.log('📦 Fetching products for storage type ID:', storageTypeId);
+      console.log('📦 API: GET /billing_system/api/inventory/products/search?storage_type_id=' + storageTypeId);
       
-      // Fetch products for this specific shelf
-      const data = await productsApi.search({ shelf_id: shelfId });
+      // Fetch products for this specific storage type
+      const data = await productsApi.search({ storage_type_id: storageTypeId });
       const productsList = Array.isArray(data) ? data : data.items || data || [];
       
-      console.log('✅ Products fetched for shelf:', productsList.length, 'products');
+      console.log('✅ Products fetched for storage type:', productsList.length, 'products');
       console.log('✅ Sample product:', productsList[0]);
       
-      // Ensure all products have shelf_id set (in case API doesn't return it)
-      const productsWithShelfId = productsList.map(product => ({
+      // Ensure all products have storage_type_id set (in case API doesn't return it)
+      const productsWithStorageTypeId = productsList.map(product => ({
         ...product,
-        shelf_id: product.shelf_id || shelfId,
+        storage_type_id: product.storage_type_id || storageTypeId,
+        // Legacy field name for backward compatibility
+        shelf_id: product.storage_type_id || product.shelf_id || storageTypeId,
       }));
       
-      // Update locations state with the products from this shelf
-      setLocations(productsWithShelfId);
-      return productsWithShelfId;
+      // Update locations state with the products from this storage type
+      setLocations(productsWithStorageTypeId);
+      return productsWithStorageTypeId;
     } catch (err) {
-      const errorMsg = err.message || 'Failed to fetch products for shelf';
+      const errorMsg = err.message || 'Failed to fetch products for storage type';
       setError(errorMsg);
-      console.error('❌ Error fetching products for shelf:', err);
-      console.error('❌ Shelf ID:', shelfId);
+      console.error('❌ Error fetching products for storage type:', err);
+      console.error('❌ Storage Type ID:', storageTypeId);
       // Don't clear locations on error, keep previous state
       return [];
     } finally {
@@ -293,7 +303,7 @@ export const useStoreLocator = () => {
   }, []);
 
   /**
-   * Transfer product between boxes
+   * Transfer product between storage objects
    * POST /billing_system/api/inventory/products/transfer
    */
   const transferStock = useCallback(async (transferData) => {
@@ -302,15 +312,19 @@ export const useStoreLocator = () => {
       setError(null);
       
       // Support both old and new transfer data formats
-      let transferPayload = transferData;
-      if (transferData.from_location_id && transferData.to_box_id) {
-        // Already in new format
-        transferPayload = transferData;
-      } else if (transferData.variant_id) {
+      let transferPayload = { ...transferData };
+      
+      // Convert legacy field names to new ones
+      if (transferPayload.to_box_id && !transferPayload.to_storage_object_id) {
+        transferPayload.to_storage_object_id = transferPayload.to_box_id;
+        delete transferPayload.to_box_id;
+      }
+      
+      if (transferData.variant_id) {
         // Old format, need to adapt
         transferPayload = {
           from_location_id: transferData.from_location_id,
-          to_box_id: transferData.to_box_id,
+          to_storage_object_id: transferData.to_storage_object_id || transferData.to_box_id,
           quantity: transferData.quantity,
           moved_by: transferData.moved_by || 'unknown',
           reason: transferData.reason
@@ -336,10 +350,10 @@ export const useStoreLocator = () => {
   }, [getProductLocations]);
 
   /**
-   * Move product to different box
+   * Move product to different storage object
    * POST /billing_system/api/inventory/products/transfer
    */
-  const moveProductToSection = useCallback(async (productType, fromLocationId, toBoxId, quantity) => {
+  const moveProductToSection = useCallback(async (productType, fromLocationId, toStorageObjectId, quantity) => {
     try {
       setLoading(true);
       setError(null);
@@ -347,15 +361,15 @@ export const useStoreLocator = () => {
       // Support both old and new signatures
       let type = productType;
       let fromId = fromLocationId;
-      let toId = toBoxId;
+      let toId = toStorageObjectId;
       let qty = quantity;
       
       // If called with old signature (variantId, fromLocationId, toSectionId, quantity)
-      // Note: Sections are now Shelves, not Boxes - need to clarify in UI
+      // Note: Sections are now Storage Types, Storage Objects are the containers
       
       const transferPayload = {
         from_location_id: fromId,
-        to_box_id: toId,
+        to_storage_object_id: toId,
         quantity: qty,
         moved_by: 'app_user'
       };
@@ -378,8 +392,9 @@ export const useStoreLocator = () => {
   return {
     locations,
     stores,
-    shelves,        // New: Direct access to shelves
-    sections: shelves, // Legacy: Sections are now shelves
+    storageTypes,   // New: Direct access to storage types
+    shelves,        // Legacy: Backward compatibility alias
+    sections: storageTypes, // Legacy: Sections are now storage types
     loading,
     error,
     fetchStores,

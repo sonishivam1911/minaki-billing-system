@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
 import { Save, Eye, FileText, Edit } from 'lucide-react';
+import {
+  Box,
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Checkbox,
+  Tooltip,
+  CircularProgress,
+} from '@mui/material';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorMessage } from './ErrorMessage';
 
@@ -109,105 +124,129 @@ export const PermissionMatrix = ({ modules, permissions, roles, onUpdatePermissi
   };
 
   return (
-    <div className="permission-matrix-container">
+    <Box>
       {error && <ErrorMessage message={error} />}
 
-      <div className="permission-matrix-header">
-        <h3>Role Permissions Matrix</h3>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
+          Role Permissions Matrix
+        </Typography>
         {hasChanges && (
-          <button
-            className="btn btn-primary"
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={18} /> : <Save size={18} />}
             onClick={handleSave}
             disabled={saving || loading}
           >
-            <Save size={18} />
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          </Button>
         )}
-      </div>
+      </Box>
 
-      <div className="permission-matrix-table-wrapper">
-        <table className="permission-matrix-table">
-          <thead>
-            <tr>
-              <th className="module-column">Module</th>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600, minWidth: 200 }}>Module</TableCell>
               {roles.map((role) => (
-                <th key={role} className="role-column">
-                  <div className="role-header">
-                    <span className="role-name">{role.charAt(0).toUpperCase() + role.slice(1)}</span>
-                    <div className="permission-labels">
-                      <span title="View"><Eye size={14} /></span>
-                      <span title="Read"><FileText size={14} /></span>
-                      <span title="Write"><Edit size={14} /></span>
-                    </div>
-                  </div>
-                </th>
+                <TableCell key={role} sx={{ fontWeight: 600, textAlign: 'center' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Tooltip title="View">
+                        <Eye size={14} color="#6b7280" />
+                      </Tooltip>
+                      <Tooltip title="Read">
+                        <FileText size={14} color="#6b7280" />
+                      </Tooltip>
+                      <Tooltip title="Write">
+                        <Edit size={14} color="#6b7280" />
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                </TableCell>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {modules.map((module) => (
-              <tr key={module.module_key}>
-                <td className="module-name">
-                  <strong>{module.module_name}</strong>
-                  {module.description && (
-                    <small>{module.description}</small>
-                  )}
-                </td>
+              <TableRow key={module.module_key}>
+                <TableCell>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {module.module_name}
+                    </Typography>
+                    {module.description && (
+                      <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mt: 0.5 }}>
+                        {module.description}
+                      </Typography>
+                    )}
+                  </Box>
+                </TableCell>
                 {roles.map((role) => (
-                  <td key={`${module.module_key}-${role}`} className="permission-cell">
-                    <div className="permission-checkboxes">
-                      <label className="permission-checkbox">
-                        <input
-                          type="checkbox"
+                  <TableCell key={`${module.module_key}-${role}`} align="center">
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                      <Tooltip title="View - See module in navigation">
+                        <Checkbox
                           checked={getPermissionValue(role, module.module_key, 'can_view')}
                           onChange={() => handlePermissionChange(role, module.module_key, 'can_view')}
                           disabled={loading || saving}
+                          icon={<Eye size={16} />}
+                          checkedIcon={<Eye size={16} />}
+                          sx={{ p: 0.5 }}
                         />
-                        <Eye size={16} />
-                      </label>
-                      <label className="permission-checkbox">
-                        <input
-                          type="checkbox"
+                      </Tooltip>
+                      <Tooltip title="Read - View data (GET requests)">
+                        <Checkbox
                           checked={getPermissionValue(role, module.module_key, 'can_read')}
                           onChange={() => handlePermissionChange(role, module.module_key, 'can_read')}
                           disabled={loading || saving || !getPermissionValue(role, module.module_key, 'can_view')}
+                          icon={<FileText size={16} />}
+                          checkedIcon={<FileText size={16} />}
+                          sx={{ p: 0.5 }}
                         />
-                        <FileText size={16} />
-                      </label>
-                      <label className="permission-checkbox">
-                        <input
-                          type="checkbox"
+                      </Tooltip>
+                      <Tooltip title="Write - Create/Update/Delete (POST/PUT/DELETE)">
+                        <Checkbox
                           checked={getPermissionValue(role, module.module_key, 'can_write')}
                           onChange={() => handlePermissionChange(role, module.module_key, 'can_write')}
                           disabled={loading || saving || !getPermissionValue(role, module.module_key, 'can_read')}
+                          icon={<Edit size={16} />}
+                          checkedIcon={<Edit size={16} />}
+                          sx={{ p: 0.5 }}
                         />
-                        <Edit size={16} />
-                      </label>
-                    </div>
-                  </td>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
                 ))}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <div className="permission-legend">
-        <div className="legend-item">
-          <Eye size={16} />
-          <span>View - See module in navigation</span>
-        </div>
-        <div className="legend-item">
-          <FileText size={16} />
-          <span>Read - View data (GET requests)</span>
-        </div>
-        <div className="legend-item">
-          <Edit size={16} />
-          <span>Write - Create/Update/Delete (POST/PUT/DELETE)</span>
-        </div>
-      </div>
-    </div>
+      <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Eye size={16} color="#6b7280" />
+          <Typography variant="body2" sx={{ color: '#5d4e37' }}>
+            View - See module in navigation
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FileText size={16} color="#6b7280" />
+          <Typography variant="body2" sx={{ color: '#5d4e37' }}>
+            Read - View data (GET requests)
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Edit size={16} color="#6b7280" />
+          <Typography variant="body2" sx={{ color: '#5d4e37' }}>
+            Write - Create/Update/Delete (POST/PUT/DELETE)
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 };
-

@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock } from 'lucide-react';
+import {
+  AppBar,
+  Toolbar,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  Badge,
+  Menu as MuiMenu,
+  MenuItem,
+  Typography,
+  Box,
+  Divider,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -15,10 +34,12 @@ import { useAuth } from '../context/AuthContext';
 export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { userInfo, logout, isAuthenticated, isAdmin } = useAuth();
   const [currentTime, setCurrentTime] = React.useState(new Date().toLocaleTimeString());
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed by default
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
 
   // Update clock every second
   React.useEffect(() => {
@@ -45,26 +66,33 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     try {
       await logout();
       navigate('/login');
+      setUserMenuAnchor(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-    // Notify parent component about sidebar state change
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
     if (onSidebarToggle) {
-      onSidebarToggle(!sidebarOpen);
+      onSidebarToggle(newState);
     }
   };
 
   const closeSidebar = () => {
     setSidebarOpen(false);
-    // Notify parent component about sidebar state change
     if (onSidebarToggle) {
       onSidebarToggle(false);
     }
+  };
+
+  const handleUserMenuOpen = (event) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
   };
 
   // Notify parent on initial load
@@ -87,216 +115,268 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
         closeSidebar();
       }
       // Escape to close user menu
-      if (event.key === 'Escape' && showUserMenu) {
-        setShowUserMenu(false);
+      if (event.key === 'Escape' && userMenuAnchor) {
+        handleUserMenuClose();
       }
     };
 
     document.addEventListener('keydown', handleKeyPress);
     return () => document.removeEventListener('keydown', handleKeyPress);
-  }, [sidebarOpen, showUserMenu]);
+  }, [sidebarOpen, userMenuAnchor]);
 
-  // Close user menu when clicking outside
+  // Handle clicks outside sidebar to close it (for desktop persistent drawer)
   React.useEffect(() => {
+    if (!sidebarOpen || isMobile) return; // Only needed for desktop persistent drawer
+
     const handleClickOutside = (event) => {
-      if (showUserMenu && !event.target.closest('.user-menu-container')) {
-        setShowUserMenu(false);
+      // Check if click is outside the drawer
+      const drawer = document.querySelector('.MuiDrawer-root');
+      const drawerPaper = document.querySelector('.MuiDrawer-paper');
+      
+      if (drawer && drawerPaper && !drawerPaper.contains(event.target)) {
+        // Don't close if clicking on the menu button or user menu
+        const menuButton = event.target.closest('[aria-label="toggle navigation menu"]');
+        const userMenu = event.target.closest('.MuiMenu-root');
+        
+        if (!menuButton && !userMenu) {
+          closeSidebar();
+        }
       }
     };
 
-    if (showUserMenu) {
+    // Add a small delay to avoid immediate closing when opening
+    const timeoutId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showUserMenu]);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [sidebarOpen, isMobile]);
+
+  const navigationItems = [
+    { path: '/catalog', label: 'Catalog', icon: Package },
+    { path: '/invoices', label: 'Invoices', icon: FileText },
+    { path: '/store-locator', label: 'Store Locator', icon: MapPin },
+    { path: '/store-management', label: 'Store Management', icon: Building2 },
+    { path: '/customers', label: 'Customers', icon: User },
+    { path: '/reports', label: 'Reports', icon: BarChart3 },
+  ];
 
   return (
     <>
       {/* Top Header Bar */}
-      <header className="top-header">
-        <div className="header-left">
-          <button 
-            className="mobile-menu-btn hamburger-menu"
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: '#ffffff',
+          color: '#2c2416',
+        }}
+      >
+        <Toolbar sx={{ 
+          minHeight: { xs: '60px', sm: '70px' },
+          px: { xs: 1, sm: 2 },
+        }}>
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="toggle navigation menu"
             onClick={toggleSidebar}
-            aria-label="Toggle navigation menu"
+            sx={{ mr: { xs: 1, sm: 2 } }}
           >
             <Menu size={24} />
-          </button>
-        </div>
+          </IconButton>
 
-        <div className="header-center">
-          <div className="header-brand">
-            <Gem size={32} />
-            <div>
-              <div className="brand-name">Minaki Billing System</div>
-              <div className="brand-tagline">Point of Sale</div>
-            </div>
-          </div>
-        </div>
+          <Box sx={{ flexGrow: 1 }} />
 
-        <div className="header-actions">
-          <div className="header-time">
-            <Clock size={18} />
-            <span className="time-text">{currentTime}</span>
-          </div>
-          
-          {/* User Info */}
-          {userInfo && (
-            <div className="user-menu-container">
-              <button
-                className="user-menu-button"
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                title={`Logged in as ${userInfo.email || userInfo.name || 'User'}`}
-              >
-                <User size={20} />
-                <span className="user-name">
-                  {userInfo.name || userInfo.email?.split('@')[0] || 'User'}
-                </span>
-                {userInfo.role && (
-                  <span className="user-role">{userInfo.role}</span>
-                )}
-              </button>
-              
-              {showUserMenu && (
-                <div className="user-menu-dropdown">
-                  <div className="user-menu-info">
-                    <div className="user-menu-email">{userInfo.email}</div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+            {/* Time Display */}
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5, mr: 1 }}>
+              <Clock size={18} color="#6b7280" />
+              <Typography variant="body2" sx={{ color: '#6b7280', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
+                {currentTime}
+              </Typography>
+            </Box>
+
+            {/* User Menu */}
+            {userInfo && (
+              <>
+                <IconButton
+                  onClick={handleUserMenuOpen}
+                  sx={{ 
+                    color: '#2c2416',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: { xs: 0.5, sm: 1 },
+                  }}
+                >
+                  <User size={isMobile ? 18 : 20} />
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      display: { xs: 'none', sm: 'block' }, 
+                      ml: 0.5,
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    {userInfo.name || userInfo.email?.split('@')[0] || 'User'}
+                  </Typography>
+                  {userInfo.role && (
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        display: { xs: 'none', md: 'block' }, 
+                        ml: 0.5, 
+                        color: '#6b7280',
+                        fontSize: '0.7rem',
+                      }}
+                    >
+                      {userInfo.role}
+                    </Typography>
+                  )}
+                </IconButton>
+                <MuiMenu
+                  anchorEl={userMenuAnchor}
+                  open={Boolean(userMenuAnchor)}
+                  onClose={handleUserMenuClose}
+                  anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                  }}
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {userInfo.email}
+                    </Typography>
                     {userInfo.role && (
-                      <div className="user-menu-role">Role: {userInfo.role}</div>
+                      <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                        Role: {userInfo.role}
+                      </Typography>
                     )}
-                  </div>
-                  <div className="user-menu-divider"></div>
-                  
-                  {/* Admin-only menu items */}
+                  </Box>
+                  <Divider />
                   {isAdmin() && (
                     <>
-                      <button
-                        className="user-menu-item"
+                      <MenuItem
                         onClick={() => {
                           navigate('/user-management');
-                          setShowUserMenu(false);
+                          handleUserMenuClose();
+                          closeSidebar();
                         }}
                       >
-                        <Shield size={18} />
-                        <span>User Management</span>
-                      </button>
-                      <button
-                        className="user-menu-item"
+                        <Shield size={18} style={{ marginRight: 8 }} />
+                        User Management
+                      </MenuItem>
+                      <MenuItem
                         onClick={() => {
                           navigate('/permissions');
-                          setShowUserMenu(false);
+                          handleUserMenuClose();
+                          closeSidebar();
                         }}
                       >
-                        <Lock size={18} />
-                        <span>Permissions</span>
-                      </button>
-                      <div className="user-menu-divider"></div>
+                        <Lock size={18} style={{ marginRight: 8 }} />
+                        Permissions
+                      </MenuItem>
+                      <Divider />
                     </>
                   )}
-                  
-                  <button
-                    className="user-menu-item logout-button"
-                    onClick={handleLogout}
-                  >
-                    <LogOut size={18} />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          
-          <button 
-            className={`cart-icon ${!hasItemsInCart ? 'disabled' : ''}`}
-            onClick={handleCartClick}
-            disabled={!hasItemsInCart}
-            title={hasItemsInCart ? 'View Cart' : 'Add items to cart first'}
-          >
-            <ShoppingCart size={24} />
-            {cartItemCount > 0 && (
-              <span className="cart-badge">{cartItemCount}</span>
+                  <MenuItem onClick={handleLogout}>
+                    <LogOut size={18} style={{ marginRight: 8 }} />
+                    Logout
+                  </MenuItem>
+                </MuiMenu>
+              </>
             )}
-          </button>
-        </div>
-      </header>
+
+            {/* Cart Icon */}
+            <IconButton
+              color="inherit"
+              onClick={handleCartClick}
+              disabled={!hasItemsInCart}
+              title={hasItemsInCart ? 'View Cart' : 'Add items to cart first'}
+              sx={{ 
+                opacity: hasItemsInCart ? 1 : 0.5,
+                position: 'relative',
+              }}
+            >
+              <Badge badgeContent={cartItemCount} color="primary" max={99}>
+                <ShoppingCart size={isMobile ? 20 : 24} />
+              </Badge>
+            </IconButton>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
       {/* Left Sidebar Navigation */}
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-title">
-            <span>Navigation</span>
-          </div>
-          <button 
-            className="sidebar-close-btn"
-            onClick={closeSidebar}
-            title="Close sidebar"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        <nav className="sidebar-nav">
-          <Link 
-            to="/catalog" 
-            className={`sidebar-link ${isActive('/catalog') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()} // Only close on mobile
-          >
-            <Package size={20} />
-            <span>Catalog</span>
-          </Link>
-          
-          <Link 
-            to="/invoices" 
-            className={`sidebar-link ${isActive('/invoices') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()}
-          >
-            <FileText size={20} />
-            <span>Invoices</span>
-          </Link>
-
-          <Link 
-            to="/store-locator" 
-            className={`sidebar-link ${isActive('/store-locator') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()}
-          >
-            <MapPin size={20} />
-            <span>Store Locator</span>
-          </Link>
-
-          <Link 
-            to="/store-management" 
-            className={`sidebar-link ${isActive('/store-management') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()}
-          >
-            <Building2 size={20} />
-            <span>Store Management</span>
-          </Link>
-
-          <Link 
-            to="/customers" 
-            className={`sidebar-link ${isActive('/customers') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()}
-          >
-            <User size={20} />
-            <span>Customers</span>
-          </Link>
-
-          <Link 
-            to="/reports" 
-            className={`sidebar-link ${isActive('/reports') ? 'active' : ''}`}
-            onClick={() => window.innerWidth <= 968 && closeSidebar()}
-          >
-            <BarChart3 size={20} />
-            <span>Reports</span>
-          </Link>
-        </nav>
-      </aside>
-
-      {/* Sidebar Overlay for mobile */}
-      <div 
-        className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`} 
-        onClick={closeSidebar}
-      ></div>
+      <Drawer
+        variant={isMobile ? 'temporary' : 'persistent'}
+        open={sidebarOpen}
+        onClose={closeSidebar}
+        sx={{
+          width: { xs: 280, sm: 250 },
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: { xs: 280, sm: 250 },
+            boxSizing: 'border-box',
+            mt: { xs: '60px', sm: '70px' },
+            borderRight: '2px solid #8b6f47',
+          },
+        }}
+      >
+        <Box sx={{ overflow: 'auto', pt: 1 }}>
+          <List>
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <ListItem key={item.path} disablePadding>
+                  <ListItemButton
+                    component={Link}
+                    to={item.path}
+                    selected={active}
+                    onClick={closeSidebar}
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: '#f5f1e8',
+                        color: '#8b6f47',
+                        borderRight: '3px solid #8b6f47',
+                        '&:hover': {
+                          backgroundColor: '#f5f1e8',
+                        },
+                      },
+                      '&:hover': {
+                        backgroundColor: '#f8f6f0',
+                        borderRight: '3px solid #d4c4a8',
+                      },
+                      borderRight: '3px solid transparent',
+                      py: { xs: 1.5, sm: 1.5 },
+                      px: { xs: 2, sm: 1.5 },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: active ? '#8b6f47' : 'inherit' }}>
+                      <Icon size={isMobile ? 22 : 20} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={item.label}
+                      primaryTypographyProps={{
+                        fontWeight: active ? 600 : 500,
+                        fontSize: { xs: '1rem', sm: '0.95rem' },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </Box>
+      </Drawer>
     </>
   );
 };

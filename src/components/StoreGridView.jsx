@@ -41,15 +41,15 @@ const StoreGridView = ({
     }
   };
 
-  // Group inventory by shelf_id
-  // Handle both old format (item.location.section_id) and new format (item.shelf_id)
+  // Group inventory by storage_type_id
+  // Handle both old format (item.location.section_id) and new format (item.storage_type_id)
   const inventoryBySection = inventory.reduce((acc, item) => {
-    // Try shelf_id first (new format), then location.shelf_id, then location.section_id (legacy)
-    const shelfId = item.shelf_id || item.location?.shelf_id || item.location?.section_id || 'unknown';
-    if (!acc[shelfId]) {
-      acc[shelfId] = [];
+    // Try storage_type_id first (new format), then shelf_id (legacy), then location.storage_type_id, then location.shelf_id, then location.section_id (legacy)
+    const storageTypeId = item.storage_type_id || item.shelf_id || item.location?.storage_type_id || item.location?.shelf_id || item.location?.section_id || 'unknown';
+    if (!acc[storageTypeId]) {
+      acc[storageTypeId] = [];
     }
-    acc[shelfId].push(item);
+    acc[storageTypeId].push(item);
     return acc;
   }, {});
 
@@ -124,7 +124,7 @@ const StoreGridView = ({
                   >
                     <ShelfBox
                       section={section}
-                      inventory={inventoryBySection[section.id] || []}
+                      inventory={inventoryBySection[section.id] || inventoryBySection[section.storage_type_id] || []}
                       isSelected={selectedSection === section.id}
                       onClick={() => handleSectionClick(section)}
                       onProductDrop={handleProductDrop}
@@ -146,7 +146,7 @@ const StoreGridView = ({
                 <ShelfBox
                   key={section.id}
                   section={section}
-                  inventory={inventoryBySection[section.id] || []}
+                  inventory={inventoryBySection[section.id] || inventoryBySection[section.storage_type_id] || []}
                   isSelected={selectedSection === section.id}
                   onClick={() => handleSectionClick(section)}
                   onProductDrop={handleProductDrop}

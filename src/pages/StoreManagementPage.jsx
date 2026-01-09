@@ -5,9 +5,14 @@ import React, { useState, useEffect } from 'react';
 import { useStoreManagement } from '../hooks/useStoreManagement';
 import { useProductLocationTracking } from '../hooks';
 import CreateStoreModal from '../components/CreateStoreModal';
-import CreateShelfModal from '../components/CreateShelfModal';
-import CreateBoxModal from '../components/CreateBoxModal';
+import CreateStorageTypeModal from '../components/CreateStorageTypeModal';
+import CreateStorageObjectModal from '../components/CreateStorageObjectModal';
 import AddProductToBoxModal from '../components/AddProductToBoxModal';
+import StorageTypeDropdown from '../components/StorageTypeDropdown';
+import StorageObjectDropdown from '../components/StorageObjectDropdown';
+// Legacy imports for backward compatibility
+import CreateShelfModal from '../components/CreateStorageTypeModal';
+import CreateBoxModal from '../components/CreateStorageObjectModal';
 import ShopFloorMap from '../components/ShopFloorMap';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
@@ -16,23 +21,34 @@ import '../styles/StoreManagement.css';
 const StoreManagementPage = () => {
   // Modals
   const [showCreateStore, setShowCreateStore] = useState(false);
-  const [showCreateShelf, setShowCreateShelf] = useState(false);
-  const [showCreateBox, setShowCreateBox] = useState(false);
+  const [showCreateStorageType, setShowCreateStorageType] = useState(false);
+  const [showCreateStorageObject, setShowCreateStorageObject] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
 
   // Selection state
   const [selectedStore, setSelectedStore] = useState(null);
-  const [selectedShelf, setSelectedShelf] = useState(null);
-  const [selectedBox, setSelectedBox] = useState(null);
+  const [selectedStorageType, setSelectedStorageType] = useState(null);
+  const [selectedStorageObject, setSelectedStorageObject] = useState(null);
   const [expandedStores, setExpandedStores] = useState(new Set());
-  const [expandedShelves, setExpandedShelves] = useState(new Set());
-  const [boxProducts, setBoxProducts] = useState({});
+  const [expandedStorageTypes, setExpandedStorageTypes] = useState(new Set());
+  const [storageObjectProducts, setStorageObjectProducts] = useState({});
   const [storeProducts, setStoreProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  
+  // Legacy state names for backward compatibility
+  const selectedShelf = selectedStorageType;
+  const selectedBox = selectedStorageObject;
+  const expandedShelves = expandedStorageTypes;
+  const boxProducts = storageObjectProducts;
+  const showCreateShelf = showCreateStorageType;
+  const showCreateBox = showCreateStorageObject;
 
   // Hook
   const {
     stores,
+    storageTypes,
+    storageObjects,
+    // Legacy names for backward compatibility
     shelves,
     boxes,
     loading,
@@ -71,18 +87,18 @@ const StoreManagementPage = () => {
     fetchAllStores();
   }, [fetchAllStores]);
 
-  // Fetch shelves when store is selected
+  // Fetch storage types when store is selected
   useEffect(() => {
     if (selectedStore) {
       const locationId = selectedStore.location_id || selectedStore.id;
-      fetchShelvesByStore(locationId).then(async (shelvesList) => {
-        // Fetch boxes for all shelves so they're available when shelves are expanded
-        if (Array.isArray(shelvesList)) {
-          for (const shelf of shelvesList) {
+      fetchShelvesByStore(locationId).then(async (storageTypesList) => {
+        // Fetch storage objects for all storage types so they're available when storage types are expanded
+        if (Array.isArray(storageTypesList)) {
+          for (const storageType of storageTypesList) {
             try {
-              await fetchBoxesByShelf(shelf.id);
+              await fetchBoxesByShelf(storageType.id);
             } catch (err) {
-              console.error(`Error pre-fetching boxes for shelf ${shelf.id}:`, err);
+              console.error(`Error pre-fetching storage objects for storage type ${storageType.id}:`, err);
             }
           }
         }
@@ -92,7 +108,7 @@ const StoreManagementPage = () => {
   }, [selectedStore, fetchShelvesByStore, fetchBoxesByShelf]);
 
   /**
-   * Fetch all products in the store with their shelf and box information
+   * Fetch all products in the store with their storage type and storage object information
    */
   const fetchStoreProducts = async (locationId) => {
     try {
@@ -101,40 +117,45 @@ const StoreManagementPage = () => {
       const products = await searchProducts({ location_id: locationId });
       const productsList = Array.isArray(products) ? products : products?.items || [];
       
-      // Fetch all shelves and boxes to map IDs to names
-      const shelvesList = await fetchShelvesByStore(locationId);
-      const shelvesMap = {};
-      const boxesMap = {};
+      // Fetch all storage types and storage objects to map IDs to names
+      const storageTypesList = await fetchShelvesByStore(locationId);
+      const storageTypesMap = {};
+      const storageObjectsMap = {};
       
-      // Create shelf ID to name mapping
-      for (const shelf of shelvesList) {
-        shelvesMap[shelf.id] = {
-          name: shelf.shelf_name || shelf.name,
-          code: shelf.shelf_code || shelf.code
+      // Create storage type ID to name mapping
+      for (const storageType of storageTypesList) {
+        storageTypesMap[storageType.id] = {
+          name: storageType.storage_type_name || storageType.name,
+          code: storageType.storage_type_code || storageType.code
         };
         
-        // Fetch boxes for each shelf
+        // Fetch storage objects for each storage type
         try {
-          const boxesList = await fetchBoxesByShelf(shelf.id);
-          boxesList.forEach(box => {
-            boxesMap[box.id] = {
-              name: box.box_name || box.name,
-              code: box.box_code || box.code,
-              shelf_id: shelf.id
+          const storageObjectsList = await fetchBoxesByShelf(storageType.id);
+          storageObjectsList.forEach(so => {
+            storageObjectsMap[so.id] = {
+              name: so.storage_object_label || so.storage_object_name || so.name,
+              code: so.storage_object_code || so.code,
+              storage_type_id: storageType.id
             };
           });
         } catch (err) {
-          console.error(`Error fetching boxes for shelf ${shelf.id}:`, err);
+          console.error(`Error fetching storage objects for storage type ${storageType.id}:`, err);
         }
       }
       
-      // Enrich products with shelf and box names
+      // Enrich products with storage type and storage object names
       const enrichedProducts = productsList.map(product => ({
         ...product,
-        shelf_name: shelvesMap[product.shelf_id]?.name || '—',
-        shelf_code: shelvesMap[product.shelf_id]?.code || '—',
-        box_name: boxesMap[product.box_id]?.name || '—',
-        box_code: boxesMap[product.box_id]?.code || '—'
+        storage_type_name: storageTypesMap[product.storage_type_id || product.shelf_id]?.name || '—',
+        storage_type_code: storageTypesMap[product.storage_type_id || product.shelf_id]?.code || '—',
+        storage_object_name: storageObjectsMap[product.storage_object_id || product.box_id]?.name || '—',
+        storage_object_code: storageObjectsMap[product.storage_object_id || product.box_id]?.code || '—',
+        // Legacy field names for backward compatibility
+        shelf_name: storageTypesMap[product.storage_type_id || product.shelf_id]?.name || '—',
+        shelf_code: storageTypesMap[product.storage_type_id || product.shelf_id]?.code || '—',
+        box_name: storageObjectsMap[product.storage_object_id || product.box_id]?.name || '—',
+        box_code: storageObjectsMap[product.storage_object_id || product.box_id]?.code || '—'
       }));
       
       setStoreProducts(enrichedProducts);
@@ -146,39 +167,42 @@ const StoreManagementPage = () => {
     }
   };
 
-  // Fetch boxes when shelf is selected
+  // Fetch storage objects when storage type is selected
   useEffect(() => {
-    if (selectedShelf) {
-      fetchBoxesByShelf(selectedShelf.id);
+    if (selectedStorageType) {
+      fetchBoxesByShelf(selectedStorageType.id);
     }
-  }, [selectedShelf, fetchBoxesByShelf]);
+  }, [selectedStorageType, fetchBoxesByShelf]);
 
-  // Fetch box products when box is selected
+  // Fetch storage object products when storage object is selected
   useEffect(() => {
-    if (selectedBox) {
-      fetchBoxProducts(selectedBox.id);
+    if (selectedStorageObject) {
+      fetchStorageObjectProducts(selectedStorageObject.id);
     }
-  }, [selectedBox]);
+  }, [selectedStorageObject]);
 
   /**
-   * Fetch products in a specific box
+   * Fetch products in a specific storage object
    */
-  const fetchBoxProducts = async (boxId) => {
+  const fetchStorageObjectProducts = async (storageObjectId) => {
     try {
-      // Search for products in this specific box
-      const products = await searchProducts({ box_id: boxId });
-      setBoxProducts(prev => ({
+      // Search for products in this specific storage object
+      const products = await searchProducts({ storage_object_id: storageObjectId });
+      setStorageObjectProducts(prev => ({
         ...prev,
-        [boxId]: Array.isArray(products) ? products : products?.items || []
+        [storageObjectId]: Array.isArray(products) ? products : products?.items || []
       }));
     } catch (err) {
-      console.error('Error fetching box products:', err);
-      setBoxProducts(prev => ({
+      console.error('Error fetching storage object products:', err);
+      setStorageObjectProducts(prev => ({
         ...prev,
-        [boxId]: []
+        [storageObjectId]: []
       }));
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const fetchBoxProducts = fetchStorageObjectProducts;
 
   const handleCreateStore = async (storeData) => {
     try {
@@ -189,13 +213,13 @@ const StoreManagementPage = () => {
     }
   };
 
-  const handleCreateShelf = async (shelfData, mode) => {
+  const handleCreateStorageType = async (storageTypeData, mode) => {
     try {
       let result;
       if (mode === 'single') {
-        result = await createShelf(shelfData);
+        result = await createShelf(storageTypeData);
       } else {
-        result = await createMultipleShelves(shelfData);
+        result = await createMultipleShelves(storageTypeData);
       }
       if (selectedStore) {
         const locationId = selectedStore.location_id || selectedStore.id;
@@ -205,29 +229,35 @@ const StoreManagementPage = () => {
       // Return result so modal can save coordinates
       return result;
     } catch (err) {
-      console.error('Error creating shelf:', err);
+      console.error('Error creating storage type:', err);
       throw err;
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const handleCreateShelf = handleCreateStorageType;
 
-  const handleCreateBox = async (boxData, mode) => {
+  const handleCreateStorageObject = async (storageObjectData, mode) => {
     try {
       if (mode === 'single') {
-        await createBox(boxData);
+        await createBox(storageObjectData);
       } else {
-        await createMultipleBoxes(boxData);
+        await createMultipleBoxes(storageObjectData);
       }
-      if (selectedShelf) {
-        await fetchBoxesByShelf(selectedShelf.id);
+      if (selectedStorageType) {
+        await fetchBoxesByShelf(selectedStorageType.id);
       }
       if (selectedStore) {
         const locationId = selectedStore.location_id || selectedStore.id;
         await fetchStoreProducts(locationId);
       }
     } catch (err) {
-      console.error('Error creating box:', err);
+      console.error('Error creating storage object:', err);
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const handleCreateBox = handleCreateStorageObject;
 
   const toggleStoreExpanded = (storeId) => {
     const newExpanded = new Set(expandedStores);
@@ -239,32 +269,41 @@ const StoreManagementPage = () => {
     setExpandedStores(newExpanded);
   };
 
-  const toggleShelfExpanded = (shelfId) => {
-    const newExpanded = new Set(expandedShelves);
-    if (newExpanded.has(shelfId)) {
-      newExpanded.delete(shelfId);
+  const toggleStorageTypeExpanded = (storageTypeId) => {
+    const newExpanded = new Set(expandedStorageTypes);
+    if (newExpanded.has(storageTypeId)) {
+      newExpanded.delete(storageTypeId);
     } else {
-      newExpanded.add(shelfId);
+      newExpanded.add(storageTypeId);
     }
-    setExpandedShelves(newExpanded);
+    setExpandedStorageTypes(newExpanded);
   };
+  
+  // Legacy function name for backward compatibility
+  const toggleShelfExpanded = toggleStorageTypeExpanded;
 
   const handleSelectStore = async (store) => {
     setSelectedStore(store);
-    setSelectedShelf(null);
-    setSelectedBox(null);
+    setSelectedStorageType(null);
+    setSelectedStorageObject(null);
     toggleStoreExpanded(store.id);
   };
 
-  const handleSelectShelf = async (shelf) => {
-    setSelectedShelf(shelf);
-    setSelectedBox(null);
-    toggleShelfExpanded(shelf.id);
+  const handleSelectStorageType = async (storageType) => {
+    setSelectedStorageType(storageType);
+    setSelectedStorageObject(null);
+    toggleStorageTypeExpanded(storageType.id);
   };
+  
+  // Legacy function name for backward compatibility
+  const handleSelectShelf = handleSelectStorageType;
 
-  const handleSelectBox = (box) => {
-    setSelectedBox(box);
+  const handleSelectStorageObject = (storageObject) => {
+    setSelectedStorageObject(storageObject);
   };
+  
+  // Legacy function name for backward compatibility
+  const handleSelectBox = handleSelectStorageObject;
 
   const handleDeleteStore = async (storeId) => {
     if (window.confirm('Are you sure you want to delete this store? This action cannot be undone.')) {
@@ -280,48 +319,54 @@ const StoreManagementPage = () => {
     }
   };
 
-  const handleDeleteShelf = async (shelfId) => {
+  const handleDeleteStorageType = async (storageTypeId) => {
     if (window.confirm('Are you sure you want to delete this storage type? This action cannot be undone.')) {
       try {
-        await deleteShelf(shelfId);
-        if (selectedShelf?.id === shelfId) {
-          setSelectedShelf(null);
+        await deleteShelf(storageTypeId);
+        if (selectedStorageType?.id === storageTypeId) {
+          setSelectedStorageType(null);
         }
         if (selectedStore) {
           const locationId = selectedStore.location_id || selectedStore.id;
           await fetchShelvesByStore(locationId);
         }
       } catch (err) {
-        console.error('Error deleting shelf:', err);
+        console.error('Error deleting storage type:', err);
       }
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const handleDeleteShelf = handleDeleteStorageType;
 
-  const handleDeleteBox = async (boxId) => {
+  const handleDeleteStorageObject = async (storageObjectId) => {
     if (window.confirm('Are you sure you want to delete this storage object? This action cannot be undone.')) {
       try {
-        await deleteBox(boxId);
-        if (selectedBox?.id === boxId) {
-          setSelectedBox(null);
+        await deleteBox(storageObjectId);
+        if (selectedStorageObject?.id === storageObjectId) {
+          setSelectedStorageObject(null);
         }
-        if (selectedShelf) {
-          await fetchBoxesByShelf(selectedShelf.id);
+        if (selectedStorageType) {
+          await fetchBoxesByShelf(selectedStorageType.id);
         }
       } catch (err) {
-        console.error('Error deleting box:', err);
+        console.error('Error deleting storage object:', err);
       }
     }
   };
+  
+  // Legacy function name for backward compatibility
+  const handleDeleteBox = handleDeleteStorageObject;
 
   /**
-   * Handle product removal from box
+   * Handle product removal from storage object
    */
   const handleRemoveProduct = async (locationId, productName) => {
-    if (window.confirm(`Are you sure you want to remove "${productName}" from this box?`)) {
+    if (window.confirm(`Are you sure you want to remove "${productName}" from this storage object?`)) {
       try {
         await removeProduct(locationId, 1, 'app_user', 'Removed from store management');
-        if (selectedBox) {
-          await fetchBoxProducts(selectedBox.id);
+        if (selectedStorageObject) {
+          await fetchStorageObjectProducts(selectedStorageObject.id);
         }
       } catch (err) {
         console.error('Error removing product:', err);
@@ -333,8 +378,8 @@ const StoreManagementPage = () => {
    * Handle product added successfully
    */
   const handleProductAdded = async () => {
-    if (selectedBox) {
-      await fetchBoxProducts(selectedBox.id);
+    if (selectedStorageObject) {
+      await fetchStorageObjectProducts(selectedStorageObject.id);
     }
   };
 
@@ -431,56 +476,56 @@ const StoreManagementPage = () => {
                   {expandedStores.has(store.id) && selectedStore?.id === store.id && (
                     <div className="shelves-list">
                       <div className="shelves-header">
-                        <h4>Storage Types ({shelves.length})</h4>
+                        <h4>Storage Types ({storageTypes.length})</h4>
                         <button
                           className="btn btn-secondary btn-sm"
-                          onClick={() => setShowCreateShelf(true)}
+                          onClick={() => setShowCreateStorageType(true)}
                         >
                           + Add Storage Type
                         </button>
                       </div>
 
-                      {shelves.length === 0 ? (
+                      {storageTypes.length === 0 ? (
                         <div className="empty-sublevel">
                           <p>No storage types in this store</p>
                         </div>
                       ) : (
                         <div className="shelves-grid">
-                          {shelves.map(shelf => (
+                          {storageTypes.map(storageType => (
                             <div
-                              key={shelf.id}
-                              className={`shelf-card ${selectedShelf?.id === shelf.id ? 'selected' : ''}`}
-                              onClick={() => handleSelectShelf(shelf)}
+                              key={storageType.id}
+                              className={`shelf-card ${selectedStorageType?.id === storageType.id ? 'selected' : ''}`}
+                              onClick={() => handleSelectStorageType(storageType)}
                             >
                               <div className="shelf-card-header">
-                                <h5>{shelf.shelf_name || shelf.name}</h5>
+                                <h5>{storageType.storage_type_name || storageType.name}</h5>
                                 <button
                                   className="btn btn-icon btn-sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteShelf(shelf.id);
+                                    handleDeleteStorageType(storageType.id);
                                   }}
                                   title="Delete storage type"
                                 >
                                   Delete
                                 </button>
                               </div>
-                              <p className="shelf-code">{shelf.shelf_code || shelf.code}</p>
+                              <p className="shelf-code">{storageType.storage_type_code || storageType.code}</p>
                               <div className="shelf-details">
-                                <span>Level: {shelf.shelf_level || '—'}</span>
-                                <span>Cap: {shelf.capacity || '—'}</span>
+                                <span>Cap: {storageType.capacity || '—'}</span>
                               </div>
 
-                              {/* Boxes List - Show when shelf is expanded */}
-                              {expandedShelves.has(shelf.id) && selectedShelf?.id === shelf.id && (
+                              {/* Storage Objects List - Show when storage type is expanded */}
+                              {expandedStorageTypes.has(storageType.id) && selectedStorageType?.id === storageType.id && (
                                 <div className="boxes-list">
                                   <div className="boxes-header">
-                                    <h6>Storage Objects ({boxes.filter(b => b.shelf_id === shelf.id).length})</h6>
+                                    <h6>Storage Objects ({storageObjects.filter(so => so.storage_type_id === storageType.id).length})</h6>
                                     <button
                                       className="btn btn-secondary btn-xs"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setShowCreateBox(true);
+                                        setSelectedStorageType(storageType);
+                                        setShowCreateStorageObject(true);
                                       }}
                                     >
                                       + Storage Object
@@ -488,29 +533,29 @@ const StoreManagementPage = () => {
                                   </div>
 
                                   {(() => {
-                                    const shelfBoxes = boxes.filter(b => b.shelf_id === shelf.id);
-                                    return shelfBoxes.length === 0 ? (
+                                    const typeStorageObjects = storageObjects.filter(so => so.storage_type_id === storageType.id);
+                                    return typeStorageObjects.length === 0 ? (
                                       <p className="empty-sublevel-text">No storage objects yet</p>
                                     ) : (
                                       <div className="boxes-sublevel">
-                                        {shelfBoxes.map(box => (
+                                        {typeStorageObjects.map(storageObject => (
                                           <div 
-                                            key={box.id} 
-                                            className={`box-item ${selectedBox?.id === box.id ? 'selected' : ''}`}
-                                            onClick={() => handleSelectBox(box)}
+                                            key={storageObject.id} 
+                                            className={`box-item ${selectedStorageObject?.id === storageObject.id ? 'selected' : ''}`}
+                                            onClick={() => handleSelectStorageObject(storageObject)}
                                           >
-                                            <div className="box-name">{box.box_name || box.name}</div>
-                                            <div className="box-code">{box.box_code || box.code}</div>
-                                            <div className="box-capacity">Cap: {box.capacity}</div>
+                                            <div className="box-name">{storageObject.storage_object_label || storageObject.storage_object_name || storageObject.name}</div>
+                                            <div className="box-code">{storageObject.storage_object_code || storageObject.code}</div>
+                                            <div className="box-capacity">Cap: {storageObject.capacity || '—'}</div>
                                             <div className="box-actions">
                                               <button
                                                 className="btn btn-primary btn-xs"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  setSelectedBox(box);
+                                                  setSelectedStorageObject(storageObject);
                                                   setShowAddProduct(true);
                                                 }}
-                                                title="Add product to box"
+                                                title="Add product to storage object"
                                               >
                                                 + Product
                                               </button>
@@ -518,7 +563,7 @@ const StoreManagementPage = () => {
                                                 className="btn btn-icon btn-xs"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleDeleteBox(box.id);
+                                                  handleDeleteStorageObject(storageObject.id);
                                                 }}
                                                 title="Delete storage object"
                                               >
@@ -546,36 +591,36 @@ const StoreManagementPage = () => {
 
         {/* Details Panel */}
         <div className="details-panel">
-          {!selectedStore && !selectedBox ? (
+          {!selectedStore && !selectedStorageObject ? (
             <div className="empty-details">
-              <p>Select a store or box to view details</p>
+              <p>Select a store or storage object to view details</p>
             </div>
-          ) : selectedBox ? (
-            // Box Details Panel
+          ) : selectedStorageObject ? (
+            // Storage Object Details Panel
             <div className="box-details">
-              <h2>{selectedBox.box_name || selectedBox.name}</h2>
+              <h2>{selectedStorageObject.storage_object_label || selectedStorageObject.storage_object_name || selectedStorageObject.name}</h2>
               
               <div className="details-grid">
                 <div className="detail-item">
                   <label>Storage Object Code:</label>
-                  <p>{selectedBox.box_code || selectedBox.code}</p>
+                  <p>{selectedStorageObject.storage_object_code || selectedStorageObject.code}</p>
                 </div>
                 
                 <div className="detail-item">
                   <label>Capacity:</label>
-                  <p>{selectedBox.capacity} units</p>
+                  <p>{selectedStorageObject.capacity || '—'} units</p>
                 </div>
 
                 <div className="detail-item">
                   <label>Storage Type ID:</label>
-                  <p>{selectedBox.shelf_id}</p>
+                  <p>{selectedStorageObject.storage_type_id || selectedStorageObject.shelf_id}</p>
                 </div>
 
                 <div className="detail-item">
                   <label>Status:</label>
                   <p>
-                    <span className={`status-badge ${selectedBox.is_active !== false ? 'active' : 'inactive'}`}>
-                      {selectedBox.is_active !== false ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${selectedStorageObject.is_active !== false ? 'active' : 'inactive'}`}>
+                      {selectedStorageObject.is_active !== false ? 'Active' : 'Inactive'}
                     </span>
                   </p>
                 </div>
@@ -593,7 +638,7 @@ const StoreManagementPage = () => {
                   </button>
                   <button
                     className="btn btn-secondary"
-                    onClick={() => setSelectedBox(null)}
+                    onClick={() => setSelectedStorageObject(null)}
                   >
                     ← Back to Storage Types
                   </button>
@@ -604,7 +649,7 @@ const StoreManagementPage = () => {
               <div className="box-products-section">
                 <h3>Products in Storage Object</h3>
                 
-                {boxProducts[selectedBox.id]?.length === 0 ? (
+                {storageObjectProducts[selectedStorageObject.id]?.length === 0 ? (
                   <div className="empty-products">
                     <p>No products in this storage object yet</p>
                     <button
@@ -616,7 +661,7 @@ const StoreManagementPage = () => {
                   </div>
                 ) : (
                   <div className="products-list">
-                    {boxProducts[selectedBox.id]?.map(product => (
+                    {storageObjectProducts[selectedStorageObject.id]?.map(product => (
                       <div key={product.id} className="product-item">
                         <div className="product-header">
                           <div className="product-info">
@@ -699,13 +744,13 @@ const StoreManagementPage = () => {
                 )}
               </div>
 
-              {/* Shelf Creation Quick Action */}
+              {/* Storage Type Creation Quick Action */}
               <div className="quick-actions">
                 <h3>Quick Actions</h3>
                 <div className="action-buttons">
                   <button
                     className="btn btn-primary"
-                    onClick={() => setShowCreateShelf(true)}
+                    onClick={() => setShowCreateStorageType(true)}
                   >
                     Add Storage Type to This Store
                   </button>
@@ -725,11 +770,11 @@ const StoreManagementPage = () => {
                   <div className="summary-grid" style={{ marginBottom: '20px' }}>
                     <div className="summary-card">
                       <h4>Total Storage Types</h4>
-                      <p className="summary-value">{shelves.length}</p>
+                      <p className="summary-value">{storageTypes.length}</p>
                     </div>
                     <div className="summary-card">
                       <h4>Total Storage Objects</h4>
-                      <p className="summary-value">{boxes.length}</p>
+                      <p className="summary-value">{storageObjects.length}</p>
                     </div>
                     <div className="summary-card">
                       <h4>Total Products</h4>
@@ -812,16 +857,16 @@ const StoreManagementPage = () => {
                                   {product.quantity || product.total_quantity || 0}
                                 </td>
                                 <td style={{ padding: '12px', color: '#5d4e37', fontSize: '13px', fontWeight: '500' }}>
-                                  {product.shelf_name || '—'}
+                                  {product.storage_type_name || product.shelf_name || '—'}
                                 </td>
                                 <td style={{ padding: '12px', color: '#8b7355', fontSize: '12px' }}>
-                                  {product.shelf_code || '—'}
+                                  {product.storage_type_code || product.shelf_code || '—'}
                                 </td>
                                 <td style={{ padding: '12px', color: '#5d4e37', fontSize: '13px', fontWeight: '500' }}>
-                                  {product.box_name || '—'}
+                                  {product.storage_object_name || product.box_name || '—'}
                                 </td>
                                 <td style={{ padding: '12px', color: '#8b7355', fontSize: '12px' }}>
-                                  {product.box_code || '—'}
+                                  {product.storage_object_code || product.box_code || '—'}
                                 </td>
                                 <td style={{ padding: '12px', fontSize: '11px', color: '#8b7355' }}>
                                   {product.product_type === 'real_jewelry' ? (
@@ -851,10 +896,10 @@ const StoreManagementPage = () => {
               {/* Store Map */}
               {selectedStore && (
                 <ShopFloorMap
-                  shelves={shelves}
-                  boxes={boxes}
-                  selectedShelf={selectedShelf}
-                  onShelfClick={handleSelectShelf}
+                  shelves={storageTypes}
+                  boxes={storageObjects}
+                  selectedShelf={selectedStorageType}
+                  onShelfClick={handleSelectStorageType}
                   store={selectedStore}
                   onPositionUpdated={handlePositionUpdated}
                 />
@@ -872,20 +917,20 @@ const StoreManagementPage = () => {
         loading={loading}
       />
 
-      <CreateShelfModal
-        isOpen={showCreateShelf}
-        onClose={() => setShowCreateShelf(false)}
-        onSubmit={handleCreateShelf}
+      <CreateStorageTypeModal
+        isOpen={showCreateStorageType}
+        onClose={() => setShowCreateStorageType(false)}
+        onSubmit={handleCreateStorageType}
         storeId={selectedStore?.location_id || selectedStore?.id}
         bulkMode={true}
         loading={loading}
       />
 
-      <CreateBoxModal
-        isOpen={showCreateBox}
-        onClose={() => setShowCreateBox(false)}
-        onSubmit={handleCreateBox}
-        shelfId={selectedShelf?.id}
+      <CreateStorageObjectModal
+        isOpen={showCreateStorageObject}
+        onClose={() => setShowCreateStorageObject(false)}
+        onSubmit={handleCreateStorageObject}
+        storageTypeId={selectedStorageType?.id}
         bulkMode={true}
         loading={loading}
       />
@@ -893,9 +938,9 @@ const StoreManagementPage = () => {
       <AddProductToBoxModal
         isOpen={showAddProduct}
         onClose={() => setShowAddProduct(false)}
-        boxId={selectedBox?.id}
-        boxName={selectedBox?.box_name || selectedBox?.name}
-        boxCapacity={selectedBox?.capacity}
+        storageObjectId={selectedStorageObject?.id}
+        storageObjectName={selectedStorageObject?.storage_object_label || selectedStorageObject?.storage_object_name || selectedStorageObject?.name}
+        storageObjectCapacity={selectedStorageObject?.capacity}
         onProductAdded={handleProductAdded}
         loading={loading}
       />

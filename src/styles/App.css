@@ -1,16 +1,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
 
+/* Material UI handles most styling now, keeping only essential custom styles */
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-.app {
-  min-height: 100vh;
-  background: #ffffff;
-  font-family: 'Lato', sans-serif;
-  color: #2c2416;
+/* Ensure Material UI components work well on mobile */
+@media (max-width: 430px) {
+  /* iPhone 14/15/16 optimizations */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Ensure touch targets are adequate */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Navigation */
@@ -7921,4 +7931,430 @@
     flex-direction: column;
     gap: 1rem;
   }
+}
+
+/* Simplified Real Jewellery Product Detail Styles */
+.info-grid-simple {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.info-grid-simple .info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-grid-simple .info-item label {
+  font-weight: 600;
+  color: #5d4e37;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-grid-simple .info-item span {
+  color: #2c2416;
+  font-size: 1rem;
+}
+
+.components-table-simple {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.components-table-simple table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.components-table-simple thead {
+  background: #f5f1e8;
+}
+
+.components-table-simple th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #5d4e37;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #d4c4a8;
+}
+
+.components-table-simple td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e8e0d0;
+  color: #2c2416;
+}
+
+.components-table-simple tbody tr:hover {
+  background: #faf8f3;
+}
+
+.components-table-simple .table-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.making-charges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.making-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.making-item label {
+  font-weight: 600;
+  color: #5d4e37;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.making-item span {
+  color: #2c2416;
+  font-size: 1rem;
+}
+
+.rate-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rate-input-group input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #faf8f3;
+  border-radius: 8px;
+  border: 1px solid #e8e0d0;
+}
+
+.summary-item label {
+  font-weight: 600;
+  color: #5d4e37;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-value {
+  color: #2c2416;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.final-price-item {
+  background: #f5f1e8;
+  border-color: #d4c4a8;
+}
+
+.final-price-value-large {
+  color: #8b6f47;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.gst-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gst-input-group input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.image-upload-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.image-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #8b6f47;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.image-upload-btn:hover {
+  background: #6d5637;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 111, 71, 0.3);
+}
+
+.selected-image-name {
+  color: #ffffff;
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+/* Image Upload Section */
+.image-container {
+  position: relative;
+}
+
+.image-upload-section {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  border-radius: 0 0 8px 8px;
+  z-index: 10;
+}
+
+.image-upload-btn-large {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: #8b6f47;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  width: 100%;
+  justify-content: center;
+}
+
+.image-upload-btn-large:hover {
+  background: #6d5637;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 111, 71, 0.3);
+}
+
+.selected-image-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  align-items: center;
+}
+
+.selected-image-info .selected-image-name {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  width: 100%;
+  text-align: center;
+}
+
+.selected-image-info .selected-image-size {
+  color: #d4c4a8;
+  font-size: 0.8rem;
+}
+
+.upload-progress {
+  color: #ffffff;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  background: rgba(139, 111, 71, 0.3);
+  border-radius: 6px;
+  width: 100%;
+  text-align: center;
+}
+
+/* Gold Rate Display */
+.gold-rate-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gold-rate-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #8b6f47;
+}
+
+.gold-rate-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.gold-type-badge {
+  padding: 0.25rem 0.75rem;
+  background: #f5f1e8;
+  color: #5d4e37;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.gold-carat-badge {
+  padding: 0.25rem 0.75rem;
+  background: #e8e0d0;
+  color: #5d4e37;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.gold-rate-edit-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.gold-rate-type-display {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Price Calculation Breakdown */
+.price-calculation-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #faf8f3;
+  border-radius: 12px;
+  border: 1px solid #e8e0d0;
+}
+
+.calc-step {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+}
+
+.calc-label {
+  font-weight: 600;
+  color: #5d4e37;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.calc-sub-label {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: #8b7355;
+}
+
+.calc-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c2416;
+}
+
+.calc-value-large {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #8b6f47;
+}
+
+.calc-grand-total {
+  border-top: 2px solid #d4c4a8;
+  border-bottom: 2px solid #d4c4a8;
+  padding: 1rem 0;
+  margin: 0.5rem 0;
+}
+
+.calc-grand-total .calc-label,
+.calc-grand-total .calc-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.calc-final-price {
+  background: #f5f1e8;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.calc-final-price .calc-label {
+  font-size: 1.1rem;
+}
+
+.calc-divider {
+  height: 1px;
+  background: #e8e0d0;
+  margin: 0.5rem 0;
+}
+
+.calc-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.calc-input-group input {
+  width: 150px;
+  padding: 0.5rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }

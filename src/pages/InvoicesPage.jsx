@@ -1,5 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Search, FileText, Calendar, User, IndianRupee } from 'lucide-react';
+import {
+  Box,
+  Container,
+  Typography,
+  TextField,
+  InputAdornment,
+  Grid,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  IconButton,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import { customersApi } from '../services/api';
 import { useInvoices } from '../hooks';
 import { LoadingSpinner, ErrorMessage, Pagination, InvoiceActions } from '../components';
@@ -10,6 +31,8 @@ import { formatRupees } from '../utils';
  * Display and manage invoices with search and filtering
  */
 export const InvoicesPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { 
     invoices, 
     loading, 
@@ -94,173 +117,227 @@ export const InvoicesPage = () => {
 
   if (loading) {
     return (
-      <div className="screen-container">
+      <Box sx={{ p: 3 }}>
         <LoadingSpinner message="Loading invoices..." />
-      </div>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <div className="screen-container">
+      <Box sx={{ p: 3 }}>
         <ErrorMessage message={error} />
-      </div>
+      </Box>
     );
   }
 
-  return (
-    <div className="screen-container">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">
-            <FileText size={24} />
-            Invoices
-          </h1>
-          <p className="screen-subtitle">
-            Manage and send invoices to customers
-          </p>
-        </div>
-      </div>
+  const getStatusColor = (status) => {
+    const statusLower = status?.toLowerCase();
+    if (statusLower === 'paid') return 'success';
+    if (statusLower === 'pending') return 'warning';
+    if (statusLower === 'cancelled') return 'error';
+    return 'default';
+  };
 
-      {/* Search and Filters */}
-      <div className="filters-section">
-        <div className="search-container">
-          <Search size={20} />
-          <input
-            type="text"
-            placeholder="Search invoices by number, customer, or amount..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="search-input"
-          />
-        </div>
-      </div>
+  return (
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <FileText size={24} color="#8b6f47" />
+          <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416' }}>
+            Invoices
+          </Typography>
+        </Box>
+        <Typography variant="body1" sx={{ color: '#6b7280' }}>
+          Manage and send invoices to customers
+        </Typography>
+      </Box>
+
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          placeholder="Search invoices by number, customer, or amount..."
+          value={searchTerm}
+          onChange={handleSearch}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={20} color="#6b7280" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: '#ffffff',
+            },
+          }}
+        />
+      </Box>
 
       {/* Invoice Stats */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-value">{stats.total}</div>
-          <div className="stat-label">Total Invoices</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">
-            {formatRupees(stats.totalAmount)}
-          </div>
-          <div className="stat-label">Total Amount</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{stats.paid}</div>
-          <div className="stat-label">Paid Invoices</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{stats.pending}</div>
-          <div className="stat-label">Pending Invoices</div>
-        </div>
-      </div>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#8b6f47' }}>
+                {stats.total}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                Total Invoices
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#8b6f47' }}>
+                {formatRupees(stats.totalAmount)}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                Total Amount
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#2e7d32' }}>
+                {stats.paid}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                Paid Invoices
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ed6c02' }}>
+                {stats.pending}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                Pending Invoices
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Invoice List */}
-      <div className="content-section">
-        {filteredInvoices.length === 0 ? (
-          <div className="empty-state">
-            <FileText size={64} />
-            <h3>No invoices found</h3>
-            <p>
-              {searchTerm 
-                ? 'Try adjusting your search criteria'
-                : 'Invoices will appear here after completing sales'
-              }
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Invoice #</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedInvoices.map((invoice) => {
-                    const customer = customers[invoice.customer_id] || {};
-                    const customerName = customer.name || customer.full_name || 'Walk-in Customer';
-                    
-                    return (
-                      <tr key={invoice.id || invoice.invoice_id}>
-                        <td>
-                          <div className="invoice-number">
-                            {invoice.invoice_number || `#${invoice.id}`}
-                          </div>
-                        </td>
-                        <td>
-                          <div 
-                            className="customer-info"
-                            data-customer={customerName}
-                          >
-                            <User size={16} />
-                            <span>{customerName}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div 
-                            className="date-info"
-                            data-date={invoice.created_at 
+      {filteredInvoices.length === 0 ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 8,
+            textAlign: 'center',
+          }}
+        >
+          <FileText size={64} color="#9ca3af" />
+          <Typography variant="h6" sx={{ mt: 2, color: '#2c2416' }}>
+            No invoices found
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#6b7280', mt: 1 }}>
+            {searchTerm 
+              ? 'Try adjusting your search criteria'
+              : 'Invoices will appear here after completing sales'
+            }
+          </Typography>
+        </Box>
+      ) : (
+        <>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Invoice #</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedInvoices.map((invoice) => {
+                  const customer = customers[invoice.customer_id] || {};
+                  const customerName = customer.name || customer.full_name || 'Walk-in Customer';
+                  
+                  return (
+                    <TableRow key={invoice.id || invoice.invoice_id} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#8b6f47' }}>
+                          {invoice.invoice_number || `#${invoice.id}`}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <User size={16} color="#6b7280" />
+                          <Typography variant="body2">
+                            {customerName}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Calendar size={16} color="#6b7280" />
+                          <Typography variant="body2">
+                            {invoice.created_at 
                               ? new Date(invoice.created_at).toLocaleDateString()
                               : 'N/A'
                             }
-                          >
-                            <Calendar size={16} />
-                            <span>
-                              {invoice.created_at 
-                                ? new Date(invoice.created_at).toLocaleDateString()
-                                : 'N/A'
-                              }
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="amount-info">
-                            <IndianRupee size={16} />
-                            <strong>{formatRupees(invoice.total_amount)}</strong>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`status-badge ${invoice.status?.toLowerCase()}`}>
-                            {invoice.status || 'Unknown'}
-                          </span>
-                        </td>
-                        <td>
-                          <InvoiceActions
-                            invoice={invoice}
-                            customer={customer}
-                            compact={true}
-                            showViewButton={true}
-                            onView={handleViewInvoice}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IndianRupee size={16} color="#6b7280" />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {formatRupees(invoice.total_amount)}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={invoice.status || 'Unknown'}
+                          color={getStatusColor(invoice.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <InvoiceActions
+                          invoice={invoice}
+                          customer={customer}
+                          compact={true}
+                          showViewButton={true}
+                          onView={handleViewInvoice}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-            {/* Pagination */}
-            {totalFilteredPages > 1 && (
+          {/* Pagination */}
+          {totalFilteredPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalFilteredPages}
                 onPageChange={setCurrentPage}
               />
-            )}
-          </>
-        )}
-      </div>
-    </div>
+            </Box>
+          )}
+        </>
+      )}
+    </Container>
   );
 };

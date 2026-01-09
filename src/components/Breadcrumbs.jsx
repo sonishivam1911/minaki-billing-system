@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye } from 'lucide-react';
+import { Breadcrumbs as MuiBreadcrumbs, Typography, Box, Chip } from '@mui/material';
 import { useCart } from '../context/CartContext';
 
 /**
@@ -119,55 +120,98 @@ export const Breadcrumbs = () => {
   }
 
   return (
-    <nav className="breadcrumbs" aria-label="Breadcrumb">
-      <ol className="breadcrumb-list">
+    <Box 
+      sx={{ 
+        px: { xs: 1, sm: 2 },
+        py: 1,
+        backgroundColor: '#faf8f3',
+        borderBottom: '1px solid #e8e0d0',
+      }}
+    >
+      <MuiBreadcrumbs
+        separator={<ChevronRight size={16} />}
+        aria-label="breadcrumb navigation"
+        sx={{
+          '& .MuiBreadcrumbs-separator': {
+            mx: 1,
+            color: '#8b7355',
+          },
+        }}
+      >
         {breadcrumbs.map((crumb, index) => {
           const Icon = crumb.icon;
           const isLast = index === breadcrumbs.length - 1;
           const isClickable = !isLast && (!crumb.protected || hasItemsInCart);
 
           return (
-            <li key={crumb.path} className="breadcrumb-item">
-              {index > 0 && (
-                <ChevronRight size={16} className="breadcrumb-separator" />
-              )}
-              
+            <Box
+              key={crumb.path}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                color: isLast ? '#2c2416' : isClickable ? '#8b6f47' : '#6b7280',
+              }}
+            >
+              <Icon size={16} />
               {isClickable ? (
-                <Link 
-                  to={crumb.path} 
-                  className="breadcrumb-link"
-                  aria-label={`Go to ${crumb.title}`}
+                <Typography
+                  component={Link}
+                  to={crumb.path}
+                  sx={{
+                    textDecoration: 'none',
+                    color: '#8b6f47',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                    fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                  }}
                 >
-                  <Icon size={16} />
-                  <div className="breadcrumb-text">
-                    <span>{crumb.title}</span>
-                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
-                  </div>
-                </Link>
+                  {crumb.title}
+                </Typography>
               ) : (
-                <span 
-                  className={`breadcrumb-current ${!isClickable && crumb.protected ? 'disabled' : ''}`}
-                  aria-current={isLast ? 'page' : undefined}
+                <Typography
+                  sx={{
+                    color: isLast ? '#2c2416' : '#6b7280',
+                    fontWeight: isLast ? 600 : 400,
+                    fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                  }}
                 >
-                  <Icon size={16} />
-                  <div className="breadcrumb-text">
-                    <span>{crumb.title}</span>
-                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
-                  </div>
-                </span>
+                  {crumb.title}
+                </Typography>
               )}
-            </li>
+              {crumb.subtitle && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#6b7280',
+                    ml: 0.5,
+                    display: { xs: 'none', sm: 'inline' },
+                  }}
+                >
+                  ({crumb.subtitle})
+                </Typography>
+              )}
+            </Box>
           );
         })}
-      </ol>
+      </MuiBreadcrumbs>
 
       {/* Optional: Show cart status in breadcrumbs */}
       {hasItemsInCart && (location.pathname === '/cart' || location.pathname === '/checkout') && (
-        <div className="breadcrumb-status">
-          <span className="cart-items-count">{totals.itemCount} items</span>
-          <span className="cart-total">₹{totals.total?.toLocaleString() || '0'}</span>
-        </div>
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={`${totals.itemCount} items`}
+            size="small"
+            sx={{ backgroundColor: '#f5f1e8', color: '#5d4e37' }}
+          />
+          <Chip
+            label={`₹${totals.total?.toLocaleString() || '0'}`}
+            size="small"
+            sx={{ backgroundColor: '#e8e0d0', color: '#5d4e37', fontWeight: 600 }}
+          />
+        </Box>
       )}
-    </nav>
+    </Box>
   );
 };

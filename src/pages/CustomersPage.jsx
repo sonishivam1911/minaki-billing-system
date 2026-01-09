@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
 import { User } from 'lucide-react';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Grid,
+} from '@mui/material';
 import { useCustomers } from '../hooks';
 import { CustomerCard, SearchBar, LoadingSpinner, ErrorMessage, CustomerModal } from '../components';
 
@@ -46,57 +53,83 @@ export const CustomersPage = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Loading customers..." />;
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <LoadingSpinner message="Loading customers..." />
+      </Container>
+    );
   }
 
   if (error) {
-    return <ErrorMessage message={error} onRetry={refetch} />;
+    return (
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <ErrorMessage message={error} onRetry={refetch} />
+      </Container>
+    );
   }
 
   return (
-    <div className="screen-container">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">Customers</h1>
-          <p className="screen-subtitle">Manage customer database</p>
-        </div>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5 }}>
+              Customers
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#6b7280' }}>
+              Manage customer database
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<User size={18} />}
+            onClick={() => setIsCustomerModalOpen(true)}
+          >
+            Add New Customer
+          </Button>
+        </Box>
 
-        <div className="header-actions">
+        <Box sx={{ mb: 3 }}>
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Search customers..."
           />
-          <button 
-            className="btn-primary"
-            onClick={() => setIsCustomerModalOpen(true)}
-          >
-            <User size={18} />
-            Add New Customer
-          </button>
-        </div>
-      </div>
+        </Box>
+      </Box>
 
-      <div className="customers-list">
-        {filteredCustomers.map((customer) => (
-          <CustomerCard
-            key={customer.id}
-            customer={customer}
-            onSelect={handleSelectCustomer}
-          />
-        ))}
-      </div>
-
-      {filteredCustomers.length === 0 && (
-        <div className="empty-state">
-          <User size={64} />
-          <h2>No customers found</h2>
-          <p>
+      {filteredCustomers.length === 0 ? (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 8,
+            textAlign: 'center',
+          }}
+        >
+          <User size={64} color="#9ca3af" />
+          <Typography variant="h6" sx={{ mt: 2, color: '#2c2416' }}>
+            No customers found
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#6b7280', mt: 1 }}>
             {searchQuery
               ? `No customers matching "${searchQuery}"`
               : 'Add your first customer to get started'}
-          </p>
-        </div>
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredCustomers.map((customer) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={customer.id}>
+              <CustomerCard
+                customer={customer}
+                onSelect={handleSelectCustomer}
+              />
+            </Grid>
+          ))}
+        </Grid>
       )}
 
       <CustomerModal
@@ -104,6 +137,6 @@ export const CustomersPage = () => {
         onClose={() => setIsCustomerModalOpen(false)}
         onSelectCustomer={handleCustomerModalSelect}
       />
-    </div>
+    </Container>
   );
 };

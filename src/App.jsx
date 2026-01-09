@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { Box, CircularProgress } from '@mui/material';
 import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, ShelfDetailPage, LoginPage, UserManagementPage, PermissionManagementPage } from './pages';
+import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage } from './pages';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -21,9 +22,9 @@ const ProtectedRoute = ({ element, requiresCart = false, children, requireAuth =
   // Show loading state while checking auth
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div>Loading...</div>
-      </div>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
@@ -66,7 +67,7 @@ function App() {
   return (
     <DndProvider backend={HTML5Backend}>
       <Router>
-        <div className="app">
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         {/* Only show navigation when authenticated */}
         {isAuthenticated && (
           <Navigation 
@@ -76,13 +77,22 @@ function App() {
           />
         )}
         
-        <div className={`app-layout ${isSidebarOpen && isAuthenticated ? 'sidebar-open' : 'sidebar-closed'}`}>
-          <div className="main-content">
-            {/* Only show breadcrumbs when authenticated */}
-            {isAuthenticated && <Breadcrumbs />}
-            
-            <div className="page-content">
-              <Routes>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            mt: { xs: '60px', sm: '70px' },
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            overflowX: 'hidden',
+          }}
+        >
+          {/* Only show breadcrumbs when authenticated */}
+          {isAuthenticated && <Breadcrumbs />}
+          
+          <Box sx={{ flexGrow: 1, width: '100%', overflowX: 'hidden' }}>
+            <Routes>
                 {/* Login page - public, redirect if already authenticated */}
                 <Route path="/login" element={<LoginPage />} />
                 
@@ -115,10 +125,10 @@ function App() {
                   } 
                 />
                 <Route 
-                  path="/store-locator/shelf/:shelfId" 
+                  path="/store-locator/storage-type/:storageTypeId" 
                   element={
                     <ProtectedRoute requireAuth={true}>
-                      <ShelfDetailPage />
+                      <StorageTypeDetailPage />
                     </ProtectedRoute>
                   } 
                 />
@@ -190,17 +200,16 @@ function App() {
                 {/* Fallback for invalid routes */}
                 <Route path="*" element={<Navigate to="/catalog" replace />} />
               </Routes>
-            </div>
-          </div>
-        </div>
+          </Box>
 
-        {/* Only show cart preview and footer when authenticated */}
-        {isAuthenticated && (
-          <>
-            <CartPreviewStrip onCartClick={openDrawer} />
-            <Footer />
-          </>
-        )}
+          {/* Only show cart preview and footer when authenticated */}
+          {isAuthenticated && (
+            <>
+              <CartPreviewStrip onCartClick={openDrawer} />
+              <Footer />
+            </>
+          )}
+        </Box>
         
         {/* Drawer Cart - only show when authenticated */}
         {isAuthenticated && (
@@ -209,7 +218,7 @@ function App() {
             onClose={closeDrawer} 
           />
         )}
-      </div>
+      </Box>
     </Router>
     </DndProvider>
   );

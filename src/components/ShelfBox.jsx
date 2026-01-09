@@ -47,8 +47,8 @@ const ShelfBox = ({
       onClick={onClick}
     >
       <div className="shelf-header">
-        <h4>{section.shelf_name || section.name || section.type || 'Shelf'}</h4>
-        <span className="shelf-type">{section.shelf_code || section.type || 'N/A'}</span>
+        <h4>{section.storage_type_name || section.shelf_name || section.name || section.type || 'Storage Type'}</h4>
+        <span className="shelf-type">{section.storage_type_code || section.shelf_code || section.type || 'N/A'}</span>
       </div>
 
       <div className="shelf-content">
@@ -100,7 +100,7 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
   const quantity = location.quantity || location.total_quantity || 0;
   const productName = product.name || product.product_name || 'Product';
   const sku = product.sku || location.sku || 'N/A';
-  const boxCode = location.box_code || 'N/A';
+  const storageObjectCode = location.storage_object_code || location.box_code || 'N/A';
   const itemId = product.item_id || location.item_id;
   
   // Determine product type for navigation
@@ -132,13 +132,13 @@ const DraggableProduct = ({ product = {}, location = {} }) => {
     <div
       ref={dragRef}
       className={`draggable-product ${isDragging ? 'dragging' : ''} ${productDetailLink ? 'clickable' : ''}`}
-      title={`${productName} - SKU: ${sku} - Box: ${boxCode} - Qty: ${quantity}`}
+      title={`${productName} - SKU: ${sku} - Storage Object: ${storageObjectCode} - Qty: ${quantity}`}
       onClick={handleClick}
     >
       <div className="product-info">
         <div className="product-details">
           <span className="product-sku">{sku}</span>
-          <span className="product-box">Box: {boxCode}</span>
+          <span className="product-box">Storage Object: {storageObjectCode}</span>
         </div>
         <span className="product-qty">x{quantity}</span>
       </div>

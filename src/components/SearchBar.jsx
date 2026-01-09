@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search } from 'lucide-react';
+import { TextField, InputAdornment } from '@mui/material';
 
 /**
  * SearchBar Component
@@ -16,15 +17,23 @@ export const SearchBar = ({
   placeholder = 'Search...' 
 }) => {
   return (
-    <div className="search-container">
-      <Search size={20} />
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="search-input"
-      />
-    </div>
+    <TextField
+      fullWidth
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <Search size={20} color="#6b7280" />
+          </InputAdornment>
+        ),
+      }}
+      sx={{
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: '#ffffff',
+        },
+      }}
+    />
   );
 };

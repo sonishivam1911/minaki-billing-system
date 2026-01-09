@@ -10,12 +10,20 @@ import { productsApi, demistifiedProductsApi } from '../services/api';
 const AddProductToBoxModal = ({ 
   isOpen, 
   onClose, 
-  boxId, 
-  boxName,
-  boxCapacity,
+  boxId, // Legacy prop name - maps to storageObjectId
+  storageObjectId, // New prop name
+  boxName, // Legacy prop name - maps to storageObjectName
+  storageObjectName, // New prop name
+  boxCapacity, // Legacy prop name - maps to storageObjectCapacity
+  storageObjectCapacity, // New prop name
+  storageTypeId, // For dropdown
   onProductAdded,
   loading = false 
 }) => {
+  // Support both legacy and new prop names
+  const actualStorageObjectId = storageObjectId || boxId;
+  const actualStorageObjectName = storageObjectName || boxName;
+  const actualStorageObjectCapacity = storageObjectCapacity || boxCapacity;
   const [formData, setFormData] = useState({
     product_type: 'lab',
     product_id: '',
@@ -261,7 +269,7 @@ const AddProductToBoxModal = ({
 
     try {
       const productData = {
-        box_id: boxId,
+        storage_object_id: actualStorageObjectId,
         product_type: formData.product_type === 'lab' ? 'real_jewelry' : 'zakya_product',
         product_id: formData.product_id,
         product_name: formData.product_name,
@@ -310,9 +318,9 @@ const AddProductToBoxModal = ({
       >
         <div className="modal-header">
           <div>
-            <h2>📦 Add Product to Box</h2>
-            {boxName && (
-              <p className="modal-subtitle">{boxName} {boxCapacity && `(Capacity: ${boxCapacity})`}</p>
+            <h2>📦 Add Product to Storage Object</h2>
+            {actualStorageObjectName && (
+              <p className="modal-subtitle">{actualStorageObjectName} {actualStorageObjectCapacity && `(Capacity: ${actualStorageObjectCapacity})`}</p>
             )}
           </div>
           <button className="modal-close" onClick={onClose}>✕</button>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert, AlertTitle, Button, Box } from '@mui/material';
 
 /**
  * ErrorMessage Component
@@ -10,13 +11,20 @@ import React from 'react';
  */
 export const ErrorMessage = ({ message, onRetry }) => {
   return (
-    <div className="error-state">
-      <p>{message}</p>
-      {onRetry && (
-        <button className="btn-primary" onClick={onRetry}>
-          Retry
-        </button>
-      )}
-    </div>
+    <Box sx={{ p: 2 }}>
+      <Alert 
+        severity="error"
+        action={
+          onRetry && (
+            <Button color="inherit" size="small" onClick={onRetry}>
+              Retry
+            </Button>
+          )
+        }
+      >
+        <AlertTitle>Error</AlertTitle>
+        {message}
+      </Alert>
+    </Box>
   );
 };

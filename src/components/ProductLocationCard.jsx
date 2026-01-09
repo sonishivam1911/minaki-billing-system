@@ -1,4 +1,20 @@
 import React from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Button,
+  Chip,
+} from '@mui/material';
 import '../styles/ProductLocationCard.css';
 
 /**
@@ -32,74 +48,105 @@ const ProductLocationCard = ({
   const totalQuantity = locations.reduce((sum, loc) => sum + (loc.quantity || 0), 0);
 
   return (
-    <div className="product-location-card">
-      <div className="card-header">
-        <div className="product-info">
-          <div className="product-image">
-            {product.image || '💍'}
-          </div>
-          <div className="product-details">
-            <h3 className="product-name">{product.name || 'Unknown Product'}</h3>
-            <p className="product-sku">SKU: {product.sku || 'N/A'}</p>
-            <p className="product-price">
-              ₹{parseFloat(product.price || 0).toFixed(2)}
-            </p>
-          </div>
-        </div>
-        <div className="product-summary">
-          <span className="total-quantity">
-            Total: <strong>{totalQuantity}</strong> units
-          </span>
-        </div>
-      </div>
-
-      <div className="locations-list">
-        <h4>Locations:</h4>
+    <Card sx={{ mb: 2 }}>
+      <CardHeader
+        title={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ fontSize: '2rem' }}>
+              {product.image || '💍'}
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416' }}>
+                {product.name || 'Unknown Product'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                SKU: {product.sku || 'N/A'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#8b6f47', fontWeight: 600, mt: 0.5 }}>
+                ₹{parseFloat(product.price || 0).toFixed(2)}
+              </Typography>
+            </Box>
+          </Box>
+        }
+        action={
+          <Chip
+            label={`Total: ${totalQuantity} units`}
+            color="primary"
+            sx={{ fontWeight: 600 }}
+          />
+        }
+      />
+      <CardContent>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: '#2c2416' }}>
+          Locations:
+        </Typography>
         {locations.length === 0 ? (
-          <p className="no-locations">No locations found</p>
+          <Typography variant="body2" sx={{ color: '#6b7280', py: 2 }}>
+            No locations found
+          </Typography>
         ) : (
-          <table className="locations-table">
-            <thead>
-              <tr>
-                <th>Store</th>
-                <th>Section</th>
-                <th>Box</th>
-                <th>Quantity</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {locations.map((location, idx) => (
-                <tr key={location.id || idx}>
-                  <td>{location.store_name || location.store?.name || 'N/A'}</td>
-                  <td>{location.section_type || location.section?.type || 'N/A'}</td>
-                  <td>{location.box_code || location.box?.code || 'N/A'}</td>
-                  <td className="quantity">
-                    <strong>{location.quantity || 0}</strong>
-                  </td>
-                  <td className="actions">
-                    <button
-                      className="btn-small btn-transfer"
-                      onClick={() => handleTransfer(location)}
-                      title="Transfer to another location"
-                    >
-                      ↔️ Transfer
-                    </button>
-                    <button
-                      className="btn-small btn-update"
-                      onClick={() => handleUpdateQuantity(location)}
-                      title="Update quantity"
-                    >
-                      📝 Update
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Store</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Storage Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Storage Object</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="center">Quantity</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {locations.map((location, idx) => (
+                  <TableRow key={location.id || idx} hover>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {location.store_name || location.store?.name || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {location.storage_type_name || location.section_type || location.section?.type || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {location.storage_object_code || location.box_code || location.box?.code || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {location.quantity || 0}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleTransfer(location)}
+                          title="Transfer to another location"
+                        >
+                          ↔️ Transfer
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleUpdateQuantity(location)}
+                          title="Update quantity"
+                        >
+                          📝 Update
+                        </Button>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
