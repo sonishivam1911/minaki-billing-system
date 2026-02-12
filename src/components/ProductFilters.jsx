@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
-import { storesApi } from '../services/api';
+import { locationsApi } from '../services/locationsApi';
 import '../styles/ProductFilters.css';
 
 /**
@@ -81,8 +81,9 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
     const loadStores = async () => {
       try {
         setLoading(true);
-        const data = await storesApi.getAll();
-        const storesList = Array.isArray(data) ? data : data.items || data.stores || [];
+        const data = await locationsApi.getAll();
+        // locationsApi returns an array directly
+        const storesList = Array.isArray(data) ? data : [];
         setStores(storesList);
       } catch (error) {
         console.error('Error loading stores:', error);

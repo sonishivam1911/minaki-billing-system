@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye } from 'lucide-react';
+import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin } from 'lucide-react';
 import { Breadcrumbs as MuiBreadcrumbs, Typography, Box, Chip } from '@mui/material';
 import { useCart } from '../context/CartContext';
 
@@ -22,7 +22,12 @@ export const Breadcrumbs = () => {
       parent: null
     },
     '/catalog': {
-      title: 'Product Catalog',
+      title: 'Product Billing Catalog',
+      icon: Package,
+      parent: null
+    },
+    '/inventory': {
+      title: 'Inventory',
       icon: Package,
       parent: null
     },
@@ -43,9 +48,57 @@ export const Breadcrumbs = () => {
       icon: Users,
       parent: '/checkout',
       protected: true
+    },
+    '/reports': {
+      title: 'Reports',
+      icon: BarChart3,
+      parent: null
+    },
+    '/reports/inventory': {
+      title: 'Inventory Report',
+      icon: Package,
+      parent: '/reports'
+    },
+    '/reports/daily-sales': {
+      title: 'Daily Sales Report',
+      icon: FileText,
+      parent: '/reports'
+    },
+    '/reports/sales-performance': {
+      title: 'Sales Performance Report',
+      icon: TrendingUp,
+      parent: '/reports'
+    },
+    '/reports/product-performance': {
+      title: 'Product Performance Report',
+      icon: BarChart3,
+      parent: '/reports'
+    },
+    '/reports/customers': {
+      title: 'Customer Report',
+      icon: Users,
+      parent: '/reports'
+    },
+    '/reports/stock-movement': {
+      title: 'Stock Movement Report',
+      icon: Move,
+      parent: '/reports'
+    },
+    '/reports/financial': {
+      title: 'Financial Report',
+      icon: DollarSign,
+      parent: '/reports'
+    },
+    '/reports/locations': {
+      title: 'Location Report',
+      icon: MapPin,
+      parent: '/reports'
     }
   };
 
+  // Check if this is a reports page
+  const isReportPage = location.pathname.startsWith('/reports');
+  
   // Handle dynamic product routes
   const isProductRoute = location.pathname.match(/^\/product\/([^/]+)\/([^/]+)$/);
   let currentConfig = breadcrumbConfig[location.pathname];
@@ -68,7 +121,13 @@ export const Breadcrumbs = () => {
   }
 
   // If no config found or it's a protected route without cart items, don't show breadcrumbs
-  if (!currentConfig || (currentConfig.protected && !hasItemsInCart)) {
+  // Exception: Always show breadcrumbs for reports pages
+  if (!isReportPage && (!currentConfig || (currentConfig.protected && !hasItemsInCart))) {
+    return null;
+  }
+  
+  // For reports pages, ensure we have a config
+  if (isReportPage && !currentConfig) {
     return null;
   }
 
@@ -115,8 +174,29 @@ export const Breadcrumbs = () => {
   const breadcrumbs = buildBreadcrumbPath(location.pathname);
 
   // Don't render if only one item (current page) or if we're on catalog/home
-  if (breadcrumbs.length <= 1 || location.pathname === '/catalog') {
+  // But always show for reports pages (even if just one item, show Reports > Current Report)
+  if (!isReportPage && (breadcrumbs.length <= 1 || location.pathname === '/catalog')) {
     return null;
+  }
+  
+  // For reports pages, ensure we have at least Reports > Current Report
+  if (isReportPage && breadcrumbs.length === 0) {
+    // Build breadcrumbs manually for reports
+    const reportConfig = breadcrumbConfig[location.pathname];
+    if (reportConfig) {
+      breadcrumbs.push({
+        path: '/reports',
+        title: 'Reports',
+        icon: BarChart3,
+        protected: false
+      });
+      breadcrumbs.push({
+        path: location.pathname,
+        title: reportConfig.title,
+        icon: reportConfig.icon,
+        protected: false
+      });
+    }
   }
 
   return (

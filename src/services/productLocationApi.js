@@ -91,13 +91,22 @@ export const productsApi = {
   /**
    * Find all locations where a product is stored
    * GET /inventory/products/find/{product_type}/{product_id}
-   * 
-   * @param {string} productType - "real_jewelry" or "zakya_product"
-   * @param {string} productId - Product ID (UUID for jewelry, SKU for zakya)
-   * @returns {Promise<Array>} All locations where product is stored
+   * Backend validates product_type: only "real_jewelry" and "zakya_product" are valid (400 otherwise).
+   * Response may include alias fields: store_name, shelf_name, box_code, storage_object_name.
+   *
+   * @param {string} productType - "real_jewelry" | "zakya_product" (or "real" | "demistified" — normalized)
+   * @param {string} productId - Product ID (variant_id/product.id for real_jewelry, item_id/sku for zakya_product)
+   * @returns {Promise<Array>} All locations where product is stored (or [] from wrapped response)
    */
   find: async (productType, productId) => {
-    return await apiRequest('GET', `${BASE_PATH}/find/${productType}/${productId}`);
+    const normalizedType =
+      productType === 'real' || productType === 'real_jewelry'
+        ? 'real_jewelry'
+        : productType === 'demistified' || productType === 'zakya_product'
+          ? 'zakya_product'
+          : productType;
+    const data = await apiRequest('GET', `${BASE_PATH}/find/${normalizedType}/${encodeURIComponent(productId)}`);
+    return Array.isArray(data) ? data : data?.items ?? data?.locations ?? [];
   },
 
   /**

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -19,6 +19,7 @@ import {
   Divider,
   useMediaQuery,
   useTheme,
+  Collapse,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
@@ -51,7 +52,13 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   }, []);
 
   const isActive = (path) => location.pathname === path;
+  const isHrActive = location.pathname.startsWith('/hr');
+  const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
   const hasItemsInCart = cartItemCount > 0;
+
+  React.useEffect(() => {
+    if (isHrActive) setHrNavOpen(true);
+  }, [isHrActive]);
 
   const handleCartClick = (e) => {
     e.preventDefault();
@@ -156,12 +163,20 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   }, [sidebarOpen, isMobile]);
 
   const navigationItems = [
-    { path: '/catalog', label: 'Catalog', icon: Package },
+    { path: '/catalog', label: 'Home', icon: Home },
+    { path: '/inventory', label: 'Inventory', icon: Package },
     { path: '/invoices', label: 'Invoices', icon: FileText },
     { path: '/store-locator', label: 'Store Locator', icon: MapPin },
     { path: '/store-management', label: 'Store Management', icon: Building2 },
     { path: '/customers', label: 'Customers', icon: User },
+    { path: '/walk-ins', label: 'Walk-ins', icon: UserPlus },
+    { path: '/custom-orders', label: 'Custom Orders', icon: ShoppingBag },
     { path: '/reports', label: 'Reports', icon: BarChart3 },
+  ];
+
+  const hrNavItems = [
+    { path: '/hr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/hr/weekly-schedule', label: 'Weekly Schedule', icon: Calendar },
   ];
 
   return (
@@ -374,6 +389,74 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                 </ListItem>
               );
             })}
+            {/* HR section with expandable sub-nav */}
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => setHrNavOpen(!hrNavOpen)}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: '#f8f6f0',
+                    borderRight: '3px solid #d4c4a8',
+                  },
+                  borderRight: '3px solid transparent',
+                  py: { xs: 1.5, sm: 1.5 },
+                  px: { xs: 2, sm: 1.5 },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isHrActive ? '#8b6f47' : 'inherit' }}>
+                  <Users size={isMobile ? 22 : 20} />
+                </ListItemIcon>
+                <ListItemText 
+                  primary="HR"
+                  primaryTypographyProps={{
+                    fontWeight: isHrActive ? 600 : 500,
+                    fontSize: { xs: '1rem', sm: '0.95rem' },
+                  }}
+                />
+                <Typography variant="body2" sx={{ transform: hrNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</Typography>
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={hrNavOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {hrNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <ListItem key={item.path} disablePadding sx={{ pl: 2 }}>
+                      <ListItemButton
+                        component={Link}
+                        to={item.path}
+                        selected={active}
+                        onClick={closeSidebar}
+                        sx={{
+                          '&.Mui-selected': {
+                            backgroundColor: '#f5f1e8',
+                            color: '#8b6f47',
+                            borderRight: '3px solid #8b6f47',
+                            '&:hover': { backgroundColor: '#f5f1e8' },
+                          },
+                          '&:hover': {
+                            backgroundColor: '#f8f6f0',
+                            borderRight: '3px solid #d4c4a8',
+                          },
+                          borderRight: '3px solid transparent',
+                          py: 1,
+                          px: 2,
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: active ? '#8b6f47' : 'inherit' }}>
+                          <Icon size={18} />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={item.label}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Collapse>
           </List>
         </Box>
       </Drawer>

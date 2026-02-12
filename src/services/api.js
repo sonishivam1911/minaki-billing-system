@@ -17,11 +17,12 @@ console.log('🌐 Environment variables:', {
   forcedRelative: !VITE_API_URL
 });
 
-
 /**
  * API Service Layer
  * Handles all HTTP requests to the FastAPI backend
  */
+
+import { apiRequest } from './apiClient';
 
 // Products API
 export const productsApi = {
@@ -652,7 +653,7 @@ export const demistifiedProductsApi = {
 
       // Return both products and pagination metadata
       return {
-        products: productsWithVariants,
+        products: transformedProducts,
         pagination: {
           currentPage: data.current_page || parseInt(finalParams.page) || 1,
           totalPages: data.total_pages || 1,
@@ -732,22 +733,33 @@ export const demistifiedProductsApi = {
         id: product.item_id,
         item_id: product.item_id, // Include item_id explicitly
         name: product.name || product.item_name,
+        item_name: product.item_name,
         category: product.category_name || 'Uncategorized',
+        category_name: product.category_name,
         price: product.rate || 0,
         rate: product.rate || 0,
         stock: product.available_stock || product.stock_on_hand || 0,
-        stock_on_hand: product.available_stock || product.stock_on_hand || 0,
+        stock_on_hand: product.available_stock ?? product.stock_on_hand ?? 0,
+        available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
         weight: null, // Not provided in API
         purity: product.cf_finish || product.cf_work,
         image: product.shopify_image?.url || '💎',
         brand: product.brand,
         description: product.description,
         sku: product.sku,
+        // Aliases for catalog/search
         gender: product.cf_gender,
         work: product.cf_work,
         finish: product.cf_finish,
         finding: product.cf_finding,
         collection: product.cf_collection,
+        // cf_* fields required by ProductDetailPage for display and save
+        cf_gender: product.cf_gender ?? product.cf_gender_unformatted ?? '',
+        cf_work: product.cf_work ?? product.cf_work_unformatted ?? '',
+        cf_finish: product.cf_finish ?? product.cf_finish_unformatted ?? '',
+        cf_finding: product.cf_finding ?? product.cf_finding_unformatted ?? '',
+        cf_collection: product.cf_collection ?? product.cf_collection_unformatted ?? '',
+        shopify_image: product.shopify_image,
         isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {
@@ -1740,6 +1752,144 @@ export const paymentsApi = {
     if (!response.ok) throw new Error('Failed to fetch payment');
     return response.json();
   },
+
+  /**
+   * Generate UPI QR Code
+   * POST /billing_system/api/payment/generate-upi-qr
+   */
+  generateUPIQR: async (qrData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/generate-upi-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(qrData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to generate UPI QR code: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating UPI QR code:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Razorpay Order
+   * POST /billing_system/api/payment/razorpay/create-order
+   */
+  createRazorpayOrder: async (orderData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create Razorpay order: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Razorpay order:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Pine Labs Order
+   * POST /billing_system/api/payment/pinelabs/create-order
+   */
+  createPineLabsOrder: async (orderData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create Pine Labs order: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Pine Labs order:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Record Pine Labs / terminal transaction by unique ID
+   * POST /billing_system/api/payment/pinelabs/record-transaction
+   */
+  recordPineLabsTransaction: async (payload) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/record-transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to record transaction: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error recording Pine Labs transaction:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Upload Terminal Image (Pine Labs)
+   * POST /billing_system/api/payment/pinelabs/upload-terminal-image
+   * Uses FormData for file upload
+   */
+  uploadTerminalImage: async (file, formData = {}) => {
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      
+      // Add optional form fields
+      if (formData.payment_transaction_id) {
+        uploadFormData.append('payment_transaction_id', formData.payment_transaction_id);
+      }
+      if (formData.invoice_id) {
+        uploadFormData.append('invoice_id', formData.invoice_id);
+      }
+      if (formData.order_reference) {
+        uploadFormData.append('order_reference', formData.order_reference);
+      }
+      if (formData.expected_amount) {
+        uploadFormData.append('expected_amount', formData.expected_amount.toString());
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/upload-terminal-image`, {
+        method: 'POST',
+        body: uploadFormData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to upload terminal image: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading terminal image:', error);
+      throw error;
+    }
+  },
 };
 
 // Discounts API
@@ -1820,7 +1970,7 @@ export const invoicesApi = {
   /**
    * Download invoice PDF
    * GET /api/invoices/{id}/pdf
-   * Returns: Direct PDF file download
+   * Returns: Direct PDF file download, or follows url if API returns JSON with url/download_url
    */
   downloadPDF: async (invoiceId) => {
     try {
@@ -1835,10 +1985,48 @@ export const invoicesApi = {
         throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
       }
       
+      const contentType = response.headers.get('content-type') || '';
+      
+      // If server returns JSON (e.g. { url: "...", download_url: "..." }), use that link
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        const downloadUrl = data.url || data.download_url || data.link || data.pdf_url;
+        if (downloadUrl) {
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `invoice_${invoiceId}.pdf`;
+          a.rel = 'noopener noreferrer';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return { success: true, message: 'PDF download started' };
+        }
+        throw new Error(data.message || 'No download URL in response');
+      }
+      
       const blob = await response.blob();
       console.log('📄 Invoice API - Download PDF success:', { blobSize: blob.size, blobType: blob.type });
       
-      // Create download link
+      // If blob is JSON (e.g. error body), don't treat as PDF
+      if (blob.type && blob.type.includes('application/json')) {
+        const text = await blob.text();
+        const data = JSON.parse(text);
+        const downloadUrl = data.url || data.download_url || data.link || data.pdf_url;
+        if (downloadUrl) {
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `invoice_${invoiceId}.pdf`;
+          a.rel = 'noopener noreferrer';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return { success: true, message: 'PDF download started' };
+        }
+        throw new Error(data.message || 'No download URL in response');
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1846,7 +2034,8 @@ export const invoicesApi = {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Revoke after a short delay so the click has time to start the download
+      setTimeout(() => window.URL.revokeObjectURL(url), 200);
       
       return { success: true, message: 'PDF downloaded successfully' };
     } catch (error) {
@@ -2125,14 +2314,32 @@ export const storesApi = {
   /**
    * Get all stores
    * GET /billing_system/api/stores
+   * Falls back to /inventory/locations if stores endpoint doesn't exist
    */
   getAll: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const url = `${API_BASE_URL}/stores${queryString ? `?${queryString}` : ''}`;
-    console.log('🏢 Stores API - Get all:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch stores');
-    return response.json();
+    try {
+      // Try the stores endpoint first with authentication
+      const queryParams = {};
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          queryParams[key] = value;
+        }
+      });
+      return await apiRequest('GET', '/stores', null, { params: queryParams });
+    } catch (error) {
+      // If stores endpoint doesn't exist (404), fall back to locations API
+      if (error.status === 404 || error.message?.includes('404') || error.response?.status === 404) {
+        console.warn('🏢 Stores API - /stores endpoint not found (404), falling back to /inventory/locations');
+        try {
+          const { locationsApi } = await import('./locationsApi');
+          return await locationsApi.getAll(params.active_only);
+        } catch (fallbackError) {
+          console.error('🏢 Stores API - Fallback to locations API also failed:', fallbackError);
+          throw error; // Throw original error
+        }
+      }
+      throw error;
+    }
   },
 
   /**
@@ -2140,11 +2347,7 @@ export const storesApi = {
    * GET /billing_system/api/stores/{id}
    */
   getById: async (id) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Get by ID:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch store');
-    return response.json();
+    return await apiRequest('GET', `/stores/${id}`);
   },
 
   /**
@@ -2152,11 +2355,7 @@ export const storesApi = {
    * GET /billing_system/api/stores/{id}/sections
    */
   getSections: async (storeId) => {
-    const url = `${API_BASE_URL}/stores/${storeId}/sections`;
-    console.log('🏢 Stores API - Get sections:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch store sections');
-    return response.json();
+    return await apiRequest('GET', `/stores/${storeId}/sections`);
   },
 
   /**
@@ -2164,15 +2363,7 @@ export const storesApi = {
    * POST /billing_system/api/stores
    */
   create: async (storeData) => {
-    const url = `${API_BASE_URL}/stores`;
-    console.log('🏢 Stores API - Create:', url);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(storeData),
-    });
-    if (!response.ok) throw new Error('Failed to create store');
-    return response.json();
+    return await apiRequest('POST', '/stores', storeData);
   },
 
   /**
@@ -2180,15 +2371,7 @@ export const storesApi = {
    * PATCH /billing_system/api/stores/{id}
    */
   update: async (id, storeData) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Update:', url);
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(storeData),
-    });
-    if (!response.ok) throw new Error('Failed to update store');
-    return response.json();
+    return await apiRequest('PATCH', `/stores/${id}`, storeData);
   },
 
   /**
@@ -2196,28 +2379,130 @@ export const storesApi = {
    * DELETE /billing_system/api/stores/{id}
    */
   delete: async (id) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Delete:', url);
-    const response = await fetch(url, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete store');
-    return response.json();
+    return await apiRequest('DELETE', `/stores/${id}`);
   },
 };
 
 // Reports API
+/**
+ * Helper function to build query params, handling booleans and dates correctly
+ */
+const buildQueryParamsForReports = (params = {}) => {
+  const cleanParams = {};
+  
+  Object.entries(params).forEach(([key, value]) => {
+    // Skip null, undefined, and empty strings
+    if (value === null || value === undefined || value === '') {
+      return;
+    }
+    
+    // Handle booleans - convert to string
+    if (typeof value === 'boolean') {
+      cleanParams[key] = value.toString();
+      return;
+    }
+    
+    // Handle arrays - join with comma for location_ids
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        cleanParams[key] = value.join(',');
+      }
+      return;
+    }
+    
+    // Handle Date objects - format as YYYY-MM-DD
+    if (value instanceof Date) {
+      cleanParams[key] = value.toISOString().split('T')[0];
+      return;
+    }
+    
+    // Regular values
+    cleanParams[key] = value;
+  });
+  
+  return cleanParams;
+};
+
 export const reportsApi = {
   /**
-   * Get sales reports
+   * Get inventory report
+   * GET /billing_system/api/reports/inventory
+   */
+  getInventoryReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/inventory', null, { params: cleanParams });
+  },
+
+  /**
+   * Get daily sales report
+   * GET /billing_system/api/reports/daily-sales
+   */
+  getDailySalesReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/daily-sales', null, { params: cleanParams });
+  },
+
+  /**
+   * Get sales performance report
+   * GET /billing_system/api/reports/sales-performance
+   */
+  getSalesPerformanceReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/sales-performance', null, { params: cleanParams });
+  },
+
+  /**
+   * Get product performance report
+   * GET /billing_system/api/reports/product-performance
+   */
+  getProductPerformanceReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/product-performance', null, { params: cleanParams });
+  },
+
+  /**
+   * Get customer report
+   * GET /billing_system/api/reports/customers
+   */
+  getCustomerReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/customers', null, { params: cleanParams });
+  },
+
+  /**
+   * Get stock movement report
+   * GET /billing_system/api/reports/stock-movement
+   */
+  getStockMovementReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/stock-movement', null, { params: cleanParams });
+  },
+
+  /**
+   * Get financial report
+   * GET /billing_system/api/reports/financial
+   */
+  getFinancialReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/financial', null, { params: cleanParams });
+  },
+
+  /**
+   * Get location report
+   * GET /billing_system/api/reports/locations
+   */
+  getLocationReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/locations', null, { params: cleanParams });
+  },
+
+  /**
+   * Get sales reports (legacy - kept for backward compatibility)
    * GET /api/reports/sales
    */
   getSalesReport: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const url = `${API_BASE_URL}/reports/sales${queryString ? `?${queryString}` : ''}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch sales report');
-    return response.json();
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/sales', null, { params: cleanParams });
   },
 };
 

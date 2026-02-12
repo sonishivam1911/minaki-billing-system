@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Plus, Minus, Trash2, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, ArrowRight, Percent, X } from 'lucide-react';
 import {
   Drawer,
   Box,
@@ -12,9 +12,12 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  TextField,
+  Alert,
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { useCart } from '../context/CartContext';
+import api from '../services/api';
 
 /**
  * DrawerCart Component
@@ -31,8 +34,15 @@ export const DrawerCart = ({ isOpen, onClose }) => {
     updateItemQuantity, 
     removeItem, 
     clearCart,
-    loading 
+    loading,
+    cartId,
+    refreshCart
   } = useCart();
+  
+  const [discountCode, setDiscountCode] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [discountError, setDiscountError] = useState('');
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
 
   const handleUpdateQuantity = async (itemId, newQuantity) => {
     try {
@@ -56,9 +66,61 @@ export const DrawerCart = ({ isOpen, onClose }) => {
     if (window.confirm('Are you sure you want to clear the cart?')) {
       try {
         await clearCart();
+        setAppliedDiscount(null);
+        setDiscountCode('');
+        setDiscountError('');
       } catch (err) {
         console.error('Failed to clear cart:', err);
       }
+    }
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim() || !cartId) return;
+    
+    setApplyingDiscount(true);
+    setDiscountError('');
+    
+    try {
+      // First, try to get all discounts to find the one matching the code
+      const discounts = await api.discounts.getAll();
+      const discount = discounts.find(d => 
+        d.code?.toLowerCase() === discountCode.trim().toLowerCase() || 
+        d.id?.toString() === discountCode.trim()
+      );
+      
+      if (!discount) {
+        setDiscountError('Discount code not found');
+        setApplyingDiscount(false);
+        return;
+      }
+      
+      // Apply the discount to the cart
+      await api.discounts.applyToCart(cartId, discount.id);
+      setAppliedDiscount(discount);
+      setDiscountCode('');
+      
+      // Refresh cart to get updated totals
+      await refreshCart();
+    } catch (err) {
+      console.error('Failed to apply discount:', err);
+      setDiscountError(err.message || 'Failed to apply discount');
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
+  const handleRemoveDiscount = async () => {
+    if (!cartId) return;
+    
+    try {
+      await api.discounts.removeFromCart(cartId);
+      setAppliedDiscount(null);
+      setDiscountError('');
+      await refreshCart();
+    } catch (err) {
+      console.error('Failed to remove discount:', err);
+      setDiscountError(err.message || 'Failed to remove discount');
     }
   };
 
@@ -199,12 +261,96 @@ export const DrawerCart = ({ isOpen, onClose }) => {
         {/* Drawer Footer */}
         {items.length > 0 && (
           <Box sx={{ borderTop: '1px solid #e8e0d0', p: 2 }}>
+            {/* Discount Section */}
+            <Box sx={{ mb: 2 }}>
+              {appliedDiscount ? (
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  p: 1.5,
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: 1,
+                  border: '1px solid #bae6fd',
+                  mb: 1
+                }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#0369a1' }}>
+                      Discount Applied: {appliedDiscount.code || appliedDiscount.name}
+                    </Typography>
+                    {appliedDiscount.percent && (
+                      <Typography variant="caption" sx={{ color: '#0284c7', display: 'block' }}>
+                        {appliedDiscount.percent}% off
+                      </Typography>
+                    )}
+                  </Box>
+                  <IconButton 
+                    size="small" 
+                    onClick={handleRemoveDiscount}
+                    disabled={loading || applyingDiscount}
+                    sx={{ color: '#0369a1' }}
+                  >
+                    <X size={16} />
+                  </IconButton>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Enter discount code"
+                    value={discountCode}
+                    onChange={(e) => setDiscountCode(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleApplyDiscount();
+                      }
+                    }}
+                    disabled={loading || applyingDiscount}
+                    sx={{ flexGrow: 1 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleApplyDiscount}
+                    disabled={loading || applyingDiscount || !discountCode.trim()}
+                    startIcon={<Percent size={16} />}
+                    sx={{ 
+                      minWidth: 'auto',
+                      borderColor: '#8b6f47',
+                      color: '#8b6f47',
+                      '&:hover': {
+                        borderColor: '#6b5435',
+                        backgroundColor: '#faf8f3'
+                      }
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </Box>
+              )}
+              {discountError && (
+                <Alert severity="error" sx={{ mt: 1, mb: 1 }} onClose={() => setDiscountError('')}>
+                  {discountError}
+                </Alert>
+              )}
+            </Box>
+
             {/* Cart Summary */}
             <Box sx={{ mb: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2">Subtotal:</Typography>
                 <Typography variant="body2">₹{totals.subtotal?.toLocaleString() || '0'}</Typography>
               </Box>
+              {appliedDiscount && totals.discount && totals.discount > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: '#0369a1' }}>
+                    Discount:
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#0369a1' }}>
+                    -₹{totals.discount.toLocaleString()}
+                  </Typography>
+                </Box>
+              )}
               {totals.tax > 0 && (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2">Tax:</Typography>

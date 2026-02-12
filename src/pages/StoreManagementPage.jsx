@@ -1,7 +1,7 @@
 /**
  * StoreManagementPage - Complete management interface for stores, shelves, and boxes
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStoreManagement } from '../hooks/useStoreManagement';
 import { useProductLocationTracking } from '../hooks';
 import CreateStoreModal from '../components/CreateStoreModal';
@@ -82,16 +82,48 @@ const StoreManagementPage = () => {
     error: productError
   } = useProductLocationTracking();
 
+  // Refs to prevent duplicate calls
+  const fetchingStoresRef = useRef(false);
+  const fetchingStoreDataRef = useRef(false);
+  const lastStoreIdRef = useRef(null);
+
   // Fetch stores on mount
   useEffect(() => {
-    fetchAllStores();
+    if (fetchingStoresRef.current) {
+      return;
+    }
+    fetchingStoresRef.current = true;
+    fetchAllStores().finally(() => {
+      fetchingStoresRef.current = false;
+    });
   }, [fetchAllStores]);
 
   // Fetch storage types when store is selected
   useEffect(() => {
-    if (selectedStore) {
-      const locationId = selectedStore.location_id || selectedStore.id;
-      fetchShelvesByStore(locationId).then(async (storageTypesList) => {
+    if (!selectedStore) {
+      lastStoreIdRef.current = null;
+      fetchingStoreDataRef.current = false;
+      return;
+    }
+
+    const locationId = selectedStore.location_id || selectedStore.id;
+    
+    // Prevent duplicate calls for the same store
+    if (lastStoreIdRef.current === locationId && fetchingStoreDataRef.current) {
+      return;
+    }
+
+    // Prevent concurrent calls
+    if (fetchingStoreDataRef.current) {
+      return;
+    }
+
+    fetchingStoreDataRef.current = true;
+    lastStoreIdRef.current = locationId;
+
+    const fetchData = async () => {
+      try {
+        const storageTypesList = await fetchShelvesByStore(locationId);
         // Fetch storage objects for all storage types so they're available when storage types are expanded
         if (Array.isArray(storageTypesList)) {
           for (const storageType of storageTypesList) {
@@ -102,15 +134,28 @@ const StoreManagementPage = () => {
             }
           }
         }
-      });
-      fetchStoreProducts(locationId);
-    }
+        await fetchStoreProducts(locationId);
+      } finally {
+        fetchingStoreDataRef.current = false;
+      }
+    };
+
+    fetchData();
   }, [selectedStore, fetchShelvesByStore, fetchBoxesByShelf]);
+
+  // Ref to prevent duplicate product fetches
+  const fetchingProductsRef = useRef(false);
 
   /**
    * Fetch all products in the store with their storage type and storage object information
    */
   const fetchStoreProducts = async (locationId) => {
+    // Prevent duplicate calls
+    if (fetchingProductsRef.current) {
+      return;
+    }
+    
+    fetchingProductsRef.current = true;
     try {
       setLoadingProducts(true);
       // Fetch all products in this location
@@ -164,21 +209,68 @@ const StoreManagementPage = () => {
       setStoreProducts([]);
     } finally {
       setLoadingProducts(false);
+      fetchingProductsRef.current = false;
     }
   };
 
+  // Refs to prevent duplicate calls
+  const fetchingBoxesRef = useRef(false);
+  const fetchingBoxProductsRef = useRef(false);
+  const lastStorageTypeIdRef = useRef(null);
+  const lastStorageObjectIdRef = useRef(null);
+
   // Fetch storage objects when storage type is selected
   useEffect(() => {
-    if (selectedStorageType) {
-      fetchBoxesByShelf(selectedStorageType.id);
+    if (!selectedStorageType) {
+      lastStorageTypeIdRef.current = null;
+      fetchingBoxesRef.current = false;
+      return;
     }
+
+    const storageTypeId = selectedStorageType.id;
+    
+    // Prevent duplicate calls for the same storage type
+    if (lastStorageTypeIdRef.current === storageTypeId && fetchingBoxesRef.current) {
+      return;
+    }
+
+    if (fetchingBoxesRef.current) {
+      return;
+    }
+
+    fetchingBoxesRef.current = true;
+    lastStorageTypeIdRef.current = storageTypeId;
+
+    fetchBoxesByShelf(storageTypeId).finally(() => {
+      fetchingBoxesRef.current = false;
+    });
   }, [selectedStorageType, fetchBoxesByShelf]);
 
   // Fetch storage object products when storage object is selected
   useEffect(() => {
-    if (selectedStorageObject) {
-      fetchStorageObjectProducts(selectedStorageObject.id);
+    if (!selectedStorageObject) {
+      lastStorageObjectIdRef.current = null;
+      fetchingBoxProductsRef.current = false;
+      return;
     }
+
+    const storageObjectId = selectedStorageObject.id;
+    
+    // Prevent duplicate calls for the same storage object
+    if (lastStorageObjectIdRef.current === storageObjectId && fetchingBoxProductsRef.current) {
+      return;
+    }
+
+    if (fetchingBoxProductsRef.current) {
+      return;
+    }
+
+    fetchingBoxProductsRef.current = true;
+    lastStorageObjectIdRef.current = storageObjectId;
+
+    fetchStorageObjectProducts(storageObjectId).finally(() => {
+      fetchingBoxProductsRef.current = false;
+    });
   }, [selectedStorageObject]);
 
   /**

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { productsApi } from '../services/api';
 
 /**
@@ -28,8 +28,11 @@ export const useProducts = ({
   
   // Cache to avoid refetching the same page
   const [cachedPages, setCachedPages] = useState(new Map());
+  
+  // Ref to prevent duplicate calls
+  const fetchingRef = useRef(false);
 
-  const fetchProducts = async (page = currentPage, params = {}) => {
+  const fetchProducts = useCallback(async (page = currentPage, params = {}) => {
     try {
       console.log(`� useProducts - Fetching real jewelry page ${page}...`);
       setLoading(true);
@@ -87,8 +90,9 @@ export const useProducts = ({
     } finally {
       setLoading(false);
       console.log('✅ useProducts - Loading set to false');
+      fetchingRef.current = false;
     }
-  };
+  }, [pageSize]); // Removed currentPage since we always pass page explicitly
 
   useEffect(() => {
     if (!autoFetch) {
@@ -97,22 +101,28 @@ export const useProducts = ({
       return;
     }
 
-    fetchProducts(currentPage);
-  }, [autoFetch]); // Only run on mount
+    // Prevent duplicate calls
+    if (fetchingRef.current) {
+      return;
+    }
 
-  const refetch = async () => {
+    fetchingRef.current = true;
+    fetchProducts(initialPage);
+  }, [autoFetch, initialPage, fetchProducts]); // Include all dependencies
+
+  const refetch = useCallback(async () => {
     // Clear cache and refetch current page
     setCachedPages(new Map());
     return await fetchProducts(currentPage);
-  };
+  }, [fetchProducts, currentPage]);
 
-  const forceRefetch = async () => {
+  const forceRefetch = useCallback(async () => {
     // Force refetch regardless of cache state
     setCachedPages(new Map());
     return await fetchProducts(currentPage);
-  };
+  }, [fetchProducts, currentPage]);
 
-  const goToPage = async (page) => {
+  const goToPage = useCallback(async (page) => {
     if (page === currentPage || page < 1) return;
     
     try {
@@ -121,21 +131,21 @@ export const useProducts = ({
       console.error('Error navigating to page:', page, err);
       throw err;
     }
-  };
+  }, [fetchProducts, currentPage]);
 
-  const nextPage = async () => {
+  const nextPage = useCallback(async () => {
     if (currentPage < totalPages) {
       return await fetchProducts(currentPage + 1);
     }
-  };
+  }, [fetchProducts, currentPage, totalPages]);
 
-  const prevPage = async () => {
+  const prevPage = useCallback(async () => {
     if (currentPage > 1) {
       return await fetchProducts(currentPage - 1);
     }
-  };
+  }, [fetchProducts, currentPage]);
 
-  const searchProducts = async (searchQuery, page = 1) => {
+  const searchProducts = useCallback(async (searchQuery, page = 1) => {
     try {
       setLoading(true);
       
@@ -167,7 +177,7 @@ export const useProducts = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [pageSize]);
 
   return {
     products,

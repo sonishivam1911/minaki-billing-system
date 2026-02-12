@@ -1,5 +1,6 @@
 // Export all pages from a single file for easy imports
 export { CatalogPage } from './CatalogPage';
+export { InventoryPage } from './InventoryPage';
 export { CartPage } from './CartPage';
 export { CheckoutPage } from './CheckoutPage';
 export { CustomersPage } from './CustomersPage';
@@ -11,5 +12,20 @@ export { default as StoreManagementPage } from './StoreManagementPage';
 export { default as StorageTypeDetailPage } from './StorageTypeDetailPage';
 export { UserManagementPage } from './UserManagementPage';
 export { PermissionManagementPage } from './PermissionManagementPage';
+export { ReportsPage } from './ReportsPage';
+// Report Pages
+export { InventoryReportPage } from './reports/InventoryReportPage';
+export { DailySalesReportPage } from './reports/DailySalesReportPage';
+export { SalesPerformanceReportPage } from './reports/SalesPerformanceReportPage';
+export { ProductPerformanceReportPage } from './reports/ProductPerformanceReportPage';
+export { CustomerReportPage } from './reports/CustomerReportPage';
+export { StockMovementReportPage } from './reports/StockMovementReportPage';
+export { FinancialReportPage } from './reports/FinancialReportPage';
+export { LocationReportPage } from './reports/LocationReportPage';
 // Legacy export for backward compatibility
 export { default as ShelfDetailPage } from './StorageTypeDetailPage';
+// Walk-in and Custom Order Pages
+export { WalkInPage } from './WalkInPage';
+export { CustomOrdersPage } from './CustomOrdersPage';
+// HR Management (recent UI: Dashboard + Weekly Schedule)
+export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';

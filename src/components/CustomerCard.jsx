@@ -1,5 +1,5 @@
 import React from 'react';
-import { User } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Building2 } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -8,23 +8,54 @@ import {
   Button,
   Box,
   Avatar,
+  Divider,
 } from '@mui/material';
+
+// Helper to resolve field from multiple possible API field names
+const getField = (obj, ...keys) => {
+  for (const k of keys) {
+    const v = obj[k];
+    if (v != null && v !== '') return v;
+  }
+  return null;
+};
 
 /**
  * CustomerCard Component
- * Displays customer information in a card format
- * 
+ * Displays all customer information in a card format
+ *
  * @param {Object} props
  * @param {Object} props.customer - Customer data
  * @param {Function} props.onSelect - Callback when customer is selected
  */
 export const CustomerCard = ({ customer, onSelect }) => {
-  // Handle different possible field names from the API response
-  const name = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "Unknown";
-  const phone = customer.phone || customer.Phone || customer.MobilePhone || "";
-  const email = customer.email || customer.EmailID || "";
-  const loyaltyPoints = customer.loyalty_points || 0;
-  const totalSpent = customer.total_spent || 0;
+  const name = getField(customer, 'name', 'Contact Name', 'Display Name', 'Company Name') || 'Unknown';
+  const phone = getField(customer, 'phone', 'Phone', 'MobilePhone');
+  const email = getField(customer, 'email', 'Email', 'EmailID');
+  const address = getField(customer, 'address', 'Address', 'Billing Address');
+  const city = getField(customer, 'city', 'City');
+  const state = getField(customer, 'state', 'State');
+  const postalCode = getField(customer, 'postal_code', 'Postal Code', 'pincode');
+  const gstin = getField(customer, 'gstin', 'GSTIN');
+  const customerType = getField(customer, 'customer_type', 'Customer Type');
+  const customerNumber = getField(customer, 'Customer Number', 'customer_number');
+  const loyaltyPoints = customer?.loyalty_points ?? customer?.['Loyalty Points'] ?? 0;
+  const totalSpent = customer?.total_spent ?? customer?.['Total Spent'] ?? 0;
+
+  const DetailRow = ({ label, value, icon: Icon }) =>
+    value ? (
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+        {Icon && <Icon size={14} style={{ marginTop: 3, flexShrink: 0, color: '#8b7355' }} />}
+        <Box>
+          <Typography variant="caption" sx={{ color: '#8b7355', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            {label}
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#2c2416' }}>
+            {value}
+          </Typography>
+        </Box>
+      </Box>
+    ) : null;
 
   return (
     <Card
@@ -44,26 +75,34 @@ export const CustomerCard = ({ customer, onSelect }) => {
           <Avatar sx={{ backgroundColor: '#8b6f47', width: 56, height: 56 }}>
             <User size={32} />
           </Avatar>
-          <Box sx={{ flexGrow: 1 }}>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416' }}>
               {name}
             </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
-              {phone && (
-                <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                  {phone}
-                </Typography>
-              )}
-              {email && (
-                <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                  {email}
-                </Typography>
-              )}
-            </Box>
+            {customerNumber && (
+              <Typography variant="caption" sx={{ color: '#8b7355' }}>
+                #{customerNumber}
+              </Typography>
+            )}
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+        <DetailRow label="Phone" value={phone} icon={Phone} />
+        <DetailRow label="Email" value={email} icon={Mail} />
+        <DetailRow label="Address" value={address} icon={MapPin} />
+        {(city || state || postalCode) && (
+          <DetailRow
+            label="Location"
+            value={[city, state, postalCode].filter(Boolean).join(', ')}
+            icon={Building2}
+          />
+        )}
+        <DetailRow label="GSTIN" value={gstin} />
+        <DetailRow label="Customer Type" value={customerType} />
+
+        <Divider sx={{ my: 2 }} />
+
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', display: 'block' }}>
               Loyalty Points
@@ -77,7 +116,7 @@ export const CustomerCard = ({ customer, onSelect }) => {
               Total Spent
             </Typography>
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#8b6f47' }}>
-              ₹{totalSpent.toLocaleString()}
+              ₹{totalSpent.toLocaleString('en-IN')}
             </Typography>
           </Box>
         </Box>

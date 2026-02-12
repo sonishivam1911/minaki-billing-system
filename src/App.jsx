@@ -3,8 +3,16 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
-import { Navigation, Footer, DrawerCart, Breadcrumbs, CartPreviewStrip } from './components';
-import { CatalogPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage } from './pages';
+import { Navigation, DrawerCart, Breadcrumbs } from './components';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './pages';
+import { InventoryReportPage } from './pages/reports/InventoryReportPage';
+import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
+import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
+import { ProductPerformanceReportPage } from './pages/reports/ProductPerformanceReportPage';
+import { CustomerReportPage } from './pages/reports/CustomerReportPage';
+import { StockMovementReportPage } from './pages/reports/StockMovementReportPage';
+import { FinancialReportPage } from './pages/reports/FinancialReportPage';
+import { LocationReportPage } from './pages/reports/LocationReportPage';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -109,6 +117,14 @@ function App() {
                   } 
                 />
                 <Route 
+                  path="/inventory" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <InventoryPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
                   path="/invoices" 
                   element={
                     <ProtectedRoute requireAuth={true}>
@@ -178,6 +194,22 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
+                <Route 
+                  path="/walk-ins" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <WalkInPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/custom-orders" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CustomOrdersPage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 {/* Admin routes - require auth */}
                 <Route 
@@ -197,18 +229,111 @@ function App() {
                   } 
                 />
                 
+                {/* Reports routes - require auth */}
+                <Route 
+                  path="/reports" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ReportsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/inventory" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <InventoryReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/daily-sales" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <DailySalesReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/sales-performance" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <SalesPerformanceReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/product-performance" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ProductPerformanceReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/customers" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CustomerReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/stock-movement" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <StockMovementReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/financial" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <FinancialReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/reports/locations" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <LocationReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* HR Management (recent UI: Dashboard + Weekly Schedule) */}
+                <Route 
+                  path="/hr/dashboard" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <HrDashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/hr/weekly-schedule" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <HrWeeklySchedulePage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/onboarding" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <OnboardingPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                
                 {/* Fallback for invalid routes */}
                 <Route path="*" element={<Navigate to="/catalog" replace />} />
               </Routes>
           </Box>
 
-          {/* Only show cart preview and footer when authenticated */}
-          {isAuthenticated && (
-            <>
-              <CartPreviewStrip onCartClick={openDrawer} />
-              <Footer />
-            </>
-          )}
         </Box>
         
         {/* Drawer Cart - only show when authenticated */}

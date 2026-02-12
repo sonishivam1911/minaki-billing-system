@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useProducts, useDemistifiedProducts } from '../hooks';
 import { useCart } from '../context/CartContext';
-import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, DemistifiedFilters, Pagination, CreateLabProductModal } from '../components';
+import { ProductCard, SearchBar, LoadingSpinner, ErrorMessage, DemistifiedFilters, Pagination } from '../components';
 import { ProductFilters } from '../components/ProductFilters';
 import { QRScanner } from '../components/QRScanner';
 import { ProductCardDetailed } from '../components/ProductCardDetailed';
-import { productsApi } from '../services/api';
 import { useProductLocations } from '../hooks/useProductLocation';
 import { applyProductFilters } from '../utils/productUtils';
-import { Plus, QrCode, Grid, List } from 'lucide-react';
+import { UserPlus, QrCode, Grid, List } from 'lucide-react';
 import '../styles/CatalogPage.css';
 
 /**
@@ -16,12 +16,11 @@ import '../styles/CatalogPage.css';
  * Displays product catalog for both Lab (Real) and Demistified (Zoho) jewellery with filters
  */
 export const CatalogPage = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [filters, setFilters] = useState({});
   const [productType, setProductType] = useState('lab'); // 'lab' or 'demistified'
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'detailed'
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
   
@@ -244,46 +243,8 @@ export const CatalogPage = () => {
     }
   };
 
-  // Handle create product
-  const handleCreateProduct = async (productData, images) => {
-    setIsCreating(true);
-    try {
-      // Step 1: Create the product (without images)
-      const response = await productsApi.createLabGrownProduct(productData);
-      
-      // Step 2: Upload images if provided (using SKU from first variant)
-      if (images && images.length > 0 && response.product_summary && response.product_summary.variants && response.product_summary.variants.length > 0) {
-        const firstVariant = response.product_summary.variants[0];
-        const sku = firstVariant.sku;
-        
-        if (sku) {
-          try {
-            await productsApi.uploadImagesForSku(sku, images, {
-              compress: true,
-              makePublic: true
-            });
-            console.log(`Images uploaded successfully for SKU: ${sku}`);
-          } catch (imageErr) {
-            console.error('Error uploading images:', imageErr);
-            // Don't fail the whole operation if image upload fails
-            alert(`Product created but image upload failed: ${imageErr.message}`);
-          }
-        } else {
-          console.warn('No SKU found in response, skipping image upload');
-        }
-      }
-      
-      // Refresh the product list
-      await realProductsHook.refetch();
-      alert(`Product created successfully! ${response.message || ''}`);
-      setIsCreateModalOpen(false);
-    } catch (err) {
-      console.error('Error creating product:', err);
-      alert(`Failed to create product: ${err.message}`);
-      throw err; // Re-throw to let modal handle it
-    } finally {
-      setIsCreating(false);
-    }
+  const handleCreateWalk = () => {
+    navigate('/walk-ins', { state: { openCreate: true } });
   };
 
   // Show loading spinner when loading
@@ -301,7 +262,7 @@ export const CatalogPage = () => {
     <div className="screen-container">
       <div className="screen-header">
         <div>
-          <h1 className="screen-title">Product Catalog</h1>
+          <h1 className="screen-title">Product Billing Catalog</h1>
           <p className="screen-subtitle">Browse and add items to cart</p>
         </div>
 
@@ -321,7 +282,7 @@ export const CatalogPage = () => {
             onClick={() => handleProductTypeChange('lab')}
             disabled={shouldShowFullPageLoader}
           >
-            💍 Lab
+            Fine
           </button>
           <button
             type="button"
@@ -329,7 +290,7 @@ export const CatalogPage = () => {
             onClick={() => handleProductTypeChange('demistified')}
             disabled={shouldShowFullPageLoader}
           >
-            👜 Demistified
+            Demi Fine
           </button>
         </div>
 
@@ -365,18 +326,16 @@ export const CatalogPage = () => {
             Scan QR
           </button>
 
-          {/* Create Product Button - Only show on Lab tab */}
-          {productType === 'lab' && (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setIsCreateModalOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <Plus size={18} />
-              Create Product
-            </button>
-          )}
+          {/* Create Walk In Button */}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleCreateWalk}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <UserPlus size={18} />
+            Create Walk In
+          </button>
         </div>
       </div>
 
@@ -442,7 +401,7 @@ export const CatalogPage = () => {
       {/* Empty State */}
       {(!filteredProducts || filteredProducts.length === 0) && !shouldShowFullPageLoader && !isSearching && !activeHook.loading && (
         <div className="empty-state">
-          <p>No {productType === 'lab' ? 'lab' : 'demistified'} products found {searchQuery && `matching "${searchQuery}"`} {Object.keys(filters).length > 0 && 'with selected filters'}</p>
+          <p>No {productType === 'lab' ? 'Fine' : 'Demi Fine'} products found {searchQuery && `matching "${searchQuery}"`} {Object.keys(filters).length > 0 && 'with selected filters'}</p>
           {(searchQuery || Object.keys(filters).length > 0) && (
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
               {searchQuery && (
@@ -471,14 +430,6 @@ export const CatalogPage = () => {
         isOpen={isQRScannerOpen}
         onClose={() => setIsQRScannerOpen(false)}
         onScanSuccess={handleQRScanSuccess}
-      />
-
-      {/* Create Lab Product Modal */}
-      <CreateLabProductModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateProduct}
-        loading={isCreating}
       />
     </div>
   );

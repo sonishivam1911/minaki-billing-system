@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -18,11 +18,13 @@ import {
   Gem,
   Upload,
   Image as ImageIcon,
-  Sparkles
+  Sparkles,
+  MapPin
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { LoadingSpinner, ErrorMessage } from '../components';
+import { LoadingSpinner, ErrorMessage, ProductLocationCard } from '../components';
 import { productsApi, demistifiedProductsApi, productFiltersApi } from '../services/api';
+import productLocationApi from '../services/productLocationApi';
 
 /**
  * ProductDetailPage Component
@@ -56,18 +58,47 @@ export const ProductDetailPage = () => {
   const [generatingContent, setGeneratingContent] = useState(false);
   const [generatedContent, setGeneratedContent] = useState(null);
   const [contentError, setContentError] = useState(null);
+  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'location'
+  const [productLocations, setProductLocations] = useState([]);
+  const [locationsLoading, setLocationsLoading] = useState(false);
+  const [locationsError, setLocationsError] = useState(null);
 
   const isDemistified = type === 'demistified';
   const isReal = type === 'real';
 
+  // Refs to prevent duplicate calls
+  const fetchingProductRef = useRef(false);
+  const fetchingImagesRef = useRef(false);
+  const loadingFiltersRef = useRef(false);
+  const lastProductIdRef = useRef(null);
+
   // Fetch product data
   useEffect(() => {
+    // Prevent duplicate calls
+    if (fetchingProductRef.current) {
+      return;
+    }
+
     const fetchProduct = async () => {
+      if (!type || !id) {
+        setError('Invalid product URL');
+        setLoading(false);
+        return;
+      }
+
+      const decodedId = decodeURIComponent(id);
+      
+      // Prevent duplicate calls for the same product
+      if (lastProductIdRef.current === decodedId && fetchingProductRef.current) {
+        return;
+      }
+
+      fetchingProductRef.current = true;
+      lastProductIdRef.current = decodedId;
+
       try {
         setLoading(true);
         setError(null);
-
-        const decodedId = decodeURIComponent(id);
 
         let response;
         if (isDemistified) {
@@ -83,22 +114,26 @@ export const ProductDetailPage = () => {
         setError('Failed to load product details. Please try again.');
       } finally {
         setLoading(false);
+        fetchingProductRef.current = false;
       }
     };
 
-    if (type && id) {
-      fetchProduct();
-    } else {
-      setError('Invalid product URL');
-      setLoading(false);
-    }
-  }, [type, id, isDemistified]);
+    fetchProduct();
+  }, [type, id]); // Removed isDemistified as it's derived from type
 
   // Fetch product images for real jewellery
   useEffect(() => {
+    if (!isReal || !product?.sku) {
+      return;
+    }
+
+    // Prevent duplicate calls
+    if (fetchingImagesRef.current) {
+      return;
+    }
+
     const fetchImages = async () => {
-      if (!isReal || !product?.sku) return;
-      
+      fetchingImagesRef.current = true;
       try {
         setLoadingImages(true);
         const imagesData = await productsApi.getImagesForSku(product.sku);
@@ -110,19 +145,26 @@ export const ProductDetailPage = () => {
         // Don't show error if images don't exist
       } finally {
         setLoadingImages(false);
+        fetchingImagesRef.current = false;
       }
     };
 
-    if (product?.sku) {
-      fetchImages();
-    }
+    fetchImages();
   }, [isReal, product?.sku]);
 
   // Load filter options for demistified products
   useEffect(() => {
+    if (!isDemistified) {
+      return;
+    }
+
+    // Prevent duplicate calls
+    if (loadingFiltersRef.current) {
+      return;
+    }
+
     const loadFilterOptions = async () => {
-      if (!isDemistified) return;
-      
+      loadingFiltersRef.current = true;
       try {
         setLoadingFilters(true);
         const allOptions = await productFiltersApi.getAllFilterOptions();
@@ -145,11 +187,48 @@ export const ProductDetailPage = () => {
         setFilterOptions({});
       } finally {
         setLoadingFilters(false);
+        loadingFiltersRef.current = false;
       }
     };
 
     loadFilterOptions();
   }, [isDemistified]);
+
+  // Fetch product locations when Location tab is active
+  useEffect(() => {
+    if (!product || activeTab !== 'location') {
+      return;
+    }
+
+    const fetchLocations = async () => {
+      try {
+        setLocationsLoading(true);
+        setLocationsError(null);
+        const productType = isDemistified ? 'zakya_product' : 'real_jewelry';
+        const productId = isDemistified
+          ? (product.item_id || product.id || product.sku)
+          : (product.variant_id || product.id || product.sku);
+
+        if (!productId) {
+          setLocationsError('Product identifier not available');
+          setProductLocations([]);
+          return;
+        }
+
+        const locations = await productLocationApi.find(productType, productId);
+        const locationsList = Array.isArray(locations) ? locations : locations?.items || locations?.locations || [];
+        setProductLocations(locationsList);
+      } catch (err) {
+        console.error('Error fetching product locations:', err);
+        setLocationsError(err.message || 'Failed to load locations');
+        setProductLocations([]);
+      } finally {
+        setLocationsLoading(false);
+      }
+    };
+
+    fetchLocations();
+  }, [product, activeTab, isDemistified]);
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -200,8 +279,21 @@ export const ProductDetailPage = () => {
           setEditedProduct(updatedProduct);
         }
       } else {
-        // Update real product - need to structure the update properly
-        await productsApi.update(product.id, editedProduct);
+        // Update real product - ensure making_charges is calculated (Gold Wt × Rate/gm) before save
+        const metals = editedProduct.metal_components || [];
+        const totalGoldNetG = metals.reduce(
+          (sum, m) => sum + parseFloat(m.net_weight_g || m.net_weight || 0),
+          0
+        );
+        const makingRate = parseFloat((editedProduct.pricing_breakdown || {}).making_rate_per_gm || 2500);
+        const payload = {
+          ...editedProduct,
+          pricing_breakdown: {
+            ...(editedProduct.pricing_breakdown || {}),
+            making_charges: totalGoldNetG * makingRate
+          }
+        };
+        await productsApi.update(product.id, payload);
         const updatedProduct = await productsApi.getById(id);
         setProduct(updatedProduct);
         setEditedProduct(updatedProduct);
@@ -430,11 +522,35 @@ export const ProductDetailPage = () => {
     return date.toLocaleDateString('en-GB');
   };
 
+  // Extract diamond specs from product description when diamond_components have null values
+  // e.g. "cut, clarity, and F color grade" -> { color: 'F', clarity: null, cut_grade: null }
+  const extractDiamondSpecsFromDescription = (desc) => {
+    if (!desc || typeof desc !== 'string') return { color: null, clarity: null, cut_grade: null };
+    const result = { color: null, clarity: null, cut_grade: null };
+    const s = desc;
+    // Color: "F color grade", "D color", "E color grade", etc. (GIA scale D-Z)
+    const colorMatch = s.match(/\b([D-Z])\s*color\s*(?:grade)?\b/i) || s.match(/\bcolor\s*(?:grade)?\s*([D-Z])\b/i);
+    if (colorMatch) result.color = colorMatch[1].toUpperCase();
+    // Clarity: VVS1, VVS2, VS1, VS2, SI1, SI2, I1, FL, IF, etc.
+    const clarityMatch = s.match(/\b(VVS1|VVS2|VS1|VS2|SI1|SI2|SI3|I1|I2|I3|FL|IF)\b/i);
+    if (clarityMatch) result.clarity = clarityMatch[1];
+    // Cut: Excellent, Very Good, Good, Fair, Poor, Ideal
+    const cutMatch = s.match(/\b(Excellent|Very Good|Good|Fair|Poor|Ideal)\b/i);
+    if (cutMatch) result.cut_grade = cutMatch[1];
+    return result;
+  };
+
   // Calculate totals for real jewellery display
+  // Making charges = total gold net weight (g) × rate per gm. Always calculated, not stored.
   const calculateTotals = () => {
     const goldTotal = metalComponents.reduce((sum, metal) => sum + parseFloat(metal.metal_cost || 0), 0);
     const diamondTotal = diamondComponents.reduce((sum, diamond) => sum + parseFloat(diamond.stone_cost || 0), 0);
-    const makingCharges = parseFloat(pricingBreakdown.making_charges || 0);
+    const totalGoldNetWeightG = metalComponents.reduce(
+      (sum, m) => sum + parseFloat(m.net_weight_g || m.net_weight || 0),
+      0
+    );
+    const makingRatePerGm = parseFloat(pricingBreakdown.making_rate_per_gm || 2500);
+    const makingCharges = totalGoldNetWeightG * makingRatePerGm;
     const grandTotal = goldTotal + diamondTotal + makingCharges;
     const gstRate = parseFloat(pricingBreakdown.gst_rate_percent || 3);
     const gstAmount = (grandTotal * gstRate) / 100;
@@ -443,6 +559,7 @@ export const ProductDetailPage = () => {
     return {
       goldTotal,
       diamondTotal,
+      totalGoldNetWeightG,
       makingCharges,
       grandTotal,
       gstRate,
@@ -479,15 +596,12 @@ export const ProductDetailPage = () => {
   // Get price calculation breakdown
   const getPriceCalculationBreakdown = () => {
     const totals = calculateTotals();
-    const mainMetal = metalComponents[0] || {};
-    const netWeight = parseFloat(mainMetal.net_weight_g || product.net_weight || 0);
-    
     return {
       goldTotal: totals.goldTotal,
       diamondTotal: totals.diamondTotal,
       makingCharges: totals.makingCharges,
       makingRate: pricingBreakdown.making_rate_per_gm || 2500,
-      makingGoldWt: netWeight,
+      makingGoldWt: totals.totalGoldNetWeightG,
       grandTotal: totals.grandTotal,
       gstRate: totals.gstRate,
       gstAmount: totals.gstAmount,
@@ -892,6 +1006,32 @@ export const ProductDetailPage = () => {
           </div>
         </div>
 
+        {/* Tabs: General Info | Location */}
+        <div className="product-detail-tabs-wrapper" style={{ marginTop: '2rem' }}>
+          <div className="product-tabs">
+            <button
+              type="button"
+              className={`tab-button ${activeTab === 'general' ? 'active' : ''}`}
+              onClick={() => setActiveTab('general')}
+            >
+              <Info size={18} />
+              General Info
+            </button>
+            <button
+              type="button"
+              className={`tab-button ${activeTab === 'location' ? 'active' : ''}`}
+              onClick={() => setActiveTab('location')}
+            >
+              <MapPin size={18} />
+              Location
+              {productLocations.length > 0 && (
+                <span className="tab-count">{productLocations.length}</span>
+              )}
+            </button>
+          </div>
+
+          {activeTab === 'general' && (
+            <>
         {/* Detailed Sections - Only for Real Products */}
         {isReal && (() => {
           const totals = calculateTotals();
@@ -1109,24 +1249,31 @@ export const ProductDetailPage = () => {
                   <h2><Gem size={18} /> Diamond Details</h2>
               </div>
                 <div className="section-content">
-                  {diamondComponents.length > 0 ? (
+{diamondComponents.length > 0 ? (
                     <div className="components-table-simple">
                       <table>
                         <thead>
                           <tr>
                             <th>Description</th>
                             <th>Shape</th>
+                            <th>Color</th>
+                            <th>Cut</th>
+                            <th>Clarity</th>
                             <th>No of Pcs</th>
-                            <th>Wt</th>
+                            <th>Carat</th>
                             <th>Rate</th>
                             <th>Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {diamondComponents.map((stone, index) => {
+                            const descSpecs = extractDiamondSpecsFromDescription(product.description || editedProduct.description);
                             const description = stone.stone_type || stone.description || 'N/A';
-                            const shape = stone.cut || stone.shape || 'N/A';
-                            
+                            const shape = stone.shape || stone.cut || 'N/A';
+                            const color = stone.color || stone.color_grade || stone.diamond_color || descSpecs.color || '—';
+                            const cutGrade = stone.cut_grade || stone.cut || descSpecs.cut_grade || '—';
+                            const clarity = stone.clarity || stone.clarity_grade || stone.diamond_clarity || descSpecs.clarity || '—';
+                            const caratWt = stone.carat_weight ?? stone.carat ?? 0;
                             return (
                             <tr key={stone.id || index}>
                               <td>
@@ -1167,6 +1314,45 @@ export const ProductDetailPage = () => {
                               <td>
                                 {isEditing ? (
                                   <input
+                                    type="text"
+                                    value={stone.color || stone.color_grade || ''}
+                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.color`)}
+                                    className="form-input table-input"
+                                    placeholder="e.g. D, E, F"
+                                  />
+                                ) : (
+                                    <span>{color}</span>
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={stone.cut_grade || stone.cut || ''}
+                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.cut_grade`)}
+                                    className="form-input table-input"
+                                    placeholder="e.g. Excellent, Very Good"
+                                  />
+                                ) : (
+                                    <span>{cutGrade}</span>
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="text"
+                                    value={stone.clarity || stone.clarity_grade || ''}
+                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.clarity`)}
+                                    className="form-input table-input"
+                                    placeholder="e.g. VVS1, VS1"
+                                  />
+                                ) : (
+                                    <span>{clarity}</span>
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input
                                       type="number"
                                       value={stone.quantity || ''}
                                       onChange={(e) => handleInputChange('', parseInt(e.target.value) || 0, `diamond_components.${index}.quantity`)}
@@ -1174,19 +1360,19 @@ export const ProductDetailPage = () => {
                                   />
                                 ) : (
                                     <span>{stone.quantity || 0}</span>
-                                  )}
-                                </td>
-                                <td>
-                                  {isEditing ? (
-                                    <input
-                                      type="number"
-                                      value={stone.carat_weight || ''}
-                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.carat_weight`)}
-                                      className="form-input table-input"
-                                      step="0.01"
-                                    />
-                                  ) : (
-                                    <span>{formatCurrency(stone.carat_weight || 0)}</span>
+                                )}
+                              </td>
+                              <td>
+                                {isEditing ? (
+                                  <input
+                                    type="number"
+                                    value={stone.carat_weight ?? stone.carat ?? ''}
+                                    onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.carat_weight`)}
+                                    className="form-input table-input"
+                                    step="0.01"
+                                  />
+                                ) : (
+                                    <span>{Number(caratWt) ? Number(caratWt) : '—'}</span>
                                 )}
                               </td>
                               <td>
@@ -1204,8 +1390,8 @@ export const ProductDetailPage = () => {
                               </td>
                               <td>
                                 {isEditing ? (
-                <input
-                  type="number"
+                                  <input
+                                    type="number"
                                     value={stone.stone_cost || ''}
                                     onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.stone_cost`)}
                                     className="form-input table-input"
@@ -1219,6 +1405,14 @@ export const ProductDetailPage = () => {
                             );
                           })}
                         </tbody>
+                        <tfoot>
+                          <tr className="diamond-table-totals">
+                            <td colSpan="6" style={{ textAlign: 'right', fontWeight: 600 }}>Total Carat</td>
+                            <td>{diamondComponents.reduce((sum, s) => sum + (parseFloat(s.carat_weight ?? s.carat) || 0), 0).toFixed(2)}</td>
+                            <td style={{ fontWeight: 600 }}>Total</td>
+                            <td style={{ fontWeight: 600 }}>₹{formatCurrency(diamondComponents.reduce((sum, s) => sum + (parseFloat(s.stone_cost) || 0), 0))}</td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   ) : (
@@ -1227,16 +1421,19 @@ export const ProductDetailPage = () => {
                 </div>
             </div>
 
-              {/* Making Charges Section */}
+              {/* Making Charges Section - Total = Gold Wt (g) × Rate per gm (always calculated) */}
             <div className="detail-section">
                 <div className="section-header">
                   <h2>Making Charges</h2>
               </div>
                 <div className="section-content">
+                  {(() => {
+                    const calc = getPriceCalculationBreakdown();
+                    return (
                   <div className="making-charges-grid">
                     <div className="making-item">
-                      <label>Gold Wt</label>
-                      <span>{formatCurrency(netWeight)}</span>
+                      <label>Gold Wt (g)</label>
+                      <span>{formatCurrency(calc.makingGoldWt)}</span>
                     </div>
                     <div className="making-item">
                       <label>Rate</label>
@@ -1245,7 +1442,7 @@ export const ProductDetailPage = () => {
                           <span>@</span>
                         <input
                           type="number"
-                            value={pricingBreakdown.making_rate_per_gm || 2500}
+                            value={pricingBreakdown.making_rate_per_gm ?? 2500}
                             onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.making_rate_per_gm')}
                           className="form-input"
                           step="0.01"
@@ -1258,19 +1455,12 @@ export const ProductDetailPage = () => {
                     </div>
                     <div className="making-item">
                       <label>Total</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          value={pricingBreakdown.making_charges || ''}
-                          onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.making_charges')}
-                          className="form-input"
-                          step="0.01"
-                        />
-                      ) : (
-                        <span>₹{formatCurrency(pricingBreakdown.making_charges || 0)}</span>
-                      )}
+                      <span>₹{formatCurrency(calc.makingCharges)}</span>
+                      <small className="making-formula-hint">({formatCurrency(calc.makingGoldWt)}g × ₹{formatCurrency(calc.makingRate)}/gm)</small>
                     </div>
                   </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1299,19 +1489,7 @@ export const ProductDetailPage = () => {
                               ({formatCurrency(calc.makingGoldWt)}g × ₹{formatCurrency(calc.makingRate)}/gm)
                             </span>
                           </div>
-                          {isEditing ? (
-                            <div className="calc-input-group">
-                              <input
-                                type="number"
-                                value={calc.makingCharges || ''}
-                                onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.making_charges')}
-                                className="form-input"
-                                step="0.01"
-                              />
-                            </div>
-                          ) : (
-                            <div className="calc-value">₹{formatCurrency(calc.makingCharges)}</div>
-                          )}
+                          <div className="calc-value">₹{formatCurrency(calc.makingCharges)}</div>
                         </div>
                         <div className="calc-divider"></div>
                         <div className="calc-step calc-grand-total">
@@ -1589,6 +1767,61 @@ export const ProductDetailPage = () => {
             </div>
           </div>
         )}
+            </>
+          )}
+
+          {activeTab === 'location' && (
+            <div className="product-location-tab-content" style={{ marginTop: '1rem' }}>
+              {locationsLoading ? (
+                <LoadingSpinner message="Loading product locations..." />
+              ) : locationsError ? (
+                <div className="location-tab-message" style={{
+                  padding: '2rem',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  color: '#991b1b'
+                }}>
+                  <p style={{ margin: 0, fontWeight: 500 }}>Unable to load locations</p>
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', opacity: 0.9 }}>{locationsError}</p>
+                  <p style={{ margin: '1rem 0 0', fontSize: '0.85rem', opacity: 0.8 }}>
+                    Ensure the product has been added to a storage location (box/shelf). See backend API requirements if this persists.
+                  </p>
+                </div>
+              ) : productLocations.length === 0 ? (
+                <div className="location-tab-empty" style={{
+                  padding: '2rem',
+                  backgroundColor: '#f8fafc',
+                  border: '2px dashed #e2e8f0',
+                  borderRadius: '8px',
+                  color: '#64748b',
+                  textAlign: 'center'
+                }}>
+                  <MapPin size={48} style={{ opacity: 0.5, marginBottom: '1rem' }} />
+                  <p style={{ margin: 0, fontWeight: 500 }}>No locations found</p>
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
+                    This product is not currently assigned to any storage location (store/shelf/box).
+                  </p>
+                </div>
+              ) : (
+                <ProductLocationCard
+                  product={{
+                    name: product.name || product.item_name,
+                    sku: product.sku,
+                    image: productImages[0]?.url || product.image || product.shopify_image?.url,
+                    price: product.final_price || product.price || product.rate
+                  }}
+                  locations={productLocations.map(loc => ({
+                    ...loc,
+                    store_name: loc.store_name || loc.location_name || loc.store?.name,
+                    storage_type_name: loc.storage_type_name || loc.shelf_name || loc.section?.type,
+                    storage_object_code: loc.storage_object_code || loc.box_code || loc.box?.code
+                  }))}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

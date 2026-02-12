@@ -334,7 +334,7 @@ const AddProductToBoxModal = ({
             onClick={() => handleProductTypeChange('lab')}
             disabled={isLoading}
           >
-            💍 Lab
+            Fine
           </button>
           <button
             type="button"
@@ -342,7 +342,7 @@ const AddProductToBoxModal = ({
             onClick={() => handleProductTypeChange('demistified')}
             disabled={isLoading}
           >
-            👜 Demistified
+            Demi Fine
           </button>
         </div>
 
@@ -394,7 +394,7 @@ const AddProductToBoxModal = ({
                         <div className="dropdown-item-details">
                           <span className="item-name">{product.name || product.product_name}</span>
                           <span className="item-type">
-                            {product.productType === 'lab' ? '💍 Lab' : '👜 Demistified'}
+                            {product.productType === 'lab' ? 'Fine' : 'Demi Fine'}
                           </span>
                           {product.metal_weight_g && (
                             <span className="item-meta">⚖️ {product.metal_weight_g}g</span>
@@ -415,8 +415,8 @@ const AddProductToBoxModal = ({
                     {allProducts.length} active products available
                     {allProducts.length > 0 && (
                       <span style={{ display: 'block', fontSize: '0.85em', marginTop: '5px', color: '#666' }}>
-                        💍 Lab: {allProducts.filter(p => p.productType === 'lab').length} | 
-                        👜 Demistified: {allProducts.filter(p => p.productType === 'demistified').length}
+                        Fine: {allProducts.filter(p => p.productType === 'lab').length} | 
+                        Demi Fine: {allProducts.filter(p => p.productType === 'demistified').length}
                       </span>
                     )}
                   </div>

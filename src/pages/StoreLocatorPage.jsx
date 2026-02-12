@@ -115,6 +115,7 @@ const StoreLocatorPage = () => {
   // Ref to track if we're currently fetching to prevent duplicate calls
   const fetchingRef = useRef(false);
   const lastStoreIdRef = useRef(null);
+  const fetchingProductsRef = useRef(false);
 
   // Fetch stores on mount
   useEffect(() => {
@@ -125,6 +126,12 @@ const StoreLocatorPage = () => {
    * Fetch all products in the store with their storage type and storage object information for the table
    */
   const fetchStoreProductsForTable = useCallback(async (locationId) => {
+    // Prevent duplicate calls
+    if (fetchingProductsRef.current) {
+      return;
+    }
+    
+    fetchingProductsRef.current = true;
     try {
       setLoadingProducts(true);
       // Build search filters with new field names
@@ -187,6 +194,7 @@ const StoreLocatorPage = () => {
       setStoreProducts([]);
     } finally {
       setLoadingProducts(false);
+      fetchingProductsRef.current = false;
     }
   }, [searchProducts, fetchStoreSections, fetchBoxesByShelf, filters]);
 
@@ -247,20 +255,31 @@ const StoreLocatorPage = () => {
   }, [selectedStore?.id, selectedStore?.location_id, fetchStoreSections, fetchBoxesByShelf, fetchStoreProductsForTable]);
 
   // Load all sections from all stores for transfer modal
+  const loadingSectionsRef = useRef(false);
   useEffect(() => {
+    // Prevent duplicate calls
+    if (loadingSectionsRef.current) {
+      return;
+    }
+
     const loadAllSections = async () => {
-      const allSectionsList = [];
-      for (const store of stores) {
-        try {
-          const locationId = store.location_id || store.id;
-          const storeSections = await fetchStoreSections(locationId);
-          allSectionsList.push(...storeSections);
-        } catch (err) {
-          const locationId = store.location_id || store.id;
-          console.error(`Error loading sections for location ${locationId}:`, err);
+      loadingSectionsRef.current = true;
+      try {
+        const allSectionsList = [];
+        for (const store of stores) {
+          try {
+            const locationId = store.location_id || store.id;
+            const storeSections = await fetchStoreSections(locationId);
+            allSectionsList.push(...storeSections);
+          } catch (err) {
+            const locationId = store.location_id || store.id;
+            console.error(`Error loading sections for location ${locationId}:`, err);
+          }
         }
+        setAllSections(allSectionsList);
+      } finally {
+        loadingSectionsRef.current = false;
       }
-      setAllSections(allSectionsList);
     };
 
     if (stores.length > 0) {
