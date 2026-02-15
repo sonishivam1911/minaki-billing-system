@@ -87,6 +87,11 @@ export const CustomProductCard = ({
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416', mb: 1 }}>
               {product.product_number || `Product #${product.id}`}
             </Typography>
+            {product.article_code && (
+              <Typography variant="caption" sx={{ color: '#8b6f47', display: 'block', mb: 0.5 }}>
+                {product.article_code} • {product.classification || 'Made to Order'}
+              </Typography>
+            )}
             <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
               {customerName}
             </Typography>
