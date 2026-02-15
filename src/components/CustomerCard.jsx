@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 
 // Helper to resolve field from multiple possible API field names
+// API returns Zoho-style columns: "Contact Name", "Billing City", "Billing State", etc.
 const getField = (obj, ...keys) => {
   for (const k of keys) {
     const v = obj[k];
@@ -20,25 +21,37 @@ const getField = (obj, ...keys) => {
   return null;
 };
 
+// Build full name from various API field combinations
+const getDisplayName = (customer) => {
+  const full = getField(customer, 'name', 'Contact Name', 'Display Name', 'Company Name');
+  if (full) return full;
+  const first = getField(customer, 'First Name', 'first_name');
+  const last = getField(customer, 'Last Name', 'last_name');
+  if (first || last) return [first, last].filter(Boolean).join(' ').trim();
+  return 'Unknown';
+};
+
 /**
  * CustomerCard Component
  * Displays all customer information in a card format
+ * Maps both snake_case and Zoho API column names (e.g. "Billing City", "Contact ID")
  *
  * @param {Object} props
- * @param {Object} props.customer - Customer data
+ * @param {Object} props.customer - Customer data from API (customer_master columns)
  * @param {Function} props.onSelect - Callback when customer is selected
  */
 export const CustomerCard = ({ customer, onSelect }) => {
-  const name = getField(customer, 'name', 'Contact Name', 'Display Name', 'Company Name') || 'Unknown';
-  const phone = getField(customer, 'phone', 'Phone', 'MobilePhone');
+  const name = getDisplayName(customer);
+  const phone = getField(customer, 'phone', 'Phone', 'MobilePhone', 'mobile_phone');
   const email = getField(customer, 'email', 'Email', 'EmailID');
   const address = getField(customer, 'address', 'Address', 'Billing Address');
-  const city = getField(customer, 'city', 'City');
-  const state = getField(customer, 'state', 'State');
-  const postalCode = getField(customer, 'postal_code', 'Postal Code', 'pincode');
+  const city = getField(customer, 'city', 'City', 'Billing City');
+  const state = getField(customer, 'state', 'State', 'Billing State');
+  const postalCode = getField(customer, 'postal_code', 'Postal Code', 'pincode', 'Billing Code');
   const gstin = getField(customer, 'gstin', 'GSTIN');
-  const customerType = getField(customer, 'customer_type', 'Customer Type');
+  const customerType = getField(customer, 'customer_type', 'Customer Type', 'Customer Sub Type');
   const customerNumber = getField(customer, 'Customer Number', 'customer_number');
+  const contactId = getField(customer, 'Contact ID', 'id', 'contact_id');
   const loyaltyPoints = customer?.loyalty_points ?? customer?.['Loyalty Points'] ?? 0;
   const totalSpent = customer?.total_spent ?? customer?.['Total Spent'] ?? 0;
 
@@ -79,9 +92,9 @@ export const CustomerCard = ({ customer, onSelect }) => {
             <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416' }}>
               {name}
             </Typography>
-            {customerNumber && (
+            {(customerNumber || contactId) && (
               <Typography variant="caption" sx={{ color: '#8b7355' }}>
-                #{customerNumber}
+                #{customerNumber || contactId}
               </Typography>
             )}
           </Box>

@@ -8,7 +8,7 @@ import { QRScanner } from '../components/QRScanner';
 import { ProductCardDetailed } from '../components/ProductCardDetailed';
 import { useProductLocations } from '../hooks/useProductLocation';
 import { applyProductFilters } from '../utils/productUtils';
-import { UserPlus, QrCode, Grid, List } from 'lucide-react';
+import { UserPlus, QrCode, Grid, List, Package } from 'lucide-react';
 import '../styles/CatalogPage.css';
 
 /**
@@ -247,6 +247,10 @@ export const CatalogPage = () => {
     navigate('/walk-ins', { state: { openCreate: true } });
   };
 
+  const handleCreateCustomProduct = () => {
+    navigate('/custom-products', { state: { openCreate: true } });
+  };
+
   // Show loading spinner when loading
   const shouldShowFullPageLoader = activeHook.loading;
 
@@ -335,6 +339,17 @@ export const CatalogPage = () => {
           >
             <UserPlus size={18} />
             Create Walk In
+          </button>
+
+          {/* Create Custom Product Button */}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleCreateCustomProduct}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Package size={18} />
+            Create Custom Product
           </button>
         </div>
       </div>

@@ -22,4 +22,5 @@ export { default as useLocations } from './useLocations';
 export { useWalkIns } from './useWalkIns';
 export { useEnquiries } from './useEnquiries';
 export { useCustomOrders } from './useCustomOrders';
+export { useCustomProducts } from './useCustomProducts';
 export { useHrDashboard } from './useHrDashboard';

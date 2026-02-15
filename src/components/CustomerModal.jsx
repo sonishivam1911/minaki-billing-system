@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Search, User, Phone, Mail, Plus, Check } from 'lucide-react';
 import { useCustomers } from '../hooks';
 import { LoadingSpinner, ErrorMessage } from './index';
+import { getCustomerDisplay, getCustomerKey } from '../utils/customerFields';
 
 /**
  * CustomerModal Component
@@ -36,11 +37,7 @@ export const CustomerModal = ({ isOpen, onClose, onSelectCustomer }) => {
 
   const filteredCustomers = customers.filter((customer) => {
     const query = searchQuery.toLowerCase();
-    
-    // Handle different possible field names from the API
-    const name = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "";
-    const phone = customer.phone || customer.Phone || customer.MobilePhone || "";
-    const email = customer.email || customer.EmailID || "";
+    const { name = '', phone = '', email = '' } = getCustomerDisplay(customer);
     
     return (
       (name && name.toString().toLowerCase().includes(query)) ||
@@ -145,14 +142,13 @@ export const CustomerModal = ({ isOpen, onClose, onSelectCustomer }) => {
                       </p>
                     </div>
                   ) : (
-                    filteredCustomers.map((customer) => {
-                      const customerName = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "Unknown Customer";
-                      const customerPhone = customer.phone || customer.Phone || customer.MobilePhone || "";
-                      const customerEmail = customer.email || customer.EmailID || "";
+                    filteredCustomers.map((customer, index) => {
+                      const { name: customerName, phone: customerPhone, email: customerEmail } = getCustomerDisplay(customer);
+                      const displayName = customerName || "Unknown Customer";
                       
                       return (
                         <div
-                          key={customer.id}
+                          key={getCustomerKey(customer) ?? `customer-${index}`}
                           className="customer-modal-item"
                           onClick={() => handleSelectCustomer(customer)}
                         >
@@ -160,7 +156,7 @@ export const CustomerModal = ({ isOpen, onClose, onSelectCustomer }) => {
                             <User size={24} />
                           </div>
                           <div className="customer-info">
-                            <div className="customer-name">{customerName}</div>
+                            <div className="customer-name">{displayName}</div>
                             <div className="customer-contact">
                               {customerPhone && (
                                 <span>

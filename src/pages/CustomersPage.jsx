@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { useCustomers } from '../hooks';
 import { CustomerCard, SearchBar, LoadingSpinner, ErrorMessage, CustomerModal } from '../components';
+import { getCustomerDisplay, getCustomerKey } from '../utils/customerFields';
 
 /**
  * CustomersPage Component
@@ -27,12 +28,7 @@ export const CustomersPage = () => {
 
   const filteredCustomers = customers.filter((customer) => {
     const query = searchQuery.toLowerCase();
-    
-    // Handle different possible field names from the API
-    const name = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "";
-    const phone = customer.phone || customer.Phone || customer.MobilePhone || "";
-    const email = customer.email || customer.EmailID || "";
-    
+    const { name = '', phone = '', email = '' } = getCustomerDisplay(customer);
     return (
       (name && name.toString().toLowerCase().includes(query)) ||
       (phone && phone.toString().toLowerCase().includes(query)) ||
@@ -40,15 +36,15 @@ export const CustomersPage = () => {
     );
   });
 
+  const getCustomerName = (c) => getCustomerDisplay(c).name || "Unknown Customer";
+
   const handleSelectCustomer = (customer) => {
     selectCustomer(customer);
-    const customerName = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "Unknown Customer";
-    alert(`Selected customer: ${customerName}`);
+    alert(`Selected customer: ${getCustomerName(customer)}`);
   };
 
   const handleCustomerModalSelect = (customer) => {
-    const customerName = customer.name || customer["Contact Name"] || customer["Display Name"] || customer["Company Name"] || "Unknown Customer";
-    alert(`Customer selected: ${customerName}`);
+    alert(`Customer selected: ${getCustomerName(customer)}`);
     setIsCustomerModalOpen(false);
   };
 
@@ -121,8 +117,8 @@ export const CustomersPage = () => {
         </Box>
       ) : (
         <Grid container spacing={3}>
-          {filteredCustomers.map((customer) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={customer.id}>
+          {filteredCustomers.map((customer, index) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={getCustomerKey(customer) ?? `customer-${index}`}>
               <CustomerCard
                 customer={customer}
                 onSelect={handleSelectCustomer}

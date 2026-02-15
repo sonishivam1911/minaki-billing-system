@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './pages';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -195,6 +195,14 @@ function App() {
                   } 
                 />
                 <Route 
+                  path="/whatsapp-crm" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <WhatsAppCrmPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
                   path="/walk-ins" 
                   element={
                     <ProtectedRoute requireAuth={true}>
@@ -207,6 +215,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <CustomOrdersPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/custom-products" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CustomProductsPage />
                     </ProtectedRoute>
                   } 
                 />

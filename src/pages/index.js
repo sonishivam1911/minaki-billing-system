@@ -27,5 +27,7 @@ export { default as ShelfDetailPage } from './StorageTypeDetailPage';
 // Walk-in and Custom Order Pages
 export { WalkInPage } from './WalkInPage';
 export { CustomOrdersPage } from './CustomOrdersPage';
+export { CustomProductsPage } from './CustomProductsPage';
+export { WhatsAppCrmPage } from './WhatsAppCrmPage';
 // HR Management (recent UI: Dashboard + Weekly Schedule)
 export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';
