@@ -38,6 +38,9 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
   const [templateName, setTemplateName] = useState('');
   const [templateLanguage, setTemplateLanguage] = useState('en');
   const [templateVars, setTemplateVars] = useState('');
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('');
+  const [templateComponents, setTemplateComponents] = useState([]);
+  const [needsHeaderMedia, setNeedsHeaderMedia] = useState(false);
   const [sending, setSending] = useState(false);
   const fetchTemplates = useCallback(
     () => import('../services/whatsappCrmApi').then((m) => m.whatsappCrmApi.getTemplates()),
@@ -71,6 +74,9 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
     setTemplateName('');
     setTemplateLanguage('en');
     setTemplateVars('');
+    setHeaderMediaUrl('');
+    setTemplateComponents([]);
+    setNeedsHeaderMedia(false);
     setError('');
   };
 
@@ -121,17 +127,12 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
   const canSend = () => {
     if (validRecipients.length === 0) return false;
     if (messageType === 'text') return !!message.trim();
-    if (messageType === 'template') return !!templateName.trim();
+    if (messageType === 'template') {
+      if (!templateName.trim()) return false;
+      if (needsHeaderMedia && !headerMediaUrl.trim()) return false;
+      return true;
+    }
     return false;
-  };
-
-  const buildTemplateComponents = () => {
-    const vars = templateVars
-      .split('\n')
-      .map((v) => v.trim())
-      .filter(Boolean);
-    if (vars.length === 0) return [];
-    return [{ type: 'body', parameters: vars.map((text) => ({ type: 'text', text })) }];
   };
 
   const handleSend = async () => {
@@ -146,6 +147,10 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
     }
     if (messageType === 'template' && !templateName.trim()) {
       setError('Please select or enter a template name');
+      return;
+    }
+    if (messageType === 'template' && needsHeaderMedia && !headerMediaUrl.trim()) {
+      setError('This template requires a header image/video/document URL');
       return;
     }
 
@@ -164,7 +169,7 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
               message_type: 'template',
               template_name: templateName.trim(),
               template_language: templateLanguage,
-              template_components: buildTemplateComponents(),
+              template_components: templateComponents,
             }
           : {
               recipients: validRecipients,
@@ -306,6 +311,10 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
             onLanguageChange={setTemplateLanguage}
             templateVars={templateVars}
             onTemplateVarsChange={setTemplateVars}
+            headerMediaUrl={headerMediaUrl}
+            onHeaderMediaUrlChange={setHeaderMediaUrl}
+            onComponentsChange={setTemplateComponents}
+            onNeedsHeaderMediaChange={setNeedsHeaderMedia}
             fetchTemplates={fetchTemplates}
             disabled={sending}
           />

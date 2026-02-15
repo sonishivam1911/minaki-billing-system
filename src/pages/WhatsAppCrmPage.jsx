@@ -40,6 +40,9 @@ export function WhatsAppCrmPage() {
   const [chatTemplateName, setChatTemplateName] = useState('');
   const [chatTemplateLanguage, setChatTemplateLanguage] = useState('en');
   const [chatTemplateVars, setChatTemplateVars] = useState('');
+  const [chatHeaderMediaUrl, setChatHeaderMediaUrl] = useState('');
+  const [chatTemplateComponents, setChatTemplateComponents] = useState([]);
+  const [chatNeedsHeaderMedia, setChatNeedsHeaderMedia] = useState(false);
   const [sending, setSending] = useState(false);
   const [newConvModalOpen, setNewConvModalOpen] = useState(false);
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
@@ -87,17 +90,15 @@ export function WhatsAppCrmPage() {
     whatsappCrmApi.markConversationRead(selectedId).catch(() => {});
   }, [selectedId]);
 
-  const buildTemplateComponents = () => {
-    const vars = chatTemplateVars.split('\n').map((v) => v.trim()).filter(Boolean);
-    if (vars.length === 0) return [];
-    return [{ type: 'body', parameters: vars.map((text) => ({ type: 'text', text })) }];
-  };
-
   const handleSend = async () => {
     if (!selectedConversation?.phone) return;
     const isTemplate = chatMessageType === 'template';
     if (isTemplate && !chatTemplateName.trim()) {
       alert('Please select or enter a template name');
+      return;
+    }
+    if (isTemplate && chatNeedsHeaderMedia && !chatHeaderMediaUrl.trim()) {
+      alert('This template requires a header image/video/document URL');
       return;
     }
     if (!isTemplate && !messageInput.trim()) return;
@@ -110,7 +111,7 @@ export function WhatsAppCrmPage() {
             message_type: 'template',
             template_name: chatTemplateName.trim(),
             template_language: chatTemplateLanguage,
-            template_components: buildTemplateComponents(),
+            template_components: chatTemplateComponents,
           }
         : {
             to_phone: selectedConversation.phone,
@@ -121,6 +122,7 @@ export function WhatsAppCrmPage() {
       if (!isTemplate) setMessageInput('');
       else {
         setChatTemplateVars('');
+        setChatHeaderMediaUrl('');
       }
       const data = await whatsappCrmApi.getMessages(selectedId, { limit: 100 });
       setMessages(Array.isArray(data) ? data : []);
@@ -134,7 +136,9 @@ export function WhatsAppCrmPage() {
 
   const canSend =
     selectedConversation?.phone &&
-    (chatMessageType === 'text' ? !!messageInput.trim() : !!chatTemplateName.trim());
+    (chatMessageType === 'text'
+      ? !!messageInput.trim()
+      : !!chatTemplateName.trim() && !(chatNeedsHeaderMedia && !chatHeaderMediaUrl.trim()));
 
   const displayName = (c) =>
     c?.contact_name || c?.display_name || c?.phone || 'Unknown';
@@ -341,6 +345,10 @@ export function WhatsAppCrmPage() {
                       onLanguageChange={setChatTemplateLanguage}
                       templateVars={chatTemplateVars}
                       onTemplateVarsChange={setChatTemplateVars}
+                      headerMediaUrl={chatHeaderMediaUrl}
+                      onHeaderMediaUrlChange={setChatHeaderMediaUrl}
+                      onComponentsChange={setChatTemplateComponents}
+                      onNeedsHeaderMediaChange={setChatNeedsHeaderMedia}
                       fetchTemplates={() => whatsappCrmApi.getTemplates()}
                       disabled={sending}
                     />
