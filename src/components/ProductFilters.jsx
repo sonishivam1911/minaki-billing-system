@@ -5,17 +5,20 @@ import '../styles/ProductFilters.css';
 
 /**
  * ProductFilters Component
- * Provides filtering options for products: category, diamond size, price, and location
+ * Provides filtering options for products: category, diamond size, price, and location.
+ * Filters are applied only when user clicks "Filter Now" - no auto-filtering on selection.
  * 
  * @param {Object} props
- * @param {Object} props.filters - Current filter values
- * @param {Function} props.onFiltersChange - Callback when filters change
+ * @param {Object} props.filters - Currently applied filter values
+ * @param {Function} props.onFiltersChange - Callback when user applies filters (Filter Now)
  * @param {Array} props.products - Products array (for calculating price/diamond size ranges)
  */
 export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [stores, setStores] = useState([]);
+  // Pending filters - user selections that haven't been applied yet
+  const [pendingFilters, setPendingFilters] = useState({ ...filters });
 
   // Category options
   const categoryOptions = [
@@ -96,6 +99,11 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
     loadStores();
   }, []);
 
+  // Sync pending filters when applied filters change (e.g. from parent after Filter Now)
+  useEffect(() => {
+    setPendingFilters({ ...filters });
+  }, [filters]);
+
   // Calculate price range from products
   const calculatePriceRange = () => {
     if (!products || products.length === 0) {
@@ -118,101 +126,116 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
 
   const priceRange = calculatePriceRange();
 
-  // Handle category filter change
+  // Handle category filter change - only updates pending, does NOT apply
   const handleCategoryChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.category;
-    } else {
-      newFilters.category = value;
-    }
-    onFiltersChange(newFilters);
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.category;
+      } else {
+        newFilters.category = value;
+      }
+      return newFilters;
+    });
   };
 
-  // Handle diamond size filter change
+  // Handle diamond size filter change - only updates pending, does NOT apply
   const handleDiamondSizeChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.diamondSize;
-    } else {
-      const range = diamondSizeRanges.find(r => r.value === value);
-      if (range) {
-        newFilters.diamondSize = {
-          min: range.min,
-          max: range.max,
-        };
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.diamondSize;
+      } else {
+        const range = diamondSizeRanges.find(r => r.value === value);
+        if (range) {
+          newFilters.diamondSize = { min: range.min, max: range.max };
+        }
       }
-    }
-    onFiltersChange(newFilters);
+      return newFilters;
+    });
   };
 
-  // Handle diamond cut filter change
+  // Handle diamond cut filter change - only updates pending, does NOT apply
   const handleDiamondCutChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.diamondCut;
-    } else {
-      newFilters.diamondCut = value;
-    }
-    onFiltersChange(newFilters);
-  };
-
-  // Handle diamond color filter change
-  const handleDiamondColorChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.diamondColor;
-    } else {
-      newFilters.diamondColor = value;
-    }
-    onFiltersChange(newFilters);
-  };
-
-  // Handle diamond clarity filter change
-  const handleDiamondClarityChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.diamondClarity;
-    } else {
-      newFilters.diamondClarity = value;
-    }
-    onFiltersChange(newFilters);
-  };
-
-  // Handle price filter change
-  const handlePriceChange = (type, value) => {
-    const newFilters = { ...filters };
-    if (!newFilters.price) {
-      newFilters.price = {};
-    }
-
-    if (value === '' || value === null || value === undefined) {
-      delete newFilters.price[type];
-      if (Object.keys(newFilters.price).length === 0) {
-        delete newFilters.price;
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.diamondCut;
+      } else {
+        newFilters.diamondCut = value;
       }
-    } else {
-      newFilters.price[type] = parseFloat(value) || 0;
-    }
-
-    onFiltersChange(newFilters);
+      return newFilters;
+    });
   };
 
-  // Handle location filter change
+  // Handle diamond color filter change - only updates pending, does NOT apply
+  const handleDiamondColorChange = (value) => {
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.diamondColor;
+      } else {
+        newFilters.diamondColor = value;
+      }
+      return newFilters;
+    });
+  };
+
+  // Handle diamond clarity filter change - only updates pending, does NOT apply
+  const handleDiamondClarityChange = (value) => {
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.diamondClarity;
+      } else {
+        newFilters.diamondClarity = value;
+      }
+      return newFilters;
+    });
+  };
+
+  // Handle price filter change - only updates pending, does NOT apply
+  const handlePriceChange = (type, value) => {
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      newFilters.price = prev.price ? { ...prev.price } : {};
+      if (value === '' || value === null || value === undefined) {
+        delete newFilters.price[type];
+        if (Object.keys(newFilters.price).length === 0) {
+          delete newFilters.price;
+        }
+      } else {
+        newFilters.price[type] = parseFloat(value) || 0;
+      }
+      return newFilters;
+    });
+  };
+
+  // Handle location filter change - only updates pending, does NOT apply
   const handleLocationChange = (value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters.location;
-    } else {
-      newFilters.location = value;
-    }
-    onFiltersChange(newFilters);
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters.location;
+      } else {
+        newFilters.location = value;
+      }
+      return newFilters;
+    });
   };
 
-  // Clear all filters
+  // Apply filters - called when user clicks "Filter Now"
+  const handleFilterNow = () => {
+    onFiltersChange({ ...pendingFilters });
+  };
+
+  // Clear all filters - applies immediately
   const handleClearFilters = () => {
+    setPendingFilters({});
     onFiltersChange({});
   };
+
+  const hasPendingChanges = JSON.stringify(pendingFilters) !== JSON.stringify(filters);
 
   // Count active filters
   const activeFilterCount = Object.keys(filters).filter(key => {
@@ -251,7 +274,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               <label className="filter-label">Category</label>
               <select
                 className="filter-select"
-                value={filters.category || ''}
+                value={pendingFilters.category || ''}
                 onChange={(e) => handleCategoryChange(e.target.value)}
               >
                 <option value="">All Categories</option>
@@ -274,9 +297,9 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               <select
                 className="filter-select"
                 value={
-                  filters.diamondSize
+                  pendingFilters.diamondSize
                     ? diamondSizeRanges.find(
-                        r => r.min === filters.diamondSize.min && r.max === filters.diamondSize.max
+                        r => r.min === pendingFilters.diamondSize.min && r.max === pendingFilters.diamondSize.max
                       )?.value || ''
                     : ''
                 }
@@ -296,7 +319,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               <label className="filter-label">Cut (Shape)</label>
               <select
                 className="filter-select"
-                value={filters.diamondCut || ''}
+                value={pendingFilters.diamondCut || ''}
                 onChange={(e) => handleDiamondCutChange(e.target.value)}
               >
                 <option value="">All Cuts</option>
@@ -313,7 +336,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               <label className="filter-label">Color</label>
               <select
                 className="filter-select"
-                value={filters.diamondColor || ''}
+                value={pendingFilters.diamondColor || ''}
                 onChange={(e) => handleDiamondColorChange(e.target.value)}
               >
                 <option value="">All Colors</option>
@@ -330,7 +353,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               <label className="filter-label">Clarity</label>
               <select
                 className="filter-select"
-                value={filters.diamondClarity || ''}
+                value={pendingFilters.diamondClarity || ''}
                 onChange={(e) => handleDiamondClarityChange(e.target.value)}
               >
                 <option value="">All Clarity Grades</option>
@@ -355,7 +378,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
                   placeholder={`Min (₹${priceRange.min.toLocaleString()})`}
                   min={priceRange.min}
                   max={priceRange.max}
-                  value={filters.price?.min || ''}
+                  value={pendingFilters.price?.min || ''}
                   onChange={(e) => handlePriceChange('min', e.target.value)}
                 />
                 <span className="range-separator">to</span>
@@ -365,7 +388,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
                   placeholder={`Max (₹${priceRange.max.toLocaleString()})`}
                   min={priceRange.min}
                   max={priceRange.max}
-                  value={filters.price?.max || ''}
+                  value={pendingFilters.price?.max || ''}
                   onChange={(e) => handlePriceChange('max', e.target.value)}
                 />
               </div>
@@ -382,7 +405,7 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
               ) : (
                 <select
                   className="filter-select"
-                  value={filters.location || ''}
+                  value={pendingFilters.location || ''}
                   onChange={(e) => handleLocationChange(e.target.value)}
                 >
                   <option value="">All Locations</option>
@@ -396,18 +419,27 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
             </div>
           </div>
 
-          {/* Clear Filters Button */}
-          {activeFilterCount > 0 && (
-            <div className="filters-actions">
-              <button
-                className="btn btn-secondary btn-clear-filters"
-                onClick={handleClearFilters}
-              >
-                <X size={16} />
-                Clear All Filters
-              </button>
-            </div>
-          )}
+          {/* Filter Now & Clear Buttons */}
+          <div className="filters-actions">
+            <button
+              type="button"
+              className="btn btn-secondary btn-clear-filters"
+              onClick={handleClearFilters}
+            >
+              <X size={16} />
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleFilterNow}
+              disabled={!hasPendingChanges}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Filter size={16} />
+              Filter Now
+            </button>
+          </div>
         </div>
       )}
     </div>

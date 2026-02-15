@@ -53,6 +53,7 @@ export const ProductDetailPage = () => {
   });
   const [productImages, setProductImages] = useState([]);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [generatingContent, setGeneratingContent] = useState(false);
@@ -109,6 +110,7 @@ export const ProductDetailPage = () => {
 
         setProduct(response);
         setEditedProduct(response);
+        setSelectedImageIndex(0);
       } catch (err) {
         console.error('Error fetching product:', err);
         setError('Failed to load product details. Please try again.');
@@ -723,41 +725,80 @@ export const ProductDetailPage = () => {
         <div className="product-detail-grid">
           <div className="product-detail-image">
             <div className="image-container">
-              {isReal && productImages.length > 0 ? (
-                <img 
-                  src={productImages[0].url} 
-                  alt={product.name || product.item_name}
-                  className="product-img"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                />
-              ) : (product.image && typeof product.image === 'string' && 
-               (product.image.startsWith('http') || product.image.startsWith('https'))) ||
-               (product.shopify_image && product.shopify_image.url) ? (
-                <img 
-                  src={product.image || product.shopify_image?.url} 
-                  alt={product.name || product.item_name}
-                  className="product-img"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                />
-              ) : null}
-              <div 
-                className="product-icon-large" 
-                style={{ 
-                  display: ((isReal && productImages.length > 0) ||
-                    (product.image && typeof product.image === 'string' && 
-                    (product.image.startsWith('http') || product.image.startsWith('https'))) ||
-                    (product.shopify_image && product.shopify_image.url))
-                    ? 'none' : 'flex' 
-                }}
-              >
-                💎
-              </div>
+              {(() => {
+                // Demistified: use shopify_images array (all Shopify images from API)
+                const demistifiedImages = isDemistified
+                  ? (product.shopify_images?.length > 0 ? product.shopify_images : product.shopify_image?.url ? [{ url: product.shopify_image.url }] : product.image && typeof product.image === 'string' && product.image.startsWith('http') ? [{ url: product.image }] : [])
+                  : [];
+                const displayImages = isReal ? productImages : demistifiedImages;
+                const mainImageUrl = displayImages.length > 0
+                  ? (typeof displayImages[selectedImageIndex] === 'string' ? displayImages[selectedImageIndex] : displayImages[selectedImageIndex]?.url)
+                  : product.image || product.shopify_image?.url;
+                const hasValidImage = !!mainImageUrl && (mainImageUrl.startsWith('http') || mainImageUrl.startsWith('https'));
+
+                return (
+                  <>
+                    {hasValidImage ? (
+                      <img 
+                        src={mainImageUrl} 
+                        alt={product.name || product.item_name}
+                        className="product-img"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling?.style && (e.target.nextSibling.style.display = 'block');
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="product-icon-large" 
+                      style={{ 
+                        display: hasValidImage ? 'none' : 'flex' 
+                      }}
+                    >
+                      💎
+                    </div>
+                    {/* Image gallery thumbnails - for demistified with multiple images */}
+                    {isDemistified && demistifiedImages.length > 1 && (
+                      <div className="product-image-thumbnails" style={{
+                        display: 'flex',
+                        gap: '8px',
+                        marginTop: '12px',
+                        flexWrap: 'wrap',
+                        justifyContent: 'flex-start'
+                      }}>
+                        {demistifiedImages.map((img, idx) => {
+                          const imgUrl = typeof img === 'string' ? img : img?.url;
+                          if (!imgUrl) return null;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setSelectedImageIndex(idx)}
+                              style={{
+                                padding: 0,
+                                border: selectedImageIndex === idx ? '2px solid #8b6f47' : '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                background: 'none',
+                                width: 56,
+                                height: 56
+                              }}
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`${product.name || 'Product'} ${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {isReal && isEditing && (
                 <div className="image-upload-section">
                   <label className="image-upload-btn-large">
@@ -1808,7 +1849,7 @@ export const ProductDetailPage = () => {
                   product={{
                     name: product.name || product.item_name,
                     sku: product.sku,
-                    image: productImages[0]?.url || product.image || product.shopify_image?.url,
+                    image: productImages[0]?.url || product.shopify_images?.[0]?.url || product.image || product.shopify_image?.url,
                     price: product.final_price || product.price || product.rate
                   }}
                   locations={productLocations.map(loc => ({

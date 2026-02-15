@@ -630,26 +630,34 @@ export const demistifiedProductsApi = {
       });
 
       // Transform API response to match our product structure
-      const transformedProducts = data.products?.map(product => ({
-        id: product.item_id,
-        item_id: product.item_id, // Include item_id explicitly
-        name: product.name || product.item_name,
-        category: product.category_name || 'Uncategorized',
-        price: product.rate || 0,
-        stock: product.available_stock || 0,
-        weight: null, // Not provided in API
-        purity: product.cf_finish || product.cf_work,
-        image: product.shopify_image?.url || '💎',
-        brand: product.brand,
-        description: product.description,
-        sku: product.sku,
-        gender: product.cf_gender,
-        work: product.cf_work,
-        finish: product.cf_finish,
-        finding: product.cf_finding,
-        collection: product.cf_collection,
-        isDemistified: true, // Flag to identify demistified products
-      })) || [];
+      const transformedProducts = data.products?.map(product => {
+        const shopifyImages = product.shopify_images || [];
+        const firstImage = shopifyImages[0] || product.shopify_image;
+        return {
+          id: product.item_id,
+          item_id: product.item_id, // Include item_id explicitly
+          name: product.name || product.item_name,
+          category: product.category_name || 'Uncategorized',
+          price: product.rate || 0,
+          stock: product.available_stock ?? product.stock_on_hand ?? 0,
+          stock_on_hand: product.stock_on_hand ?? product.available_stock ?? 0,
+          available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
+          weight: null, // Not provided in API
+          purity: product.cf_finish || product.cf_work,
+          image: firstImage?.url || product.shopify_image?.url || '💎',
+          shopify_image: product.shopify_image,
+          shopify_images: shopifyImages,
+          brand: product.brand,
+          description: product.description,
+          sku: product.sku,
+          gender: product.cf_gender,
+          work: product.cf_work,
+          finish: product.cf_finish,
+          finding: product.cf_finding,
+          collection: product.cf_collection,
+          isDemistified: true, // Flag to identify demistified products
+        };
+      }) || [];
 
       // Return both products and pagination metadata
       return {
@@ -729,6 +737,8 @@ export const demistifiedProductsApi = {
 
       // Transform single product response to match our structure
       const product = data.product || data;
+      const shopifyImages = product.shopify_images || [];
+      const firstImage = shopifyImages[0] || product.shopify_image;
       return {
         id: product.item_id,
         item_id: product.item_id, // Include item_id explicitly
@@ -743,7 +753,9 @@ export const demistifiedProductsApi = {
         available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
         weight: null, // Not provided in API
         purity: product.cf_finish || product.cf_work,
-        image: product.shopify_image?.url || '💎',
+        image: firstImage?.url || product.shopify_image?.url || '💎',
+        shopify_image: product.shopify_image,
+        shopify_images: shopifyImages,
         brand: product.brand,
         description: product.description,
         sku: product.sku,
@@ -759,7 +771,6 @@ export const demistifiedProductsApi = {
         cf_finish: product.cf_finish ?? product.cf_finish_unformatted ?? '',
         cf_finding: product.cf_finding ?? product.cf_finding_unformatted ?? '',
         cf_collection: product.cf_collection ?? product.cf_collection_unformatted ?? '',
-        shopify_image: product.shopify_image,
         isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {
