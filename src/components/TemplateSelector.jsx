@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -12,6 +12,7 @@ import {
   Chip,
 } from '@mui/material';
 import { FileText } from 'lucide-react';
+import { buildTemplateComponents } from '../utils/whatsappTemplateUtils';
 
 /**
  * Extract template body variables count from text like "Hello {{1}}, your order {{2}}"
@@ -32,13 +33,22 @@ const getTemplateBody = (template) => {
 };
 
 /**
- * Get header text from template components
+ * Get header text from template components (TEXT format only)
  */
 const getTemplateHeader = (template) => {
   const comps = template?.components || [];
   const header = comps.find((c) => (c.type || '').toUpperCase() === 'HEADER');
   if (header?.format === 'TEXT' && header?.text) return header.text;
   return null;
+};
+
+/**
+ * Get header format: IMAGE, VIDEO, DOCUMENT, or TEXT (or null if no header)
+ */
+const getHeaderFormat = (template) => {
+  const comps = template?.components || [];
+  const header = comps.find((c) => (c.type || '').toUpperCase() === 'HEADER');
+  return (header?.format || '').toUpperCase() || null;
 };
 
 /**
@@ -69,6 +79,9 @@ export const TemplateSelector = ({
   onLanguageChange,
   templateVars,
   onTemplateVarsChange,
+  headerMediaUrl,
+  onHeaderMediaUrlChange,
+  onComponentsChange,
   fetchTemplates,
   disabled,
   compact = false,
@@ -88,10 +101,25 @@ export const TemplateSelector = ({
   const selectedTemplate = templates.find((t) => (t.name || t.id) === value) || (value ? { name: value } : null);
   const bodyText = selectedTemplate ? getTemplateBody(selectedTemplate) : '';
   const headerText = selectedTemplate ? getTemplateHeader(selectedTemplate) : null;
+  const headerFormat = selectedTemplate ? getHeaderFormat(selectedTemplate) : null;
+  const hasHeaderFormatFromTemplate = headerFormat && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerFormat);
+  const needsHeaderMedia = hasHeaderFormatFromTemplate;
   const footerText = selectedTemplate ? getTemplateFooter(selectedTemplate) : null;
   const buttonTexts = selectedTemplate ? getTemplateButtons(selectedTemplate) : [];
   const varCount = getBodyVariableCount(bodyText);
   const varsArray = templateVars.split('\n').map((v) => v.trim()).filter(Boolean);
+
+  const builtComponents = useMemo(() => {
+    return buildTemplateComponents({
+      templateVars,
+      headerMediaUrl: needsHeaderMedia ? (headerMediaUrl || '') : '',
+      headerFormat: headerFormat || 'IMAGE',
+    });
+  }, [templateVars, headerMediaUrl, headerFormat, needsHeaderMedia]);
+
+  useEffect(() => {
+    onComponentsChange?.(builtComponents);
+  }, [builtComponents, onComponentsChange]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -147,6 +175,24 @@ export const TemplateSelector = ({
         sx={{ mb: 1 }}
       />
 
+      {(needsHeaderMedia || value) && (
+        <TextField
+          size="small"
+          fullWidth
+          label={`Header ${(headerFormat || 'image').toLowerCase()} URL (optional)`}
+          placeholder="Paste a public image URL, e.g. https://picsum.photos/400/300"
+          value={headerMediaUrl || ''}
+          onChange={(e) => onHeaderMediaUrlChange?.(e.target.value)}
+          disabled={disabled}
+          helperText={
+            needsHeaderMedia
+              ? `Template has ${headerFormat} header — add a public URL to include it, or leave blank to try without.`
+              : 'Add a public URL only if your template has an image/video/document header.'
+          }
+          sx={{ mb: 1 }}
+        />
+      )}
+
       {/* Preview card */}
       {selectedTemplate && (bodyText || headerText || footerText || buttonTexts.length > 0) && (
         <Paper
@@ -164,6 +210,11 @@ export const TemplateSelector = ({
           {headerText && (
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
               {headerText}
+            </Typography>
+          )}
+          {needsHeaderMedia && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              Header: {headerFormat} — add URL above to include
             </Typography>
           )}
           {bodyText && (

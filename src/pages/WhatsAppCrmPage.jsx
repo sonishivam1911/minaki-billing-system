@@ -40,6 +40,8 @@ export function WhatsAppCrmPage() {
   const [chatTemplateName, setChatTemplateName] = useState('');
   const [chatTemplateLanguage, setChatTemplateLanguage] = useState('en');
   const [chatTemplateVars, setChatTemplateVars] = useState('');
+  const [chatHeaderMediaUrl, setChatHeaderMediaUrl] = useState('');
+  const [chatTemplateComponents, setChatTemplateComponents] = useState([]);
   const [sending, setSending] = useState(false);
   const [newConvModalOpen, setNewConvModalOpen] = useState(false);
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
@@ -87,12 +89,6 @@ export function WhatsAppCrmPage() {
     whatsappCrmApi.markConversationRead(selectedId).catch(() => {});
   }, [selectedId]);
 
-  const buildTemplateComponents = () => {
-    const vars = chatTemplateVars.split('\n').map((v) => v.trim()).filter(Boolean);
-    if (vars.length === 0) return [];
-    return [{ type: 'body', parameters: vars.map((text) => ({ type: 'text', text })) }];
-  };
-
   const handleSend = async () => {
     if (!selectedConversation?.phone) return;
     const isTemplate = chatMessageType === 'template';
@@ -110,7 +106,7 @@ export function WhatsAppCrmPage() {
             message_type: 'template',
             template_name: chatTemplateName.trim(),
             template_language: chatTemplateLanguage,
-            template_components: buildTemplateComponents(),
+            template_components: chatTemplateComponents,
           }
         : {
             to_phone: selectedConversation.phone,
@@ -121,6 +117,7 @@ export function WhatsAppCrmPage() {
       if (!isTemplate) setMessageInput('');
       else {
         setChatTemplateVars('');
+        setChatHeaderMediaUrl('');
       }
       const data = await whatsappCrmApi.getMessages(selectedId, { limit: 100 });
       setMessages(Array.isArray(data) ? data : []);
@@ -341,6 +338,9 @@ export function WhatsAppCrmPage() {
                       onLanguageChange={setChatTemplateLanguage}
                       templateVars={chatTemplateVars}
                       onTemplateVarsChange={setChatTemplateVars}
+                      headerMediaUrl={chatHeaderMediaUrl}
+                      onHeaderMediaUrlChange={setChatHeaderMediaUrl}
+                      onComponentsChange={setChatTemplateComponents}
                       fetchTemplates={() => whatsappCrmApi.getTemplates()}
                       disabled={sending}
                     />

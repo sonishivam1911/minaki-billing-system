@@ -41,6 +41,8 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
   const [templateName, setTemplateName] = useState('');
   const [templateLanguage, setTemplateLanguage] = useState('en');
   const [templateVars, setTemplateVars] = useState('');
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('');
+  const [templateComponents, setTemplateComponents] = useState([]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const fetchTemplates = useCallback(
@@ -87,6 +89,8 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
     setTemplateName('');
     setTemplateLanguage('en');
     setTemplateVars('');
+    setHeaderMediaUrl('');
+    setTemplateComponents([]);
     setError('');
   };
 
@@ -125,15 +129,6 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
     return false;
   };
 
-  const buildTemplateComponents = () => {
-    const vars = templateVars
-      .split('\n')
-      .map((v) => v.trim())
-      .filter(Boolean);
-    if (vars.length === 0) return [];
-    return [{ type: 'body', parameters: vars.map((text) => ({ type: 'text', text })) }];
-  };
-
   const handleSend = async () => {
     setError('');
     const phone = getPhone();
@@ -149,7 +144,6 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
       setError('Please select or enter a template name');
       return;
     }
-
     setSending(true);
     try {
       const { whatsappCrmApi } = await import('../services/whatsappCrmApi');
@@ -160,7 +154,7 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
               message_type: 'template',
               template_name: templateName.trim(),
               template_language: templateLanguage,
-              template_components: buildTemplateComponents(),
+              template_components: templateComponents,
             }
           : {
               to_phone: phone,
@@ -354,6 +348,9 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
                 onLanguageChange={setTemplateLanguage}
                 templateVars={templateVars}
                 onTemplateVarsChange={setTemplateVars}
+                headerMediaUrl={headerMediaUrl}
+                onHeaderMediaUrlChange={setHeaderMediaUrl}
+                onComponentsChange={setTemplateComponents}
                 fetchTemplates={fetchTemplates}
                 disabled={sending}
               />
