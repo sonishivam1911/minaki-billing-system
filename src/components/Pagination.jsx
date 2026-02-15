@@ -1,4 +1,5 @@
 import React from 'react';
+import { Pagination as MuiPagination, Box, Typography } from '@mui/material';
 
 /**
  * Pagination Component
@@ -22,124 +23,27 @@ export const Pagination = ({
 }) => {
   if (totalPages <= 1) return null;
 
-  // Calculate which page numbers to show
-  const getVisiblePages = () => {
-    const pages = [];
-    const halfVisible = Math.floor(maxVisiblePages / 2);
-    
-    let startPage = Math.max(1, currentPage - halfVisible);
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    // Adjust start if we're near the end
-    if (endPage - startPage < maxVisiblePages - 1) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-    
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    
-    return pages;
-  };
-
-  const visiblePages = getVisiblePages();
-  const canGoPrev = currentPage > 1;
-  const canGoNext = currentPage < totalPages;
-
-  const handlePageChange = (page) => {
-    if (disabled || page === currentPage || page < 1 || page > totalPages) return;
-    onPageChange(page);
-  };
-
   return (
-    <div className="pagination-container">
-      <div className="pagination-info">
-        <span className="page-info">
-          Page {currentPage} of {totalPages}
-        </span>
-      </div>
-      
-      <div className="pagination-controls">
-        {/* First Page Button */}
-        {showFirstLast && (
-          <button
-            className="pagination-button pagination-first"
-            onClick={() => handlePageChange(1)}
-            disabled={disabled || !canGoPrev}
-            title="First Page"
-          >
-            «
-          </button>
-        )}
-
-        {/* Previous Page Button */}
-        <button
-          className="pagination-button pagination-prev"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={disabled || !canGoPrev}
-          title="Previous Page"
-        >
-          ‹
-        </button>
-
-        {/* Page Number Buttons */}
-        <div className="pagination-pages">
-          {/* Show ellipsis if there are pages before visible range */}
-          {visiblePages[0] > 1 && (
-            <>
-              {visiblePages[0] > 2 && (
-                <span className="pagination-ellipsis">...</span>
-              )}
-            </>
-          )}
-
-          {/* Render visible page numbers */}
-          {visiblePages.map((page) => (
-            <button
-              key={page}
-              className={`pagination-button pagination-page ${
-                page === currentPage ? 'active' : ''
-              }`}
-              onClick={() => handlePageChange(page)}
-              disabled={disabled}
-              title={`Page ${page}`}
-            >
-              {page}
-            </button>
-          ))}
-
-          {/* Show ellipsis if there are pages after visible range */}
-          {visiblePages[visiblePages.length - 1] < totalPages && (
-            <>
-              {visiblePages[visiblePages.length - 1] < totalPages - 1 && (
-                <span className="pagination-ellipsis">...</span>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Next Page Button */}
-        <button
-          className="pagination-button pagination-next"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={disabled || !canGoNext}
-          title="Next Page"
-        >
-          ›
-        </button>
-
-        {/* Last Page Button */}
-        {showFirstLast && (
-          <button
-            className="pagination-button pagination-last"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={disabled || !canGoNext}
-            title="Last Page"
-          >
-            »
-          </button>
-        )}
-      </div>
-    </div>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <Typography variant="body2" sx={{ color: '#6b7280' }}>
+        Page {currentPage} of {totalPages}
+      </Typography>
+      <MuiPagination
+        count={totalPages}
+        page={currentPage}
+        onChange={(event, value) => onPageChange(value)}
+        disabled={disabled}
+        color="primary"
+        showFirstButton={showFirstLast}
+        showLastButton={showFirstLast}
+        siblingCount={Math.floor(maxVisiblePages / 2)}
+        sx={{
+          '& .MuiPaginationItem-root': {
+            minHeight: '44px',
+            minWidth: '44px',
+          },
+        }}
+      />
+    </Box>
   );
 };

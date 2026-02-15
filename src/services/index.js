@@ -4,9 +4,13 @@
  * 
  * Examples:
  *   import locationsApi from './locationsApi';
- *   import shelvesApi from './shelfApi';
- *   import boxesApi from './boxApi';
+ *   import storageTypesApi from './storageTypesApi';
+ *   import storageObjectsApi from './storageObjectsApi';
  *   import productsApi from './productLocationApi';
+ * 
+ * Legacy imports (for backward compatibility):
+ *   import shelvesApi from './storageTypesApi';
+ *   import boxesApi from './storageObjectsApi';
  * 
  * See API_SERVICES_UPDATE.md for documentation
  */

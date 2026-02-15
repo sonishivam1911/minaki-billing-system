@@ -40,12 +40,16 @@ export const usersApi = {
    */
   create: async (userData) => {
     try {
-      const data = await apiRequest('POST', '/auth/users', {
+      const payload = {
         email: userData.email,
         name: userData.name,
         role: userData.role || 'staff',
         send_welcome_email: userData.sendWelcomeEmail !== false // Default to true
-      });
+      };
+      if (userData.password != null && userData.password !== '') {
+        payload.password = userData.password;
+      }
+      const data = await apiRequest('POST', '/auth/users', payload);
       
       // Show success message if email was sent
       if (userData.sendWelcomeEmail !== false && data.user) {

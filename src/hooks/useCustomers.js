@@ -19,11 +19,14 @@ export const useCustomers = () => {
       try {
         setLoading(true);
         const data = await customersApi.getAll();
-        setCustomers(data);
+        // Ensure data is always an array
+        setCustomers(Array.isArray(data) ? data : []);
         setError(null);
       } catch (err) {
         setError('Failed to load customers');
         console.error('Fetch customers error:', err);
+        // Set empty array on error to prevent crashes
+        setCustomers([]);
       } finally {
         setLoading(false);
       }
@@ -108,11 +111,14 @@ export const useCustomers = () => {
     try {
       setLoading(true);
       const data = await customersApi.getAll();
-      setCustomers(data);
+      // Ensure data is always an array
+      setCustomers(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
       setError('Failed to reload customers');
       console.error('Refetch customers error:', err);
+      // Set empty array on error to prevent crashes
+      setCustomers([]);
     } finally {
       setLoading(false);
     }

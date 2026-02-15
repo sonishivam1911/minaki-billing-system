@@ -1,5 +1,26 @@
 import React, { useState } from 'react';
 import { UserPlus, Search, Edit, Shield, Mail, User, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Box,
+  Container,
+  Typography,
+  TextField,
+  InputAdornment,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  IconButton,
+} from '@mui/material';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../context/AuthContext';
 import { CreateUserModal } from '../components/CreateUserModal';
@@ -38,9 +59,9 @@ export const UserManagementPage = () => {
   // Redirect if not admin
   if (!isAdmin()) {
     return (
-      <div className="screen-container">
+      <Container maxWidth="lg" sx={{ py: 3 }}>
         <ErrorMessage message={`Access denied. Admin privileges required. Your current role: ${userInfo?.role || 'not set'}`} />
-      </div>
+      </Container>
     );
   }
 
@@ -95,132 +116,166 @@ export const UserManagementPage = () => {
   }
 
   return (
-    <div className="screen-container">
-      <div className="page-header">
-        <div className="page-title">
-          <Shield size={32} />
-          <div>
-            <h1>User Management</h1>
-            <p>Manage staff accounts and permissions</p>
-          </div>
-        </div>
-        <button
-          className="btn btn-primary"
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Shield size={32} color="#8b6f47" />
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416' }}>
+              User Management
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#6b7280' }}>
+              Manage staff accounts and permissions
+            </Typography>
+          </Box>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<UserPlus size={20} />}
           onClick={() => setIsCreateModalOpen(true)}
         >
-          <UserPlus size={20} />
           Create User
-        </button>
-      </div>
+        </Button>
+      </Box>
 
       {error && <ErrorMessage message={error} onRetry={clearError} />}
 
-      <div className="filters-bar">
-        <div className="search-bar">
-          <Search size={20} />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      {/* Filters */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <TextField
+          placeholder="Search by name or email..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={20} color="#6b7280" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ flexGrow: 1, minWidth: 200 }}
+        />
 
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="staff">Staff</option>
-        </select>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Role</InputLabel>
+          <Select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            label="Role"
+          >
+            <MenuItem value="all">All Roles</MenuItem>
+            <MenuItem value="admin">Admin</MenuItem>
+            <MenuItem value="manager">Manager</MenuItem>
+            <MenuItem value="staff">Staff</MenuItem>
+          </Select>
+        </FormControl>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="filter-select"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Status</InputLabel>
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            label="Status"
+          >
+            <MenuItem value="all">All Status</MenuItem>
+            <MenuItem value="active">Active</MenuItem>
+            <MenuItem value="inactive">Inactive</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
-      <div className="users-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      {/* Users Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Created</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {filteredUsers.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="empty-state">
-                  No users found
-                </td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                    No users found
+                  </Typography>
+                </TableCell>
+              </TableRow>
             ) : (
               filteredUsers.map((user) => (
-                <tr key={user.id}>
-                  <td>
-                    <div className="user-info">
-                      <User size={20} />
-                      <span>{user.name || 'N/A'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="email-info">
-                      <Mail size={16} />
-                      <span>{user.email}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`role-badge role-${user.role}`}>
-                      <Shield size={14} />
-                      {user.role}
-                    </span>
-                  </td>
-                  <td>
+                <TableRow key={user.id} hover>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <User size={20} color="#6b7280" />
+                      <Typography variant="body2">
+                        {user.name || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Mail size={16} color="#6b7280" />
+                      <Typography variant="body2">
+                        {user.email}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      icon={<Shield size={14} />}
+                      label={user.role}
+                      size="small"
+                      sx={{
+                        backgroundColor: '#f5f1e8',
+                        color: '#5d4e37',
+                        fontWeight: 500,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
                     {user.is_active !== false ? (
-                      <span className="status-badge status-active">
-                        <CheckCircle size={14} />
-                        Active
-                      </span>
+                      <Chip
+                        icon={<CheckCircle size={14} />}
+                        label="Active"
+                        color="success"
+                        size="small"
+                      />
                     ) : (
-                      <span className="status-badge status-inactive">
-                        <XCircle size={14} />
-                        Inactive
-                      </span>
+                      <Chip
+                        icon={<XCircle size={14} />}
+                        label="Inactive"
+                        color="error"
+                        size="small"
+                      />
                     )}
-                  </td>
-                  <td>
-                    {user.created_at
-                      ? new Date(user.created_at).toLocaleDateString()
-                      : 'N/A'}
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-secondary"
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {user.created_at
+                        ? new Date(user.created_at).toLocaleDateString()
+                        : 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
                       onClick={() => handleEditUser(user)}
                       title="Edit user"
+                      size="small"
                     >
                       <Edit size={16} />
-                    </button>
-                  </td>
-                </tr>
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <CreateUserModal
         isOpen={isCreateModalOpen}
@@ -238,7 +293,6 @@ export const UserManagementPage = () => {
         onResetPassword={handleResetPassword}
         loading={loading}
       />
-    </div>
+    </Container>
   );
 };
-

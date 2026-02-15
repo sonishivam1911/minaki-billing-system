@@ -1,6 +1,24 @@
 import React, { useState } from 'react';
-import { X, UserPlus, Mail, User, Shield } from 'lucide-react';
-import { LoadingSpinner } from './LoadingSpinner';
+import { UserPlus, Mail, User, Shield } from 'lucide-react';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormControlLabel,
+  Checkbox,
+  FormHelperText,
+  Box,
+  IconButton,
+  CircularProgress,
+} from '@mui/material';
+import { Close } from '@mui/icons-material';
 import { ErrorMessage } from './ErrorMessage';
 
 /**
@@ -18,12 +36,19 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate, loading }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: value,
     }));
     setError(null);
+  };
+
+  const handleCheckboxChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.checked,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -59,113 +84,115 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate, loading }) => {
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title">
-            <UserPlus size={24} />
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+        },
+      }}
+    >
+      <DialogTitle>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <UserPlus size={24} color="#8b6f47" />
             <span>Create New User</span>
-          </div>
-          <button className="modal-close" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+          </Box>
+          <IconButton onClick={onClose} size="small">
+            <Close />
+          </IconButton>
+        </Box>
+      </DialogTitle>
 
-        <form onSubmit={handleSubmit} className="modal-body">
+      <form onSubmit={handleSubmit}>
+        <DialogContent>
           {error && <ErrorMessage message={error} />}
 
-          <div className="form-group">
-            <label htmlFor="email">
-              <Mail size={18} />
-              Email <span className="required">*</span>
-            </label>
-            <input
-              type="email"
-              id="email"
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Email"
               name="email"
+              type="email"
               value={formData.email}
               onChange={handleChange}
               placeholder="user@example.com"
               required
               disabled={isSubmitting}
+              InputProps={{
+                startAdornment: <Mail size={18} style={{ marginRight: 8, color: '#6b7280' }} />,
+              }}
             />
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="name">
-              <User size={18} />
-              Name <span className="required">*</span>
-            </label>
-            <input
-              type="text"
-              id="name"
+            <TextField
+              fullWidth
+              label="Name"
               name="name"
               value={formData.name}
               onChange={handleChange}
               placeholder="Full Name"
               required
               disabled={isSubmitting}
+              InputProps={{
+                startAdornment: <User size={18} style={{ marginRight: 8, color: '#6b7280' }} />,
+              }}
             />
-          </div>
 
-          <div className="form-group">
-            <label htmlFor="role">
-              <Shield size={18} />
-              Role <span className="required">*</span>
-            </label>
-            <select
-              id="role"
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              required
-              disabled={isSubmitting}
-            >
-              <option value="staff">Staff</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                name="sendWelcomeEmail"
-                checked={formData.sendWelcomeEmail}
+            <FormControl fullWidth required>
+              <InputLabel>Role</InputLabel>
+              <Select
+                name="role"
+                value={formData.role}
                 onChange={handleChange}
+                label="Role"
                 disabled={isSubmitting}
-              />
-              <span>Send welcome email with login credentials (email and temporary password)</span>
-            </label>
-            <small style={{ display: 'block', marginTop: '0.5rem', color: '#6b7280' }}>
-              The user will receive an email with their email address and temporary password to log in.
-            </small>
-          </div>
+                startAdornment={<Shield size={18} style={{ marginLeft: 8, color: '#6b7280' }} />}
+              >
+                <MenuItem value="staff">Staff</MenuItem>
+                <MenuItem value="manager">Manager</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+              </Select>
+            </FormControl>
 
-          <div className="modal-actions">
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Creating...' : 'Create User'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="sendWelcomeEmail"
+                  checked={formData.sendWelcomeEmail}
+                  onChange={handleCheckboxChange}
+                  disabled={isSubmitting}
+                />
+              }
+              label="Send welcome email with login credentials (email and temporary password)"
+            />
+            <FormHelperText sx={{ ml: 4, mt: -1 }}>
+              The user will receive an email with their email address and temporary password to log in.
+            </FormHelperText>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={onClose}
+            disabled={isSubmitting}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            variant="contained"
+            startIcon={isSubmitting ? <CircularProgress size={18} /> : null}
+          >
+            {isSubmitting ? 'Creating...' : 'Create User'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 };
-

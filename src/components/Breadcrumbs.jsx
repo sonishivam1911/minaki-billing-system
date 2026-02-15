@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye } from 'lucide-react';
+import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin } from 'lucide-react';
+import { Breadcrumbs as MuiBreadcrumbs, Typography, Box, Chip } from '@mui/material';
 import { useCart } from '../context/CartContext';
 
 /**
@@ -21,7 +22,12 @@ export const Breadcrumbs = () => {
       parent: null
     },
     '/catalog': {
-      title: 'Product Catalog',
+      title: 'Product Billing Catalog',
+      icon: Package,
+      parent: null
+    },
+    '/inventory': {
+      title: 'Inventory',
       icon: Package,
       parent: null
     },
@@ -42,9 +48,57 @@ export const Breadcrumbs = () => {
       icon: Users,
       parent: '/checkout',
       protected: true
+    },
+    '/reports': {
+      title: 'Reports',
+      icon: BarChart3,
+      parent: null
+    },
+    '/reports/inventory': {
+      title: 'Inventory Report',
+      icon: Package,
+      parent: '/reports'
+    },
+    '/reports/daily-sales': {
+      title: 'Daily Sales Report',
+      icon: FileText,
+      parent: '/reports'
+    },
+    '/reports/sales-performance': {
+      title: 'Sales Performance Report',
+      icon: TrendingUp,
+      parent: '/reports'
+    },
+    '/reports/product-performance': {
+      title: 'Product Performance Report',
+      icon: BarChart3,
+      parent: '/reports'
+    },
+    '/reports/customers': {
+      title: 'Customer Report',
+      icon: Users,
+      parent: '/reports'
+    },
+    '/reports/stock-movement': {
+      title: 'Stock Movement Report',
+      icon: Move,
+      parent: '/reports'
+    },
+    '/reports/financial': {
+      title: 'Financial Report',
+      icon: DollarSign,
+      parent: '/reports'
+    },
+    '/reports/locations': {
+      title: 'Location Report',
+      icon: MapPin,
+      parent: '/reports'
     }
   };
 
+  // Check if this is a reports page
+  const isReportPage = location.pathname.startsWith('/reports');
+  
   // Handle dynamic product routes
   const isProductRoute = location.pathname.match(/^\/product\/([^/]+)\/([^/]+)$/);
   let currentConfig = breadcrumbConfig[location.pathname];
@@ -67,7 +121,13 @@ export const Breadcrumbs = () => {
   }
 
   // If no config found or it's a protected route without cart items, don't show breadcrumbs
-  if (!currentConfig || (currentConfig.protected && !hasItemsInCart)) {
+  // Exception: Always show breadcrumbs for reports pages
+  if (!isReportPage && (!currentConfig || (currentConfig.protected && !hasItemsInCart))) {
+    return null;
+  }
+  
+  // For reports pages, ensure we have a config
+  if (isReportPage && !currentConfig) {
     return null;
   }
 
@@ -114,60 +174,124 @@ export const Breadcrumbs = () => {
   const breadcrumbs = buildBreadcrumbPath(location.pathname);
 
   // Don't render if only one item (current page) or if we're on catalog/home
-  if (breadcrumbs.length <= 1 || location.pathname === '/catalog') {
+  // But always show for reports pages (even if just one item, show Reports > Current Report)
+  if (!isReportPage && (breadcrumbs.length <= 1 || location.pathname === '/catalog')) {
     return null;
+  }
+  
+  // For reports pages, ensure we have at least Reports > Current Report
+  if (isReportPage && breadcrumbs.length === 0) {
+    // Build breadcrumbs manually for reports
+    const reportConfig = breadcrumbConfig[location.pathname];
+    if (reportConfig) {
+      breadcrumbs.push({
+        path: '/reports',
+        title: 'Reports',
+        icon: BarChart3,
+        protected: false
+      });
+      breadcrumbs.push({
+        path: location.pathname,
+        title: reportConfig.title,
+        icon: reportConfig.icon,
+        protected: false
+      });
+    }
   }
 
   return (
-    <nav className="breadcrumbs" aria-label="Breadcrumb">
-      <ol className="breadcrumb-list">
+    <Box 
+      sx={{ 
+        px: { xs: 1, sm: 2 },
+        py: 1,
+        backgroundColor: '#faf8f3',
+        borderBottom: '1px solid #e8e0d0',
+      }}
+    >
+      <MuiBreadcrumbs
+        separator={<ChevronRight size={16} />}
+        aria-label="breadcrumb navigation"
+        sx={{
+          '& .MuiBreadcrumbs-separator': {
+            mx: 1,
+            color: '#8b7355',
+          },
+        }}
+      >
         {breadcrumbs.map((crumb, index) => {
           const Icon = crumb.icon;
           const isLast = index === breadcrumbs.length - 1;
           const isClickable = !isLast && (!crumb.protected || hasItemsInCart);
 
           return (
-            <li key={crumb.path} className="breadcrumb-item">
-              {index > 0 && (
-                <ChevronRight size={16} className="breadcrumb-separator" />
-              )}
-              
+            <Box
+              key={crumb.path}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                color: isLast ? '#2c2416' : isClickable ? '#8b6f47' : '#6b7280',
+              }}
+            >
+              <Icon size={16} />
               {isClickable ? (
-                <Link 
-                  to={crumb.path} 
-                  className="breadcrumb-link"
-                  aria-label={`Go to ${crumb.title}`}
+                <Typography
+                  component={Link}
+                  to={crumb.path}
+                  sx={{
+                    textDecoration: 'none',
+                    color: '#8b6f47',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                    fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                  }}
                 >
-                  <Icon size={16} />
-                  <div className="breadcrumb-text">
-                    <span>{crumb.title}</span>
-                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
-                  </div>
-                </Link>
+                  {crumb.title}
+                </Typography>
               ) : (
-                <span 
-                  className={`breadcrumb-current ${!isClickable && crumb.protected ? 'disabled' : ''}`}
-                  aria-current={isLast ? 'page' : undefined}
+                <Typography
+                  sx={{
+                    color: isLast ? '#2c2416' : '#6b7280',
+                    fontWeight: isLast ? 600 : 400,
+                    fontSize: { xs: '0.875rem', sm: '0.9rem' },
+                  }}
                 >
-                  <Icon size={16} />
-                  <div className="breadcrumb-text">
-                    <span>{crumb.title}</span>
-                    {crumb.subtitle && <small className="breadcrumb-subtitle">{crumb.subtitle}</small>}
-                  </div>
-                </span>
+                  {crumb.title}
+                </Typography>
               )}
-            </li>
+              {crumb.subtitle && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#6b7280',
+                    ml: 0.5,
+                    display: { xs: 'none', sm: 'inline' },
+                  }}
+                >
+                  ({crumb.subtitle})
+                </Typography>
+              )}
+            </Box>
           );
         })}
-      </ol>
+      </MuiBreadcrumbs>
 
       {/* Optional: Show cart status in breadcrumbs */}
       {hasItemsInCart && (location.pathname === '/cart' || location.pathname === '/checkout') && (
-        <div className="breadcrumb-status">
-          <span className="cart-items-count">{totals.itemCount} items</span>
-          <span className="cart-total">₹{totals.total?.toLocaleString() || '0'}</span>
-        </div>
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label={`${totals.itemCount} items`}
+            size="small"
+            sx={{ backgroundColor: '#f5f1e8', color: '#5d4e37' }}
+          />
+          <Chip
+            label={`₹${totals.total?.toLocaleString() || '0'}`}
+            size="small"
+            sx={{ backgroundColor: '#e8e0d0', color: '#5d4e37', fontWeight: 600 }}
+          />
+        </Box>
       )}
-    </nav>
+    </Box>
   );
 };

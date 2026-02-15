@@ -17,11 +17,12 @@ console.log('🌐 Environment variables:', {
   forcedRelative: !VITE_API_URL
 });
 
-
 /**
  * API Service Layer
  * Handles all HTTP requests to the FastAPI backend
  */
+
+import { apiRequest } from './apiClient';
 
 // Products API
 export const productsApi = {
@@ -62,6 +63,16 @@ export const productsApi = {
         // Get the first variant for display
         const variant = product.variants?.[0];
         const pricingBreakdown = variant?.pricing_breakdown;
+        
+        // Log products without variants for debugging
+        if (!variant && (!product.variants || product.variants.length === 0)) {
+          console.warn('⚠️ Product without variants:', {
+            productId: product.id,
+            productTitle: product.title,
+            hasVariants: !!product.variants,
+            variantsLength: product.variants?.length || 0
+          });
+        }
         
         return {
           id: product.id,
@@ -115,8 +126,25 @@ export const productsApi = {
         };
       }) || [];
 
+      // Don't filter out products without variants - we'll use product.id as fallback
+      // Log products without variants for visibility
+      const productsWithoutVariants = transformedProducts.filter(p => {
+        const hasVariant = !!p.variant_id || 
+                          !!p.variantData?.id || 
+                          (p.productData?.variants && p.productData.variants.length > 0);
+        return !hasVariant;
+      });
+      
+      if (productsWithoutVariants.length > 0) {
+        console.warn('⚠️ Products without variants (will use product.id for cart):', {
+          count: productsWithoutVariants.length,
+          products: productsWithoutVariants.map(p => ({ id: p.id, name: p.name }))
+        });
+      }
+
       console.log('💎 Real Jewelry API - Transformed products:', {
         transformedCount: transformedProducts.length,
+        productsWithoutVariants: productsWithoutVariants.length,
         firstProduct: transformedProducts[0] ? {
           id: transformedProducts[0].id,
           name: transformedProducts[0].name,
@@ -320,6 +348,56 @@ export const productsApi = {
   },
 
   /**
+   * Generate title and description for lab-grown product
+   * POST /billing_system/api/agent/lab-grown-diamond/generate-content
+   * 
+   * Required fields: category, jewelry_type, carat, diamond_shape, metal_type, purity_k
+   * Optional fields: product_type, finish, cut, clarity, color_grade, cert_no, stone_price_per_carat,
+   *                  gross_weight_g, net_weight_g, metal_rate_per_g, occasions, primary_color, 
+   *                  secondary_color, vendor
+   */
+  generateLabGrownContent: async (contentData) => {
+    try {
+      const url = `${API_BASE_URL}/agent/lab-grown-diamond/generate-content`;
+      
+      console.log('🤖 Generate Content API - Request:', {
+        url,
+        method: 'POST',
+        body: contentData
+      });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contentData),
+      });
+      
+      console.log('🤖 Generate Content API - Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🤖 Generate Content API - Error response:', errorText);
+        throw new Error(`Failed to generate content: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('🤖 Generate Content API - Success:', result);
+      
+      // Return the result with expected structure
+      return {
+        success: result.success || true,
+        title: result.title || '',
+        description: result.description || '',
+        styling_tip: result.styling_tip || null,
+        product_details: result.product_details || null
+      };
+    } catch (error) {
+      console.error('🚨 Generate Content API - Error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get images for a SKU
    * GET /api/gcs/sku/{sku}/images
    */
@@ -428,6 +506,57 @@ export const productsApi = {
     const response = await fetch(`${API_BASE_URL}/products/search?${searchParams}`);
     if (!response.ok) throw new Error('Failed to search products');
     return response.json();
+  },
+
+  /**
+   * Search product by QR code/SKU
+   * GET /api/products/search?q={qrCode}
+   */
+  searchByQR: async (qrCode) => {
+    try {
+      // Try searching by SKU first
+      const searchParams = new URLSearchParams({ q: qrCode });
+      const response = await fetch(`${API_BASE_URL}/products/search?${searchParams}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to search product by QR code');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error searching by QR code:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get products with location data
+   * Fetches products and enriches with location information
+   */
+  getWithLocations: async (params = {}) => {
+    try {
+      // First fetch products
+      const productsData = await productsApi.getAll(params);
+      
+      // Then fetch locations for each product (if needed)
+      // This is a simplified version - in production, you might want to batch this
+      return productsData;
+    } catch (error) {
+      console.error('Error fetching products with locations:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Filter products (client-side if backend doesn't support)
+   * This method applies filters to already-fetched products
+   */
+  filter: async (products, filters = {}) => {
+    // This is a client-side filter - backend filtering would be preferred
+    // Import filter functions from utils
+    const { applyProductFilters } = await import('../utils/productUtils');
+    return applyProductFilters(products, filters);
   },
 };
 
@@ -604,22 +733,33 @@ export const demistifiedProductsApi = {
         id: product.item_id,
         item_id: product.item_id, // Include item_id explicitly
         name: product.name || product.item_name,
+        item_name: product.item_name,
         category: product.category_name || 'Uncategorized',
+        category_name: product.category_name,
         price: product.rate || 0,
         rate: product.rate || 0,
         stock: product.available_stock || product.stock_on_hand || 0,
-        stock_on_hand: product.available_stock || product.stock_on_hand || 0,
+        stock_on_hand: product.available_stock ?? product.stock_on_hand ?? 0,
+        available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
         weight: null, // Not provided in API
         purity: product.cf_finish || product.cf_work,
         image: product.shopify_image?.url || '💎',
         brand: product.brand,
         description: product.description,
         sku: product.sku,
+        // Aliases for catalog/search
         gender: product.cf_gender,
         work: product.cf_work,
         finish: product.cf_finish,
         finding: product.cf_finding,
         collection: product.cf_collection,
+        // cf_* fields required by ProductDetailPage for display and save
+        cf_gender: product.cf_gender ?? product.cf_gender_unformatted ?? '',
+        cf_work: product.cf_work ?? product.cf_work_unformatted ?? '',
+        cf_finish: product.cf_finish ?? product.cf_finish_unformatted ?? '',
+        cf_finding: product.cf_finding ?? product.cf_finding_unformatted ?? '',
+        cf_collection: product.cf_collection ?? product.cf_collection_unformatted ?? '',
+        shopify_image: product.shopify_image,
         isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {
@@ -916,20 +1056,102 @@ export const cartApi = {
   addItem: async (cartId, productId, quantity = 1, productData = {}) => {
     const url = `${API_BASE_URL}/carts/${cartId}/items`;
     
+    console.log('🛒 Cart API - addItem called:', {
+      cartId,
+      productId,
+      quantity,
+      productData: {
+        isRealJewelry: productData.isRealJewelry,
+        isDemistified: productData.isDemistified,
+        variant_id: productData.variant_id,
+        id: productData.id,
+        sku: productData.sku,
+        name: productData.name,
+        price: productData.price
+      }
+    });
+    
     // Determine the correct format based on product data
     // IMPORTANT: Check for real jewelry FIRST before demistified products
     let body;
     
-    if (productData.isRealJewelry || productData.variant_id) {
-      // Real jewelry with variant - check this FIRST
+    if (productData.isRealJewelry) {
+      // Real jewelry with variant - MUST have variant_id
+      // productId should already be variant_id at this point (enforced by caller)
+      // But if variant_id is missing, try to use productId as fallback
+      const variantId = productData.variant_id || 
+                       productData.variantData?.id || 
+                       productData.variant?.id ||
+                       productData.productData?.variants?.[0]?.id ||
+                       productId; // Use productId as last resort
+      
+      console.log('🔍 Cart API - Variant ID resolution:', {
+        productId,
+        variant_id: productData.variant_id,
+        variantData_id: productData.variantData?.id,
+        variant_id_direct: productData.variant?.id,
+        productData_variants_0_id: productData.productData?.variants?.[0]?.id,
+        resolvedVariantId: variantId
+      });
+      
+      // Use variantId if found, otherwise use productId as fallback
+      const finalItemId = variantId || productId;
+      
+      if (!finalItemId) {
+        console.error('❌ Cart API - Missing both variant_id and productId for real jewelry:', {
+          productData,
+          productId,
+          variantId,
+          allKeys: Object.keys(productData)
+        });
+        throw new Error('Real jewelry products require either a variant_id or product ID to add to cart.');
+      }
+      
+      if (!variantId) {
+        // If variant_id is still missing, use productId (which should be product.id)
+        // This allows products without variants to be added to cart
+        console.warn('⚠️ Cart API - No variant_id found, using productId as fallback:', {
+          productId,
+          finalItemId,
+          productData: {
+            id: productData.id,
+            name: productData.name,
+            hasVariantId: !!productData.variant_id,
+            hasVariantData: !!productData.variantData,
+            hasProductData: !!productData.productData
+          }
+        });
+      }
+      
+      // Ensure unit_price is a valid number
+      const unitPrice = parseFloat(productData.price || productData.final_price || productData.rate || 0);
+      if (isNaN(unitPrice) || unitPrice <= 0) {
+        console.warn('⚠️ Cart API - Invalid unit_price, using 0:', {
+          price: productData.price,
+          final_price: productData.final_price,
+          rate: productData.rate
+        });
+      }
+      
       body = {
         item_type: "real_jewelry", 
-        item_id: productData.variant_id || productId,
+        item_id: finalItemId,
         quantity: quantity,
         discount_percent: 0,
-        unit_price: productData.price || 0,
-        item_name: productData.name
+        unit_price: unitPrice,
+        item_name: productData.name || productData.title || 'Unknown Product'
       };
+      
+      console.log('🛒 Cart API - Real jewelry body:', body);
+      console.log('🛒 Cart API - Body validation:', {
+        hasItemType: !!body.item_type,
+        hasItemId: !!body.item_id,
+        itemIdType: typeof body.item_id,
+        itemIdValue: body.item_id,
+        hasQuantity: body.quantity > 0,
+        hasUnitPrice: body.unit_price > 0,
+        hasItemName: !!body.item_name
+      });
     } else if (productData.isDemistified) {
       // Zakya/Demistified product - explicitly check isDemistified flag
       body = {
@@ -981,13 +1203,66 @@ export const cartApi = {
     console.log('🛒 Cart API - Add item response status:', response.status, response.statusText);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🛒 Cart API - Add item error response:', errorText);
-      throw new Error(`Failed to add item to cart: ${response.status} ${response.statusText} - ${errorText}`);
+      let errorText;
+      try {
+        const errorJson = await response.json();
+        errorText = JSON.stringify(errorJson);
+        console.error('🛒 Cart API - Add item error response (JSON):', errorJson);
+      } catch (e) {
+        errorText = await response.text();
+        console.error('🛒 Cart API - Add item error response (text):', errorText);
+      }
+      
+      // Include request details in error for debugging
+      const errorDetails = {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        requestBody: body,
+        productId,
+        cartId
+      };
+      
+      console.error('🛒 Cart API - Full error details:', errorDetails);
+      
+      throw new Error(`Failed to add item to cart (${response.status}): ${errorText}`);
     }
     
     const result = await response.json();
     console.log('🛒 Cart API - Add item success:', result);
+    console.log('🛒 Cart API - Response items:', result.items);
+    console.log('🛒 Cart API - Response items count:', result.items?.length || 0);
+    console.log('🛒 Cart API - Full response structure:', {
+      hasItems: !!result.items,
+      itemsIsArray: Array.isArray(result.items),
+      itemsLength: result.items?.length,
+      hasCart: !!result.cart,
+      allKeys: Object.keys(result)
+    });
+    
+    // Check if the response includes items - if not, it might be just a success message
+    // In that case, we'll need to fetch the cart separately
+    if (result.items === undefined && result.cart) {
+      // Response might have cart nested
+      console.log('🛒 Cart API - Found cart in nested structure');
+      return result.cart;
+    }
+    
+    // If result has items array, check if it's empty (which indicates a problem)
+    if (result.items && Array.isArray(result.items)) {
+      if (result.items.length === 0) {
+        console.warn('⚠️ Cart API - Response contains empty items array. Item may not have been added.');
+        console.warn('⚠️ This could indicate:');
+        console.warn('  1. Backend validation failed silently');
+        console.warn('  2. Item_id (variant_id) does not exist in database');
+        console.warn('  3. Backend needs time to persist the item');
+      } else {
+        console.log('✅ Cart API - Response contains items array with', result.items.length, 'items');
+      }
+    } else {
+      console.warn('⚠️ Cart API - Response does not contain items array:', result);
+    }
+    
     return result;
   },
 
@@ -1477,6 +1752,144 @@ export const paymentsApi = {
     if (!response.ok) throw new Error('Failed to fetch payment');
     return response.json();
   },
+
+  /**
+   * Generate UPI QR Code
+   * POST /billing_system/api/payment/generate-upi-qr
+   */
+  generateUPIQR: async (qrData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/generate-upi-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(qrData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to generate UPI QR code: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating UPI QR code:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Razorpay Order
+   * POST /billing_system/api/payment/razorpay/create-order
+   */
+  createRazorpayOrder: async (orderData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create Razorpay order: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Razorpay order:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Pine Labs Order
+   * POST /billing_system/api/payment/pinelabs/create-order
+   */
+  createPineLabsOrder: async (orderData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create Pine Labs order: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Pine Labs order:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Record Pine Labs / terminal transaction by unique ID
+   * POST /billing_system/api/payment/pinelabs/record-transaction
+   */
+  recordPineLabsTransaction: async (payload) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/record-transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to record transaction: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error recording Pine Labs transaction:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Upload Terminal Image (Pine Labs)
+   * POST /billing_system/api/payment/pinelabs/upload-terminal-image
+   * Uses FormData for file upload
+   */
+  uploadTerminalImage: async (file, formData = {}) => {
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      
+      // Add optional form fields
+      if (formData.payment_transaction_id) {
+        uploadFormData.append('payment_transaction_id', formData.payment_transaction_id);
+      }
+      if (formData.invoice_id) {
+        uploadFormData.append('invoice_id', formData.invoice_id);
+      }
+      if (formData.order_reference) {
+        uploadFormData.append('order_reference', formData.order_reference);
+      }
+      if (formData.expected_amount) {
+        uploadFormData.append('expected_amount', formData.expected_amount.toString());
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/payment/pinelabs/upload-terminal-image`, {
+        method: 'POST',
+        body: uploadFormData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to upload terminal image: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error uploading terminal image:', error);
+      throw error;
+    }
+  },
 };
 
 // Discounts API
@@ -1557,7 +1970,7 @@ export const invoicesApi = {
   /**
    * Download invoice PDF
    * GET /api/invoices/{id}/pdf
-   * Returns: Direct PDF file download
+   * Returns: Direct PDF file download, or follows url if API returns JSON with url/download_url
    */
   downloadPDF: async (invoiceId) => {
     try {
@@ -1572,10 +1985,48 @@ export const invoicesApi = {
         throw new Error(`Failed to download PDF: ${response.status} ${response.statusText}`);
       }
       
+      const contentType = response.headers.get('content-type') || '';
+      
+      // If server returns JSON (e.g. { url: "...", download_url: "..." }), use that link
+      if (contentType.includes('application/json')) {
+        const data = await response.json();
+        const downloadUrl = data.url || data.download_url || data.link || data.pdf_url;
+        if (downloadUrl) {
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `invoice_${invoiceId}.pdf`;
+          a.rel = 'noopener noreferrer';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return { success: true, message: 'PDF download started' };
+        }
+        throw new Error(data.message || 'No download URL in response');
+      }
+      
       const blob = await response.blob();
       console.log('📄 Invoice API - Download PDF success:', { blobSize: blob.size, blobType: blob.type });
       
-      // Create download link
+      // If blob is JSON (e.g. error body), don't treat as PDF
+      if (blob.type && blob.type.includes('application/json')) {
+        const text = await blob.text();
+        const data = JSON.parse(text);
+        const downloadUrl = data.url || data.download_url || data.link || data.pdf_url;
+        if (downloadUrl) {
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `invoice_${invoiceId}.pdf`;
+          a.rel = 'noopener noreferrer';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          return { success: true, message: 'PDF download started' };
+        }
+        throw new Error(data.message || 'No download URL in response');
+      }
+      
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1583,7 +2034,8 @@ export const invoicesApi = {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Revoke after a short delay so the click has time to start the download
+      setTimeout(() => window.URL.revokeObjectURL(url), 200);
       
       return { success: true, message: 'PDF downloaded successfully' };
     } catch (error) {
@@ -1862,14 +2314,32 @@ export const storesApi = {
   /**
    * Get all stores
    * GET /billing_system/api/stores
+   * Falls back to /inventory/locations if stores endpoint doesn't exist
    */
   getAll: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const url = `${API_BASE_URL}/stores${queryString ? `?${queryString}` : ''}`;
-    console.log('🏢 Stores API - Get all:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch stores');
-    return response.json();
+    try {
+      // Try the stores endpoint first with authentication
+      const queryParams = {};
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          queryParams[key] = value;
+        }
+      });
+      return await apiRequest('GET', '/stores', null, { params: queryParams });
+    } catch (error) {
+      // If stores endpoint doesn't exist (404), fall back to locations API
+      if (error.status === 404 || error.message?.includes('404') || error.response?.status === 404) {
+        console.warn('🏢 Stores API - /stores endpoint not found (404), falling back to /inventory/locations');
+        try {
+          const { locationsApi } = await import('./locationsApi');
+          return await locationsApi.getAll(params.active_only);
+        } catch (fallbackError) {
+          console.error('🏢 Stores API - Fallback to locations API also failed:', fallbackError);
+          throw error; // Throw original error
+        }
+      }
+      throw error;
+    }
   },
 
   /**
@@ -1877,11 +2347,7 @@ export const storesApi = {
    * GET /billing_system/api/stores/{id}
    */
   getById: async (id) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Get by ID:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch store');
-    return response.json();
+    return await apiRequest('GET', `/stores/${id}`);
   },
 
   /**
@@ -1889,11 +2355,7 @@ export const storesApi = {
    * GET /billing_system/api/stores/{id}/sections
    */
   getSections: async (storeId) => {
-    const url = `${API_BASE_URL}/stores/${storeId}/sections`;
-    console.log('🏢 Stores API - Get sections:', url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch store sections');
-    return response.json();
+    return await apiRequest('GET', `/stores/${storeId}/sections`);
   },
 
   /**
@@ -1901,15 +2363,7 @@ export const storesApi = {
    * POST /billing_system/api/stores
    */
   create: async (storeData) => {
-    const url = `${API_BASE_URL}/stores`;
-    console.log('🏢 Stores API - Create:', url);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(storeData),
-    });
-    if (!response.ok) throw new Error('Failed to create store');
-    return response.json();
+    return await apiRequest('POST', '/stores', storeData);
   },
 
   /**
@@ -1917,15 +2371,7 @@ export const storesApi = {
    * PATCH /billing_system/api/stores/{id}
    */
   update: async (id, storeData) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Update:', url);
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(storeData),
-    });
-    if (!response.ok) throw new Error('Failed to update store');
-    return response.json();
+    return await apiRequest('PATCH', `/stores/${id}`, storeData);
   },
 
   /**
@@ -1933,28 +2379,130 @@ export const storesApi = {
    * DELETE /billing_system/api/stores/{id}
    */
   delete: async (id) => {
-    const url = `${API_BASE_URL}/stores/${id}`;
-    console.log('🏢 Stores API - Delete:', url);
-    const response = await fetch(url, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete store');
-    return response.json();
+    return await apiRequest('DELETE', `/stores/${id}`);
   },
 };
 
 // Reports API
+/**
+ * Helper function to build query params, handling booleans and dates correctly
+ */
+const buildQueryParamsForReports = (params = {}) => {
+  const cleanParams = {};
+  
+  Object.entries(params).forEach(([key, value]) => {
+    // Skip null, undefined, and empty strings
+    if (value === null || value === undefined || value === '') {
+      return;
+    }
+    
+    // Handle booleans - convert to string
+    if (typeof value === 'boolean') {
+      cleanParams[key] = value.toString();
+      return;
+    }
+    
+    // Handle arrays - join with comma for location_ids
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        cleanParams[key] = value.join(',');
+      }
+      return;
+    }
+    
+    // Handle Date objects - format as YYYY-MM-DD
+    if (value instanceof Date) {
+      cleanParams[key] = value.toISOString().split('T')[0];
+      return;
+    }
+    
+    // Regular values
+    cleanParams[key] = value;
+  });
+  
+  return cleanParams;
+};
+
 export const reportsApi = {
   /**
-   * Get sales reports
+   * Get inventory report
+   * GET /billing_system/api/reports/inventory
+   */
+  getInventoryReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/inventory', null, { params: cleanParams });
+  },
+
+  /**
+   * Get daily sales report
+   * GET /billing_system/api/reports/daily-sales
+   */
+  getDailySalesReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/daily-sales', null, { params: cleanParams });
+  },
+
+  /**
+   * Get sales performance report
+   * GET /billing_system/api/reports/sales-performance
+   */
+  getSalesPerformanceReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/sales-performance', null, { params: cleanParams });
+  },
+
+  /**
+   * Get product performance report
+   * GET /billing_system/api/reports/product-performance
+   */
+  getProductPerformanceReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/product-performance', null, { params: cleanParams });
+  },
+
+  /**
+   * Get customer report
+   * GET /billing_system/api/reports/customers
+   */
+  getCustomerReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/customers', null, { params: cleanParams });
+  },
+
+  /**
+   * Get stock movement report
+   * GET /billing_system/api/reports/stock-movement
+   */
+  getStockMovementReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/stock-movement', null, { params: cleanParams });
+  },
+
+  /**
+   * Get financial report
+   * GET /billing_system/api/reports/financial
+   */
+  getFinancialReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/financial', null, { params: cleanParams });
+  },
+
+  /**
+   * Get location report
+   * GET /billing_system/api/reports/locations
+   */
+  getLocationReport: async (params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/locations', null, { params: cleanParams });
+  },
+
+  /**
+   * Get sales reports (legacy - kept for backward compatibility)
    * GET /api/reports/sales
    */
   getSalesReport: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
-    const url = `${API_BASE_URL}/reports/sales${queryString ? `?${queryString}` : ''}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch sales report');
-    return response.json();
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', '/reports/sales', null, { params: cleanParams });
   },
 };
 

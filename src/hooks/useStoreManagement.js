@@ -1,19 +1,23 @@
 /**
  * useStoreManagement Hook
- * Manages creation and manipulation of stores, shelves, and boxes
+ * Manages creation and manipulation of stores, storage types, and storage objects
  */
 import { useState, useCallback } from 'react';
 import locationsApi from '../services/locationsApi';
-import shelvesApi from '../services/shelfApi';
-import boxesApi from '../services/boxApi';
+import storageTypesApi from '../services/storageTypesApi';
+import storageObjectsApi from '../services/storageObjectsApi';
 
 export const useStoreManagement = () => {
   const [stores, setStores] = useState([]);
-  const [shelves, setShelves] = useState([]);
-  const [boxes, setBoxes] = useState([]);
+  const [storageTypes, setStorageTypes] = useState([]);
+  const [storageObjects, setStorageObjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  
+  // Legacy state names for backward compatibility
+  const shelves = storageTypes;
+  const boxes = storageObjects;
 
   /**
    * Fetch all stores/locations
@@ -121,21 +125,21 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Fetch shelves for a specific store
+   * Fetch storage types for a specific store
    */
   const fetchShelvesByStore = useCallback(async (storeId) => {
     try {
       setLoading(true);
       setError(null);
       
-      const data = await shelvesApi.getByLocation(storeId);
-      const shelvesList = Array.isArray(data) ? data : data.items || data;
-      setShelves(shelvesList);
-      return shelvesList;
+      const data = await storageTypesApi.getByLocation(storeId);
+      const storageTypesList = Array.isArray(data) ? data : data.items || data;
+      setStorageTypes(storageTypesList);
+      return storageTypesList;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to fetch shelves';
+      const errorMessage = err.message || 'Failed to fetch storage types';
       setError(errorMessage);
-      console.error('Error fetching shelves:', err);
+      console.error('Error fetching storage types:', err);
       return [];
     } finally {
       setLoading(false);
@@ -143,31 +147,32 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Create a new shelf in a store
+   * Create a new storage type in a store
    */
-  const createShelf = useCallback(async (shelfData) => {
+  const createShelf = useCallback(async (storageTypeData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const newShelf = await shelvesApi.create({
-        location_id: shelfData.location_id,
-        shelf_name: shelfData.name,
-        shelf_code: shelfData.code,
-        shelf_level: shelfData.level || 1,
-        capacity: shelfData.capacity || 100,
-        is_active: shelfData.is_active !== false
-      });
+      // Support both old and new field names
+      const payload = {
+        location_id: storageTypeData.location_id,
+        storage_type_name: storageTypeData.storage_type_name || storageTypeData.name,
+        storage_type_code: storageTypeData.storage_type_code || storageTypeData.code,
+        capacity: storageTypeData.capacity || null,
+        is_active: storageTypeData.is_active !== false
+      };
       
-      setShelves(prev => [...prev, newShelf]);
-      setSuccess(`Shelf "${shelfData.name}" created successfully!`);
+      const newStorageType = await storageTypesApi.create(payload);
+      setStorageTypes(prev => [...prev, newStorageType]);
+      setSuccess(`Storage Type "${payload.storage_type_name}" created successfully!`);
       
       setTimeout(() => setSuccess(null), 5000);
-      return newShelf;
+      return newStorageType;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to create shelf';
+      const errorMessage = err.message || 'Failed to create storage type';
       setError(errorMessage);
-      console.error('Error creating shelf:', err);
+      console.error('Error creating storage type:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -175,34 +180,33 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Create multiple shelves at once
+   * Create multiple storage types at once
    */
-  const createMultipleShelves = useCallback(async (shelvesData) => {
+  const createMultipleShelves = useCallback(async (storageTypesData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const formattedShelves = shelvesData.map(shelf => ({
-        location_id: shelf.location_id,
-        shelf_name: shelf.name,
-        shelf_code: shelf.code,
-        shelf_level: shelf.level || 1,
-        capacity: shelf.capacity || 100,
-        is_active: shelf.is_active !== false
+      const formattedStorageTypes = storageTypesData.map(st => ({
+        location_id: st.location_id,
+        storage_type_name: st.storage_type_name || st.name,
+        storage_type_code: st.storage_type_code || st.code,
+        capacity: st.capacity || null,
+        is_active: st.is_active !== false
       }));
       
-      const createdShelves = await shelvesApi.bulkCreate(formattedShelves);
-      const createdList = Array.isArray(createdShelves) ? createdShelves : createdShelves.items || [createdShelves];
+      const createdStorageTypes = await storageTypesApi.bulkCreate(formattedStorageTypes);
+      const createdList = Array.isArray(createdStorageTypes) ? createdStorageTypes : createdStorageTypes.items || [createdStorageTypes];
       
-      setShelves(prev => [...prev, ...createdList]);
-      setSuccess(`${createdList.length} shelves created successfully!`);
+      setStorageTypes(prev => [...prev, ...createdList]);
+      setSuccess(`${createdList.length} storage types created successfully!`);
       
       setTimeout(() => setSuccess(null), 5000);
       return createdList;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to create shelves';
+      const errorMessage = err.message || 'Failed to create storage types';
       setError(errorMessage);
-      console.error('Error creating shelves:', err);
+      console.error('Error creating storage types:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -210,29 +214,29 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Update shelf information
+   * Update storage type information
    */
-  const updateShelf = useCallback(async (shelfId, shelfData) => {
+  const updateShelf = useCallback(async (storageTypeId, storageTypeData) => {
     try {
       setLoading(true);
       setError(null);
       
       const updateData = {};
-      if (shelfData.name) updateData.shelf_name = shelfData.name;
-      if (shelfData.code) updateData.shelf_code = shelfData.code;
-      if (shelfData.capacity) updateData.capacity = shelfData.capacity;
-      if (shelfData.is_active !== undefined) updateData.is_active = shelfData.is_active;
+      if (storageTypeData.storage_type_name || storageTypeData.name) updateData.storage_type_name = storageTypeData.storage_type_name || storageTypeData.name;
+      if (storageTypeData.storage_type_code || storageTypeData.code) updateData.storage_type_code = storageTypeData.storage_type_code || storageTypeData.code;
+      if (storageTypeData.capacity !== undefined) updateData.capacity = storageTypeData.capacity;
+      if (storageTypeData.is_active !== undefined) updateData.is_active = storageTypeData.is_active;
       
-      const updated = await shelvesApi.update(shelfId, updateData);
-      setShelves(prev => prev.map(s => s.id === shelfId ? updated : s));
-      setSuccess('Shelf updated successfully!');
+      const updated = await storageTypesApi.update(storageTypeId, updateData);
+      setStorageTypes(prev => prev.map(s => s.id === storageTypeId ? updated : s));
+      setSuccess('Storage type updated successfully!');
       
       setTimeout(() => setSuccess(null), 5000);
       return updated;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to update shelf';
+      const errorMessage = err.message || 'Failed to update storage type';
       setError(errorMessage);
-      console.error('Error updating shelf:', err);
+      console.error('Error updating storage type:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -240,22 +244,22 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Delete shelf
+   * Delete storage type
    */
-  const deleteShelf = useCallback(async (shelfId) => {
+  const deleteShelf = useCallback(async (storageTypeId) => {
     try {
       setLoading(true);
       setError(null);
       
-      await shelvesApi.delete(shelfId);
-      setShelves(prev => prev.filter(s => s.id !== shelfId));
-      setSuccess('Shelf deleted successfully!');
+      await storageTypesApi.delete(storageTypeId);
+      setStorageTypes(prev => prev.filter(s => s.id !== storageTypeId));
+      setSuccess('Storage type deleted successfully!');
       
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      const errorMessage = err.message || 'Failed to delete shelf';
+      const errorMessage = err.message || 'Failed to delete storage type';
       setError(errorMessage);
-      console.error('Error deleting shelf:', err);
+      console.error('Error deleting storage type:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -263,33 +267,33 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Fetch boxes in a specific shelf
+   * Fetch storage objects in a specific storage type
    */
-  const fetchBoxesByShelf = useCallback(async (shelfId) => {
+  const fetchBoxesByShelf = useCallback(async (storageTypeId) => {
     try {
       setLoading(true);
       setError(null);
       
-      const data = await boxesApi.getByShelf(shelfId);
-      const boxesList = Array.isArray(data) ? data : data.items || data;
+      const data = await storageObjectsApi.getByStorageType(storageTypeId);
+      const storageObjectsList = Array.isArray(data) ? data : data.items || data;
       
-      // Ensure each box has shelf_id set, and merge with existing boxes (replace boxes for this shelf)
-      setBoxes(prev => {
-        // Remove boxes from this shelf first
-        const otherBoxes = prev.filter(b => b.shelf_id !== shelfId);
-        // Add new boxes with shelf_id ensured
-        const newBoxes = boxesList.map(box => ({
-          ...box,
-          shelf_id: box.shelf_id || shelfId
+      // Ensure each storage object has storage_type_id set, and merge with existing storage objects
+      setStorageObjects(prev => {
+        // Remove storage objects from this storage type first
+        const otherStorageObjects = prev.filter(so => so.storage_type_id !== storageTypeId);
+        // Add new storage objects with storage_type_id ensured
+        const newStorageObjects = storageObjectsList.map(so => ({
+          ...so,
+          storage_type_id: so.storage_type_id || storageTypeId
         }));
-        return [...otherBoxes, ...newBoxes];
+        return [...otherStorageObjects, ...newStorageObjects];
       });
       
-      return boxesList;
+      return storageObjectsList;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to fetch boxes';
+      const errorMessage = err.message || 'Failed to fetch storage objects';
       setError(errorMessage);
-      console.error('Error fetching boxes:', err);
+      console.error('Error fetching storage objects:', err);
       return [];
     } finally {
       setLoading(false);
@@ -297,30 +301,31 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Create a new box in a shelf
+   * Create a new storage object in a storage type
    */
-  const createBox = useCallback(async (boxData) => {
+  const createBox = useCallback(async (storageObjectData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const newBox = await boxesApi.create({
-        shelf_id: boxData.shelf_id,
-        box_name: boxData.name,
-        box_code: boxData.code,
-        capacity: boxData.capacity || 50,
-        is_active: boxData.is_active !== false
-      });
+      const payload = {
+        storage_type_id: storageObjectData.storage_type_id || storageObjectData.shelf_id,
+        storage_object_label: storageObjectData.storage_object_label || storageObjectData.name,
+        storage_object_code: storageObjectData.storage_object_code || storageObjectData.code,
+        capacity: storageObjectData.capacity || null,
+        is_active: storageObjectData.is_active !== false
+      };
       
-      setBoxes(prev => [...prev, newBox]);
-      setSuccess(`Box "${boxData.name}" created successfully!`);
+      const newStorageObject = await storageObjectsApi.create(payload);
+      setStorageObjects(prev => [...prev, newStorageObject]);
+      setSuccess(`Storage Object "${payload.storage_object_label}" created successfully!`);
       
       setTimeout(() => setSuccess(null), 5000);
-      return newBox;
+      return newStorageObject;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to create box';
+      const errorMessage = err.message || 'Failed to create storage object';
       setError(errorMessage);
-      console.error('Error creating box:', err);
+      console.error('Error creating storage object:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -328,36 +333,37 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Create multiple boxes at once
+   * Create multiple storage objects at once
    */
-  const createMultipleBoxes = useCallback(async (boxesData) => {
+  const createMultipleBoxes = useCallback(async (storageObjectsData) => {
     try {
       setLoading(true);
       setError(null);
       
-      const createdBoxesList = [];
+      const createdStorageObjectsList = [];
       
-      // Create boxes sequentially (API may not support bulk for boxes)
-      for (const box of boxesData) {
-        const newBox = await boxesApi.create({
-          shelf_id: box.shelf_id,
-          box_name: box.name,
-          box_code: box.code,
-          capacity: box.capacity || 50,
-          is_active: box.is_active !== false
-        });
-        createdBoxesList.push(newBox);
+      // Create storage objects sequentially
+      for (const so of storageObjectsData) {
+        const payload = {
+          storage_type_id: so.storage_type_id || so.shelf_id,
+          storage_object_label: so.storage_object_label || so.name,
+          storage_object_code: so.storage_object_code || so.code,
+          capacity: so.capacity || null,
+          is_active: so.is_active !== false
+        };
+        const newStorageObject = await storageObjectsApi.create(payload);
+        createdStorageObjectsList.push(newStorageObject);
       }
       
-      setBoxes(prev => [...prev, ...createdBoxesList]);
-      setSuccess(`${createdBoxesList.length} boxes created successfully!`);
+      setStorageObjects(prev => [...prev, ...createdStorageObjectsList]);
+      setSuccess(`${createdStorageObjectsList.length} storage objects created successfully!`);
       
       setTimeout(() => setSuccess(null), 5000);
-      return createdBoxesList;
+      return createdStorageObjectsList;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to create boxes';
+      const errorMessage = err.message || 'Failed to create storage objects';
       setError(errorMessage);
-      console.error('Error creating boxes:', err);
+      console.error('Error creating storage objects:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -365,29 +371,29 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Update box information
+   * Update storage object information
    */
-  const updateBox = useCallback(async (boxId, boxData) => {
+  const updateBox = useCallback(async (storageObjectId, storageObjectData) => {
     try {
       setLoading(true);
       setError(null);
       
       const updateData = {};
-      if (boxData.name) updateData.box_name = boxData.name;
-      if (boxData.code) updateData.box_code = boxData.code;
-      if (boxData.capacity) updateData.capacity = boxData.capacity;
-      if (boxData.is_active !== undefined) updateData.is_active = boxData.is_active;
+      if (storageObjectData.storage_object_label || storageObjectData.name) updateData.storage_object_label = storageObjectData.storage_object_label || storageObjectData.name;
+      if (storageObjectData.storage_object_code || storageObjectData.code) updateData.storage_object_code = storageObjectData.storage_object_code || storageObjectData.code;
+      if (storageObjectData.capacity !== undefined) updateData.capacity = storageObjectData.capacity;
+      if (storageObjectData.is_active !== undefined) updateData.is_active = storageObjectData.is_active;
       
-      const updated = await boxesApi.update(boxId, updateData);
-      setBoxes(prev => prev.map(b => b.id === boxId ? updated : b));
-      setSuccess('Box updated successfully!');
+      const updated = await storageObjectsApi.update(storageObjectId, updateData);
+      setStorageObjects(prev => prev.map(so => so.id === storageObjectId ? updated : so));
+      setSuccess('Storage object updated successfully!');
       
       setTimeout(() => setSuccess(null), 5000);
       return updated;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to update box';
+      const errorMessage = err.message || 'Failed to update storage object';
       setError(errorMessage);
-      console.error('Error updating box:', err);
+      console.error('Error updating storage object:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -395,22 +401,22 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Delete box
+   * Delete storage object
    */
-  const deleteBox = useCallback(async (boxId) => {
+  const deleteBox = useCallback(async (storageObjectId) => {
     try {
       setLoading(true);
       setError(null);
       
-      await boxesApi.delete(boxId);
-      setBoxes(prev => prev.filter(b => b.id !== boxId));
-      setSuccess('Box deleted successfully!');
+      await storageObjectsApi.delete(storageObjectId);
+      setStorageObjects(prev => prev.filter(so => so.id !== storageObjectId));
+      setSuccess('Storage object deleted successfully!');
       
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
-      const errorMessage = err.message || 'Failed to delete box';
+      const errorMessage = err.message || 'Failed to delete storage object';
       setError(errorMessage);
-      console.error('Error deleting box:', err);
+      console.error('Error deleting storage object:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -418,29 +424,29 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Move box to different shelf
+   * Move storage object to different storage type
    */
-  const moveBox = useCallback(async (boxId, toShelfId, reason = '') => {
+  const moveBox = useCallback(async (storageObjectId, toStorageTypeId, reason = '') => {
     try {
       setLoading(true);
       setError(null);
       
-      const result = await boxesApi.move(boxId, {
-        to_shelf_id: toShelfId,
+      const result = await storageObjectsApi.move(storageObjectId, {
+        to_storage_type_id: toStorageTypeId,
         moved_by: 'app_user',
         reason: reason
       });
       
       // Update local state
-      setBoxes(prev => prev.map(b => b.id === boxId ? { ...b, shelf_id: toShelfId } : b));
-      setSuccess('Box moved successfully!');
+      setStorageObjects(prev => prev.map(so => so.id === storageObjectId ? { ...so, storage_type_id: toStorageTypeId } : so));
+      setSuccess('Storage object moved successfully!');
       
       setTimeout(() => setSuccess(null), 5000);
       return result;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to move box';
+      const errorMessage = err.message || 'Failed to move storage object';
       setError(errorMessage);
-      console.error('Error moving box:', err);
+      console.error('Error moving storage object:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -448,19 +454,19 @@ export const useStoreManagement = () => {
   }, []);
 
   /**
-   * Fetch box contents
+   * Fetch storage object contents
    */
-  const fetchBoxContents = useCallback(async (boxId) => {
+  const fetchBoxContents = useCallback(async (storageObjectId) => {
     try {
       setLoading(true);
       setError(null);
       
-      const contents = await boxesApi.getContents(boxId);
+      const contents = await storageObjectsApi.getContents(storageObjectId);
       return contents;
     } catch (err) {
-      const errorMessage = err.message || 'Failed to fetch box contents';
+      const errorMessage = err.message || 'Failed to fetch storage object contents';
       setError(errorMessage);
-      console.error('Error fetching box contents:', err);
+      console.error('Error fetching storage object contents:', err);
       return null;
     } finally {
       setLoading(false);
@@ -504,6 +510,9 @@ export const useStoreManagement = () => {
   return {
     // State
     stores,
+    storageTypes,
+    storageObjects,
+    // Legacy state names for backward compatibility
     shelves,
     boxes,
     loading,
@@ -517,14 +526,14 @@ export const useStoreManagement = () => {
     deleteStore,
     getStoreStats,
     
-    // Shelf operations
+    // Storage Type operations (legacy names maintained for backward compatibility)
     fetchShelvesByStore,
     createShelf,
     createMultipleShelves,
     updateShelf,
     deleteShelf,
     
-    // Box operations
+    // Storage Object operations (legacy names maintained for backward compatibility)
     fetchBoxesByShelf,
     createBox,
     createMultipleBoxes,

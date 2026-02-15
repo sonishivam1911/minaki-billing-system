@@ -1,10 +1,10 @@
 /**
  * Product Location API Service
- * Core inventory tracking - manages products within boxes
+ * Core inventory tracking - manages products within storage objects
  * 
  * API Prefix: /inventory/products
  * Supports: real_jewelry, zakya_product
- * Hierarchy: Location → Shelf → Box → Products
+ * Hierarchy: Location → Storage Type → Storage Object → Products
  */
 
 import { apiRequest } from './apiClient';
@@ -13,13 +13,13 @@ const BASE_PATH = '/inventory/products';
 
 export const productsApi = {
   /**
-   * Add product to a box
+   * Add product to a storage object
    * POST /inventory/products/
    * 
    * @param {Object} productData - Product details
    *   For real_jewelry:
    *   {
-   *     box_id: number (required),
+   *     storage_object_id: number (required),
    *     product_type: "real_jewelry" (required),
    *     product_id: string (UUID, required),
    *     product_name: string,
@@ -30,7 +30,7 @@ export const productsApi = {
    *   }
    *   For zakya_product:
    *   {
-   *     box_id: number (required),
+   *     storage_object_id: number (required),
    *     product_type: "zakya_product" (required),
    *     product_id: string (required),
    *     product_name: string,
@@ -47,6 +47,14 @@ export const productsApi = {
   },
 
   /**
+   * Add product to a storage object (new method name)
+   * POST /inventory/products/
+   */
+  addToStorageObject: async (productData, movedBy) => {
+    return await productsApi.addToBox(productData, movedBy);
+  },
+
+  /**
    * Search products with filters
    * GET /inventory/products/search
    * 
@@ -56,8 +64,8 @@ export const productsApi = {
    *     product_name: string (optional, partial match),
    *     product_type: string (optional - "real_jewelry" or "zakya_product"),
    *     location_id: number (optional),
-   *     shelf_id: number (optional),
-   *     box_id: number (optional),
+   *     storage_type_id: number (optional),
+   *     storage_object_id: number (optional),
    *     has_serials: boolean (optional),
    *     min_quantity: number (optional),
    *     max_quantity: number (optional)
@@ -65,21 +73,40 @@ export const productsApi = {
    * @returns {Promise<Array>} Matching products with full details
    */
   search: async (filters = {}) => {
+    // Convert legacy field names to new ones if present
+    const normalizedFilters = { ...filters };
+    if (normalizedFilters.shelf_id !== undefined) {
+      normalizedFilters.storage_type_id = normalizedFilters.storage_type_id || normalizedFilters.shelf_id;
+      delete normalizedFilters.shelf_id;
+    }
+    if (normalizedFilters.box_id !== undefined) {
+      normalizedFilters.storage_object_id = normalizedFilters.storage_object_id || normalizedFilters.box_id;
+      delete normalizedFilters.box_id;
+    }
     return await apiRequest('GET', `${BASE_PATH}/search`, null, {
-      params: filters
+      params: normalizedFilters
     });
   },
 
   /**
    * Find all locations where a product is stored
    * GET /inventory/products/find/{product_type}/{product_id}
-   * 
-   * @param {string} productType - "real_jewelry" or "zakya_product"
-   * @param {string} productId - Product ID (UUID for jewelry, SKU for zakya)
-   * @returns {Promise<Array>} All locations where product is stored
+   * Backend validates product_type: only "real_jewelry" and "zakya_product" are valid (400 otherwise).
+   * Response may include alias fields: store_name, shelf_name, box_code, storage_object_name.
+   *
+   * @param {string} productType - "real_jewelry" | "zakya_product" (or "real" | "demistified" — normalized)
+   * @param {string} productId - Product ID (variant_id/product.id for real_jewelry, item_id/sku for zakya_product)
+   * @returns {Promise<Array>} All locations where product is stored (or [] from wrapped response)
    */
   find: async (productType, productId) => {
-    return await apiRequest('GET', `${BASE_PATH}/find/${productType}/${productId}`);
+    const normalizedType =
+      productType === 'real' || productType === 'real_jewelry'
+        ? 'real_jewelry'
+        : productType === 'demistified' || productType === 'zakya_product'
+          ? 'zakya_product'
+          : productType;
+    const data = await apiRequest('GET', `${BASE_PATH}/find/${normalizedType}/${encodeURIComponent(productId)}`);
+    return Array.isArray(data) ? data : data?.items ?? data?.locations ?? [];
   },
 
   /**
@@ -125,13 +152,13 @@ export const productsApi = {
   },
 
   /**
-   * Transfer product between boxes
+   * Transfer product between storage objects
    * POST /inventory/products/transfer
    * 
    * @param {Object} transferData - Transfer details
    *   {
    *     from_location_id: number (required),
-   *     to_box_id: number (required),
+   *     to_storage_object_id: number (required),
    *     quantity: number (required),
    *     moved_by: string (required, username/employee ID),
    *     reason: string (optional),
@@ -140,17 +167,23 @@ export const productsApi = {
    * @returns {Promise<Object>} Transfer result
    */
   transfer: async (transferData) => {
-    return await apiRequest('POST', `${BASE_PATH}/transfer`, transferData);
+    // Convert legacy field name if present
+    const normalizedData = { ...transferData };
+    if (normalizedData.to_box_id !== undefined && normalizedData.to_storage_object_id === undefined) {
+      normalizedData.to_storage_object_id = normalizedData.to_box_id;
+      delete normalizedData.to_box_id;
+    }
+    return await apiRequest('POST', `${BASE_PATH}/transfer`, normalizedData);
   },
 
   /**
-   * Bulk transfer multiple products to one box
+   * Bulk transfer multiple products to one storage object
    * POST /inventory/products/bulk-transfer
    * 
    * @param {Object} bulkData - Bulk transfer details
    *   {
    *     product_locations: array of location IDs (required),
-   *     target_box_id: number (required),
+   *     target_storage_object_id: number (required),
    *     moved_by: string (required),
    *     reason: string (optional)
    *   }
@@ -163,7 +196,13 @@ export const productsApi = {
    *   }
    */
   bulkTransfer: async (bulkData) => {
-    return await apiRequest('POST', `${BASE_PATH}/bulk-transfer`, bulkData);
+    // Convert legacy field name if present
+    const normalizedData = { ...bulkData };
+    if (normalizedData.target_box_id !== undefined && normalizedData.target_storage_object_id === undefined) {
+      normalizedData.target_storage_object_id = normalizedData.target_box_id;
+      delete normalizedData.target_box_id;
+    }
+    return await apiRequest('POST', `${BASE_PATH}/bulk-transfer`, normalizedData);
   },
 
   /**
@@ -224,10 +263,10 @@ export const productsApi = {
     return productsApi.updateQuantity(locationId, newQuantity, updatedBy, reason);
   },
 
-  transferProduct: async (fromLocationId, toBoxId, quantity, movedBy, reason = null, notes = null) => {
+  transferProduct: async (fromLocationId, toStorageObjectId, quantity, movedBy, reason = null, notes = null) => {
     return productsApi.transfer({
       from_location_id: fromLocationId,
-      to_box_id: toBoxId,
+      to_storage_object_id: toStorageObjectId,
       quantity,
       moved_by: movedBy,
       reason,
@@ -235,10 +274,10 @@ export const productsApi = {
     });
   },
 
-  bulkTransferProducts: async (productLocationIds, targetBoxId, movedBy, reason = null) => {
+  bulkTransferProducts: async (productLocationIds, targetStorageObjectId, movedBy, reason = null) => {
     return productsApi.bulkTransfer({
       product_locations: productLocationIds,
-      target_box_id: targetBoxId,
+      target_storage_object_id: targetStorageObjectId,
       moved_by: movedBy,
       reason
     });

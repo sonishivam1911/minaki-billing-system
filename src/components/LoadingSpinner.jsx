@@ -1,4 +1,5 @@
 import React from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 /**
  * LoadingSpinner Component
@@ -9,9 +10,20 @@ import React from 'react';
  */
 export const LoadingSpinner = ({ message = 'Loading...' }) => {
   return (
-    <div className="loading-state">
-      <div className="spinner"></div>
-      <p>{message}</p>
-    </div>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        py: 8,
+        gap: 2,
+      }}
+    >
+      <CircularProgress sx={{ color: '#8b6f47' }} />
+      <Typography variant="body1" sx={{ color: '#6b7280' }}>
+        {message}
+      </Typography>
+    </Box>
   );
 };

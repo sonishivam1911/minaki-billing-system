@@ -461,7 +461,7 @@ const CreateLabProductModal = ({ isOpen, onClose, onSubmit, loading = false }) =
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content create-lab-product-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', overflow: 'auto' }}>
         <div className="modal-header">
-          <h2>💍 Create Lab Grown Product</h2>
+          <h2>Create Lab Grown Product</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
