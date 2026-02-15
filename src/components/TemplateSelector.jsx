@@ -82,7 +82,6 @@ export const TemplateSelector = ({
   headerMediaUrl,
   onHeaderMediaUrlChange,
   onComponentsChange,
-  onNeedsHeaderMediaChange,
   fetchTemplates,
   disabled,
   compact = false,
@@ -121,10 +120,6 @@ export const TemplateSelector = ({
   useEffect(() => {
     onComponentsChange?.(builtComponents);
   }, [builtComponents, onComponentsChange]);
-
-  useEffect(() => {
-    onNeedsHeaderMediaChange?.(needsHeaderMedia);
-  }, [needsHeaderMedia, onNeedsHeaderMediaChange]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -184,16 +179,15 @@ export const TemplateSelector = ({
         <TextField
           size="small"
           fullWidth
-          required={needsHeaderMedia}
-          label={`Header ${(headerFormat || 'image').toLowerCase()} URL`}
-          placeholder={`https://example.com/image.jpg (public URL, if template has media header)`}
+          label={`Header ${(headerFormat || 'image').toLowerCase()} URL (optional)`}
+          placeholder="Paste a public image URL, e.g. https://picsum.photos/400/300"
           value={headerMediaUrl || ''}
           onChange={(e) => onHeaderMediaUrlChange?.(e.target.value)}
           disabled={disabled}
           helperText={
             needsHeaderMedia
-              ? `This template has an ${headerFormat} header. Provide a public URL.`
-              : 'Optional: add if your template has an image/video/document header.'
+              ? `Template has ${headerFormat} header — add a public URL to include it, or leave blank to try without.`
+              : 'Add a public URL only if your template has an image/video/document header.'
           }
           sx={{ mb: 1 }}
         />
@@ -219,8 +213,8 @@ export const TemplateSelector = ({
             </Typography>
           )}
           {needsHeaderMedia && (
-            <Typography variant="caption" color="primary" sx={{ display: 'block', mb: 0.5 }}>
-              [Header: {headerFormat} — add URL above]
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              Header: {headerFormat} — add URL above to include
             </Typography>
           )}
           {bodyText && (

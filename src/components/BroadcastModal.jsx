@@ -40,7 +40,6 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
   const [templateVars, setTemplateVars] = useState('');
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [templateComponents, setTemplateComponents] = useState([]);
-  const [needsHeaderMedia, setNeedsHeaderMedia] = useState(false);
   const [sending, setSending] = useState(false);
   const fetchTemplates = useCallback(
     () => import('../services/whatsappCrmApi').then((m) => m.whatsappCrmApi.getTemplates()),
@@ -76,7 +75,6 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
     setTemplateVars('');
     setHeaderMediaUrl('');
     setTemplateComponents([]);
-    setNeedsHeaderMedia(false);
     setError('');
   };
 
@@ -127,11 +125,7 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
   const canSend = () => {
     if (validRecipients.length === 0) return false;
     if (messageType === 'text') return !!message.trim();
-    if (messageType === 'template') {
-      if (!templateName.trim()) return false;
-      if (needsHeaderMedia && !headerMediaUrl.trim()) return false;
-      return true;
-    }
+    if (messageType === 'template') return !!templateName.trim();
     return false;
   };
 
@@ -149,11 +143,6 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
       setError('Please select or enter a template name');
       return;
     }
-    if (messageType === 'template' && needsHeaderMedia && !headerMediaUrl.trim()) {
-      setError('This template requires a header image/video/document URL');
-      return;
-    }
-
     const confirmed = window.confirm(
       `You are about to send this message to ${validRecipients.length} recipient(s). Continue?`
     );
@@ -314,7 +303,6 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
             headerMediaUrl={headerMediaUrl}
             onHeaderMediaUrlChange={setHeaderMediaUrl}
             onComponentsChange={setTemplateComponents}
-            onNeedsHeaderMediaChange={setNeedsHeaderMedia}
             fetchTemplates={fetchTemplates}
             disabled={sending}
           />

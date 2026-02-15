@@ -43,7 +43,6 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
   const [templateVars, setTemplateVars] = useState('');
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [templateComponents, setTemplateComponents] = useState([]);
-  const [needsHeaderMedia, setNeedsHeaderMedia] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const fetchTemplates = useCallback(
@@ -145,11 +144,6 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
       setError('Please select or enter a template name');
       return;
     }
-    if (messageType === 'template' && needsHeaderMedia && !headerMediaUrl.trim()) {
-      setError('This template requires a header image/video/document URL');
-      return;
-    }
-
     setSending(true);
     try {
       const { whatsappCrmApi } = await import('../services/whatsappCrmApi');
@@ -357,7 +351,6 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
                 headerMediaUrl={headerMediaUrl}
                 onHeaderMediaUrlChange={setHeaderMediaUrl}
                 onComponentsChange={setTemplateComponents}
-                onNeedsHeaderMediaChange={setNeedsHeaderMedia}
                 fetchTemplates={fetchTemplates}
                 disabled={sending}
               />

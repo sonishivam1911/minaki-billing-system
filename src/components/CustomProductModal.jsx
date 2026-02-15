@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Package, X, IndianRupee, Gem } from 'lucide-react';
+import { Package, X, IndianRupee, Gem, Plus, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogTitle,
@@ -26,7 +26,7 @@ const CUT_OPTIONS = ['Round', 'Oval', 'Princess', 'Cushion', 'Emerald', 'Radiant
 const COLOR_OPTIONS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
 const CLARITY_OPTIONS = ['FL', 'IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'SI3', 'I1', 'I2', 'I3'];
 
-const emptyDiamond = () => ({ carat: '', cut: '', color: '', clarity: '', unit_price: '', total_price: '' });
+const emptyDiamond = () => ({ carat: '', cut: '', color: '', clarity: '', unit_price: '', quantity: 1, total_price: '' });
 const emptyGold = () => ({ karat: '', weight_gms: '', price_per_gram: '', total_price: '', other_charges: '' });
 
 /**
@@ -54,12 +54,7 @@ export const CustomProductModal = ({
     total_amount: '',
     status: 'draft'
   });
-  const [diamonds, setDiamonds] = useState([
-    emptyDiamond(),
-    emptyDiamond(),
-    emptyDiamond(),
-    emptyDiamond()
-  ]);
+  const [diamonds, setDiamonds] = useState([]);
   const [gold, setGold] = useState(emptyGold());
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [uploadedImageUrls, setUploadedImageUrls] = useState([]);
@@ -72,17 +67,15 @@ export const CustomProductModal = ({
     if (initialData) {
       const specs = initialData.specifications || {};
       const rawD = specs.diamonds || [];
-      const d = [0, 1, 2, 3].map((i) => {
-        const r = rawD[i] || rawD.find((x) => x.index === i + 1);
-        return r ? {
-          carat: r.carat ?? '',
-          cut: r.cut ?? '',
-          color: r.color ?? '',
-          clarity: r.clarity ?? '',
-          unit_price: r.unit_price ?? '',
-          total_price: r.total_price ?? ''
-        } : emptyDiamond();
-      });
+      const d = rawD.length > 0 ? rawD.map((r) => ({
+        carat: r.carat ?? '',
+        cut: r.cut ?? '',
+        color: r.color ?? '',
+        clarity: r.clarity ?? '',
+        unit_price: r.unit_price ?? '',
+        quantity: r.quantity ?? 1,
+        total_price: r.total_price ?? ''
+      })) : [];
       setDiamonds(d);
       const g = specs.gold || {};
       setGold({
@@ -108,7 +101,7 @@ export const CustomProductModal = ({
       setUploadedImageUrls(initialData.reference_images || []);
       setUploadedFiles([]);
     } else {
-      setDiamonds([emptyDiamond(), emptyDiamond(), emptyDiamond(), emptyDiamond()]);
+      setDiamonds([]);
       setGold(emptyGold());
       setFormData({
         enquiry_id: enquiryId || null,
@@ -138,13 +131,23 @@ export const CustomProductModal = ({
     setDiamonds((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
-      if (field === 'carat' || field === 'unit_price') {
+      const calcFields = ['carat', 'unit_price', 'quantity'];
+      if (calcFields.includes(field)) {
         const carat = parseFloat(next[index].carat) || 0;
         const unitPrice = parseFloat(next[index].unit_price) || 0;
-        next[index].total_price = carat && unitPrice ? (carat * unitPrice).toFixed(2) : '';
+        const qty = parseInt(next[index].quantity, 10) || 1;
+        next[index].total_price = carat && unitPrice ? (carat * unitPrice * qty).toFixed(2) : '';
       }
       return next;
     });
+  };
+
+  const addDiamond = () => {
+    setDiamonds((prev) => [...prev, emptyDiamond()]);
+  };
+
+  const removeDiamond = (index) => {
+    setDiamonds((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleGoldChange = (field, value) => {
@@ -216,6 +219,7 @@ export const CustomProductModal = ({
           color: d.color || null,
           clarity: d.clarity || null,
           unit_price: parseFloat(d.unit_price) || null,
+          quantity: parseInt(d.quantity, 10) || 1,
           total_price: parseFloat(d.total_price) || null
         })),
         gold: {
@@ -324,48 +328,72 @@ export const CustomProductModal = ({
               )}
             </Paper>
 
-            {/* Diamonds 1-4 */}
+            {/* Diamonds - Dynamic */}
             <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Gem size={18} /> Diamond Details
-              </Typography>
-              {[0, 1, 2, 3].map((i) => (
-                <Box key={i} sx={{ mb: 2, p: 1.5, bgcolor: '#fafafa', borderRadius: 1 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Diamond {i + 1}</Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                    <TextField label="Carat" type="number" value={diamonds[i].carat} onChange={(e) => handleDiamondChange(i, 'carat', e.target.value)} size="small" sx={{ width: 90 }} inputProps={{ step: 0.01 }} />
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
-                      <InputLabel>Cut</InputLabel>
-                      <Select value={diamonds[i].cut} onChange={(e) => handleDiamondChange(i, 'cut', e.target.value)} label="Cut">
-                        <MenuItem value="">—</MenuItem>
-                        {CUT_OPTIONS.map((c) => (
-                          <MenuItem key={c} value={c}>{c}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 80 }}>
-                      <InputLabel>Color</InputLabel>
-                      <Select value={diamonds[i].color} onChange={(e) => handleDiamondChange(i, 'color', e.target.value)} label="Color">
-                        <MenuItem value="">—</MenuItem>
-                        {COLOR_OPTIONS.map((c) => (
-                          <MenuItem key={c} value={c}>{c}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <InputLabel>Clarity</InputLabel>
-                      <Select value={diamonds[i].clarity} onChange={(e) => handleDiamondChange(i, 'clarity', e.target.value)} label="Clarity">
-                        <MenuItem value="">—</MenuItem>
-                        {CLARITY_OPTIONS.map((c) => (
-                          <MenuItem key={c} value={c}>{c}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <TextField label="Unit Price (₹)" type="number" value={diamonds[i].unit_price} onChange={(e) => handleDiamondChange(i, 'unit_price', e.target.value)} size="small" sx={{ width: 120 }} InputProps={{ startAdornment: <IndianRupee size={14} style={{ marginRight: 4 }} /> }} />
-                    <TextField label="Total Price (₹)" type="number" value={diamonds[i].total_price} disabled size="small" sx={{ width: 120 }} InputProps={{ startAdornment: <IndianRupee size={14} style={{ marginRight: 4 }} /> }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Gem size={18} /> Diamond Details
+                </Typography>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Plus size={16} />}
+                  onClick={addDiamond}
+                  sx={{ borderColor: '#8b6f47', color: '#8b6f47', '&:hover': { borderColor: '#6d5637', bgcolor: 'rgba(139,111,71,0.08)' } }}
+                >
+                  Add Diamond
+                </Button>
+              </Box>
+              {diamonds.length === 0 ? (
+                <Typography variant="body2" sx={{ color: '#6b7280', py: 2 }}>
+                  No diamonds added. Click &quot;Add Diamond&quot; to add diamond details (e.g. bracelet with 20 small diamonds).
+                </Typography>
+              ) : (
+                diamonds.map((d, i) => (
+                  <Box key={i} sx={{ mb: 2, p: 1.5, bgcolor: '#fafafa', borderRadius: 1, position: 'relative' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Diamond {i + 1}</Typography>
+                      <IconButton size="small" onClick={() => removeDiamond(i)} sx={{ color: '#d32f2f' }} title="Remove diamond">
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                      <TextField label="Carat" type="number" value={d.carat} onChange={(e) => handleDiamondChange(i, 'carat', e.target.value)} size="small" sx={{ width: 90 }} inputProps={{ step: 0.01, min: 0 }} />
+                      <FormControl size="small" sx={{ minWidth: 120 }}>
+                        <InputLabel>Cut</InputLabel>
+                        <Select value={d.cut} onChange={(e) => handleDiamondChange(i, 'cut', e.target.value)} label="Cut">
+                          <MenuItem value="">—</MenuItem>
+                          {CUT_OPTIONS.map((c) => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" sx={{ minWidth: 80 }}>
+                        <InputLabel>Color</InputLabel>
+                        <Select value={d.color} onChange={(e) => handleDiamondChange(i, 'color', e.target.value)} label="Color">
+                          <MenuItem value="">—</MenuItem>
+                          {COLOR_OPTIONS.map((c) => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl size="small" sx={{ minWidth: 100 }}>
+                        <InputLabel>Clarity</InputLabel>
+                        <Select value={d.clarity} onChange={(e) => handleDiamondChange(i, 'clarity', e.target.value)} label="Clarity">
+                          <MenuItem value="">—</MenuItem>
+                          {CLARITY_OPTIONS.map((c) => (
+                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <TextField label="Qty" type="number" value={d.quantity} onChange={(e) => handleDiamondChange(i, 'quantity', e.target.value)} size="small" sx={{ width: 70 }} inputProps={{ min: 1 }} helperText="Same specs" />
+                      <TextField label="Unit Price (₹)" type="number" value={d.unit_price} onChange={(e) => handleDiamondChange(i, 'unit_price', e.target.value)} size="small" sx={{ width: 110 }} InputProps={{ startAdornment: <IndianRupee size={14} style={{ marginRight: 4 }} /> }} />
+                      <TextField label="Total (₹)" type="number" value={d.total_price} disabled size="small" sx={{ width: 110 }} InputProps={{ startAdornment: <IndianRupee size={14} style={{ marginRight: 4 }} /> }} />
+                    </Box>
                   </Box>
-                </Box>
-              ))}
+                ))
+              )}
             </Paper>
 
             {/* Gold */}

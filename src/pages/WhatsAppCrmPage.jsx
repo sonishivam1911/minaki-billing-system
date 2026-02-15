@@ -42,7 +42,6 @@ export function WhatsAppCrmPage() {
   const [chatTemplateVars, setChatTemplateVars] = useState('');
   const [chatHeaderMediaUrl, setChatHeaderMediaUrl] = useState('');
   const [chatTemplateComponents, setChatTemplateComponents] = useState([]);
-  const [chatNeedsHeaderMedia, setChatNeedsHeaderMedia] = useState(false);
   const [sending, setSending] = useState(false);
   const [newConvModalOpen, setNewConvModalOpen] = useState(false);
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
@@ -97,10 +96,6 @@ export function WhatsAppCrmPage() {
       alert('Please select or enter a template name');
       return;
     }
-    if (isTemplate && chatNeedsHeaderMedia && !chatHeaderMediaUrl.trim()) {
-      alert('This template requires a header image/video/document URL');
-      return;
-    }
     if (!isTemplate && !messageInput.trim()) return;
 
     setSending(true);
@@ -136,9 +131,7 @@ export function WhatsAppCrmPage() {
 
   const canSend =
     selectedConversation?.phone &&
-    (chatMessageType === 'text'
-      ? !!messageInput.trim()
-      : !!chatTemplateName.trim() && !(chatNeedsHeaderMedia && !chatHeaderMediaUrl.trim()));
+    (chatMessageType === 'text' ? !!messageInput.trim() : !!chatTemplateName.trim());
 
   const displayName = (c) =>
     c?.contact_name || c?.display_name || c?.phone || 'Unknown';
@@ -348,7 +341,6 @@ export function WhatsAppCrmPage() {
                       headerMediaUrl={chatHeaderMediaUrl}
                       onHeaderMediaUrlChange={setChatHeaderMediaUrl}
                       onComponentsChange={setChatTemplateComponents}
-                      onNeedsHeaderMediaChange={setChatNeedsHeaderMedia}
                       fetchTemplates={() => whatsappCrmApi.getTemplates()}
                       disabled={sending}
                     />
