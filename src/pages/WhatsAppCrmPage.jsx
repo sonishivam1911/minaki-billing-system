@@ -17,8 +17,11 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import { MessageCircle, Search, Send, User, Plus, Megaphone, FileText } from 'lucide-react';
+import { MessageCircle, Search, Send, User, Plus, Megaphone, FileText, ArrowLeft } from 'lucide-react';
 import { whatsappCrmApi } from '../services/whatsappCrmApi';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import { NewConversationModal } from '../components/NewConversationModal';
@@ -26,6 +29,8 @@ import { BroadcastModal } from '../components/BroadcastModal';
 import { TemplateSelector } from '../components/TemplateSelector';
 
 export function WhatsAppCrmPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -147,35 +152,72 @@ export function WhatsAppCrmPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', overflow: 'hidden', p: 0 }}>
-      <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
-            WhatsApp CRM
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-            Manage customer conversations
-          </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', overflow: 'hidden', p: 0, backgroundColor: '#f0f2f5' }}>
+      {/* Page header - hide on mobile when in chat view to save space */}
+      {(!isMobile || !selectedId) && (
+        <Box sx={{ 
+          p: { xs: 1.5, sm: 2 }, 
+          backgroundColor: '#fff', 
+          borderBottom: '1px solid #e9edef',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+              <Box sx={{ 
+                width: { xs: 36, sm: 44 }, 
+                height: { xs: 36, sm: 44 }, 
+                borderRadius: '10px', 
+                backgroundColor: '#25D366', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(37, 211, 102, 0.35)',
+              }}>
+                <MessageCircle size={isMobile ? 20 : 24} color="#fff" />
+              </Box>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416', letterSpacing: '-0.02em', fontSize: { xs: '1.1rem', sm: '1.5rem' } }}>
+                  WhatsApp CRM
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.25, display: { xs: 'none', sm: 'block' } }}>
+                  Manage customer conversations & broadcasts
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 }, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                startIcon={<Megaphone size={isMobile ? 16 : 18} />}
+                onClick={() => setBroadcastModalOpen(true)}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ 
+                  borderColor: '#25D366', 
+                  color: '#128C7E',
+                  minWidth: { xs: 'auto', sm: 'auto' },
+                  px: { xs: 1, sm: 2 },
+                  '&:hover': { borderColor: '#128C7E', backgroundColor: 'rgba(37, 211, 102, 0.08)' },
+                }}
+              >
+                Broadcast
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Plus size={isMobile ? 16 : 18} />}
+                onClick={() => setNewConvModalOpen(true)}
+                size={isMobile ? 'small' : 'medium'}
+                sx={{ 
+                  backgroundColor: '#25D366',
+                  minWidth: { xs: 'auto', sm: 'auto' },
+                  px: { xs: 1, sm: 2 },
+                  '&:hover': { backgroundColor: '#20bd5a' },
+                }}
+              >
+                New chat
+              </Button>
+            </Box>
+          </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Megaphone size={18} />}
-            onClick={() => setBroadcastModalOpen(true)}
-            size="small"
-          >
-            Broadcast
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Plus size={18} />}
-            onClick={() => setNewConvModalOpen(true)}
-            size="small"
-          >
-            New conversation
-          </Button>
-        </Box>
-      </Box>
+      )}
 
       <NewConversationModal
         open={newConvModalOpen}
@@ -189,28 +231,55 @@ export function WhatsAppCrmPage() {
         onSuccess={() => fetchConversations()}
       />
 
-      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, gap: 1 }}>
-        {/* Left: conversation list */}
-        <Paper sx={{ width: 320, minWidth: 280, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flex: 1, 
+        minHeight: 0, 
+        gap: { xs: 0, sm: 1.5 }, 
+        p: { xs: 1, sm: 1.5 },
+        flexDirection: { xs: 'column', md: 'row' },
+      }}>
+        {/* Left: conversation list - full width on mobile when no chat selected, hidden when chat selected */}
+        <Paper elevation={0} sx={{ 
+          width: { xs: '100%', md: 340 }, 
+          minWidth: { xs: '100%', md: 300 }, 
+          display: { xs: selectedId ? 'none' : 'flex', md: 'flex' }, 
+          flexDirection: 'column', 
+          overflow: 'hidden',
+          borderRadius: { xs: '8px', sm: '12px' },
+          border: '1px solid #e9edef',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          flex: { xs: selectedId ? 0 : 1, md: '0 0 auto' },
+        }}>
           <TextField
             size="small"
             placeholder="Search conversations..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ m: 1 }}
+            sx={{ m: 1.5, '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#f0f2f5' } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search size={18} />
+                  <Search size={18} color="#667781" />
                 </InputAdornment>
               ),
             }}
           />
-          <Tabs value={filter} onChange={(_, v) => setFilter(v)} sx={{ px: 1 }}>
+          <Tabs 
+            value={filter} 
+            onChange={(_, v) => setFilter(v)} 
+            sx={{ 
+              px: 1.5, 
+              minHeight: 44,
+              '& .MuiTab-root': { textTransform: 'none', fontWeight: 500 },
+              '& .Mui-selected': { color: '#25D366', fontWeight: 600 },
+              '& .MuiTabs-indicator': { backgroundColor: '#25D366' },
+            }}
+          >
             <Tab label="All" value="all" />
             <Tab label="Unread" value="unread" />
           </Tabs>
-          <List sx={{ overflow: 'auto', flex: 1 }}>
+          <List sx={{ overflow: 'auto', flex: 1, py: 0 }}>
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
                 <CircularProgress size={24} />
@@ -221,22 +290,42 @@ export function WhatsAppCrmPage() {
                   key={c.id}
                   selected={c.id === selectedId}
                   onClick={() => setSelectedId(c.id)}
+                  sx={{
+                    mx: 1,
+                    borderRadius: '8px',
+                    mb: 0.5,
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                      '&:hover': { backgroundColor: 'rgba(37, 211, 102, 0.15)' },
+                    },
+                  }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <Avatar sx={{ bgcolor: c.id === selectedId ? '#25D366' : '#8b6f47', width: 48, height: 48 }}>
                       {(c.contact_name || c.phone || '?').slice(0, 1).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
                     primary={displayName(c)}
                     secondary={c.last_message_preview || 'No messages'}
-                    primaryTypographyProps={{ noWrap: true }}
-                    secondaryTypographyProps={{ noWrap: true }}
+                    primaryTypographyProps={{ noWrap: true, fontWeight: 500 }}
+                    secondaryTypographyProps={{ noWrap: true, fontSize: '0.8rem', color: '#667781' }}
                   />
                   {c.unread_count > 0 && (
-                    <Typography variant="caption" color="primary" sx={{ ml: 0.5 }}>
+                    <Box sx={{ 
+                      minWidth: 20, 
+                      height: 20, 
+                      borderRadius: '10px', 
+                      backgroundColor: '#25D366', 
+                      color: '#fff', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                    }}>
                       {c.unread_count}
-                    </Typography>
+                    </Box>
                   )}
                 </ListItemButton>
               ))
@@ -244,27 +333,78 @@ export function WhatsAppCrmPage() {
           </List>
         </Paper>
 
-        {/* Center: chat */}
-        <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Center: chat - on mobile shows when conversation selected */}
+        <Paper elevation={0} sx={{ 
+          flex: 1, 
+          display: { xs: selectedId ? 'flex' : 'none', md: 'flex' }, 
+          flexDirection: 'column', 
+          minWidth: 0,
+          borderRadius: { xs: '8px', sm: '12px' },
+          border: '1px solid #e9edef',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+        }}>
           {!selectedId ? (
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', gap: 1 }}>
-              <Typography>Select a conversation or start a new one</Typography>
-              <Button variant="outlined" startIcon={<Plus size={18} />} onClick={() => setNewConvModalOpen(true)} size="small">
+            <Box sx={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              backgroundColor: '#f0f2f5',
+              gap: 2,
+            }}>
+              <Box sx={{ 
+                width: 120, 
+                height: 120, 
+                borderRadius: '50%', 
+                backgroundColor: '#e9edef', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+              }}>
+                <MessageCircle size={48} color="#667781" />
+              </Box>
+              <Typography variant="h6" sx={{ color: '#41525d', fontWeight: 400 }}>
+                WhatsApp CRM
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#667781', textAlign: 'center', maxWidth: 320 }}>
+                Select a conversation from the list or start a new one to begin messaging
+              </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<Plus size={18} />} 
+                onClick={() => setNewConvModalOpen(true)} 
+                size="medium"
+                sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}
+              >
                 New conversation
               </Button>
             </Box>
           ) : (
             <>
-              <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center' }}>
-                <MessageCircle size={20} style={{ marginRight: 8 }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              <Box sx={{ 
+                p: { xs: 1, sm: 1.5 }, 
+                borderBottom: '1px solid #e9edef', 
+                display: 'flex', 
+                alignItems: 'center',
+                backgroundColor: '#f0f2f5',
+                gap: 1,
+              }}>
+                {isMobile && (
+                  <IconButton size="small" onClick={() => setSelectedId(null)} sx={{ mr: 0.5 }} aria-label="Back to conversations">
+                    <ArrowLeft size={20} />
+                  </IconButton>
+                )}
+                <MessageCircle size={22} color="#25D366" style={{ marginRight: 4 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '0.95rem', sm: '1rem' }, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName(selectedConversation)}
                 </Typography>
               </Box>
-              <List sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+              <List sx={{ flex: 1, overflow: 'auto', p: { xs: 1, sm: 2 }, backgroundColor: '#efeae2', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23d9dbd5\' fill-opacity=\'0.4\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }}>
                 {messagesLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={24} />
+                    <CircularProgress size={24} sx={{ color: '#25D366' }} />
                   </Box>
                 ) : (
                   messages.map((m) => (
@@ -273,34 +413,39 @@ export function WhatsAppCrmPage() {
                       sx={{
                         display: 'flex',
                         justifyContent: m.direction === 'outbound' ? 'flex-end' : 'flex-start',
-                        mb: 1,
+                        mb: 1.5,
                       }}
                     >
-                      <Paper
-                        elevation={0}
+                      <Box
                         sx={{
-                          maxWidth: '75%',
+                          maxWidth: '65%',
                           p: 1.5,
-                          bgcolor: m.direction === 'outbound' ? 'primary.light' : 'grey.100',
-                          color: m.direction === 'outbound' ? 'primary.contrastText' : 'text.primary',
+                          borderRadius: '8px',
+                          borderTopRightRadius: m.direction === 'outbound' ? '2px' : '8px',
+                          borderTopLeftRadius: m.direction === 'outbound' ? '8px' : '2px',
+                          backgroundColor: m.direction === 'outbound' ? '#d9fdd3' : '#fff',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                         }}
                       >
-                        <Typography variant="body2">{m.body || '(media)'}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                        <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body || '(media)'}</Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', textAlign: 'right', mt: 0.5 }}>
                           {m.status || ''}
                         </Typography>
-                      </Paper>
+                      </Box>
                     </Box>
                   ))
                 )}
               </List>
-              <Box sx={{ p: 1, borderTop: 1, borderColor: 'divider' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Box sx={{ p: { xs: 1, sm: 1.5 }, borderTop: '1px solid #e9edef', backgroundColor: '#f0f2f5' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                   <ToggleButtonGroup
                     value={chatMessageType}
                     exclusive
                     onChange={(_, v) => v && setChatMessageType(v)}
                     size="small"
+                    sx={{
+                      '& .Mui-selected': { backgroundColor: 'rgba(37, 211, 102, 0.2)', color: '#128C7E', '&:hover': { backgroundColor: 'rgba(37, 211, 102, 0.3)' } },
+                    }}
                   >
                     <ToggleButton value="text">Text</ToggleButton>
                     <ToggleButton value="template">
@@ -310,7 +455,7 @@ export function WhatsAppCrmPage() {
                   </ToggleButtonGroup>
                 </Box>
                 {chatMessageType === 'text' ? (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 }, alignItems: 'flex-end', width: '100%' }}>
                     <TextField
                       fullWidth
                       size="small"
@@ -319,14 +464,32 @@ export function WhatsAppCrmPage() {
                       onChange={(e) => setMessageInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                       disabled={sending}
+                      sx={{ 
+                        flex: 1,
+                        minWidth: 0,
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '24px', 
+                          backgroundColor: '#fff',
+                          minHeight: { xs: 44, sm: 48 },
+                          '& fieldset': { borderColor: '#e9edef' },
+                        },
+                      }}
                     />
                     <Button
                       variant="contained"
                       onClick={handleSend}
                       disabled={!canSend || sending}
-                      startIcon={<Send size={18} />}
+                      sx={{ 
+                        minWidth: { xs: 44, sm: 48 }, 
+                        height: { xs: 44, sm: 48 }, 
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        backgroundColor: '#25D366',
+                        '&:hover': { backgroundColor: '#20bd5a' },
+                        '&:disabled': { backgroundColor: '#aebac1', color: '#fff' },
+                      }}
                     >
-                      Send
+                      <Send size={isMobile ? 18 : 20} />
                     </Button>
                   </Box>
                 ) : (
@@ -350,6 +513,7 @@ export function WhatsAppCrmPage() {
                         onClick={handleSend}
                         disabled={!canSend || sending}
                         startIcon={<Send size={18} />}
+                        sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}
                       >
                         Send template
                       </Button>
@@ -361,10 +525,20 @@ export function WhatsAppCrmPage() {
           )}
         </Paper>
 
-        {/* Right: customer profile */}
-        <Paper sx={{ width: 280, minWidth: 240, overflow: 'auto', p: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Customer
+        {/* Right: customer profile - hidden on mobile */}
+        <Paper elevation={0} sx={{ 
+          width: { md: 300 }, 
+          minWidth: { md: 260 }, 
+          overflow: 'auto', 
+          p: 2,
+          borderRadius: '12px',
+          border: '1px solid #e9edef',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          flex: { md: '0 0 auto' },
+          display: { xs: 'none', md: 'block' },
+        }}>
+          <Typography variant="overline" sx={{ color: '#667781', fontSize: '0.75rem', letterSpacing: 1, mb: 1.5, display: 'block' }}>
+            Customer Profile
           </Typography>
           {!selectedId ? (
             <Typography variant="body2" color="text.secondary">
@@ -374,39 +548,39 @@ export function WhatsAppCrmPage() {
             <CircularProgress size={24} />
           ) : profile ? (
             <>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Avatar sx={{ bgcolor: 'grey.400' }}>
-                  <User size={20} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+                <Avatar sx={{ bgcolor: '#25D366', width: 48, height: 48 }}>
+                  <User size={24} color="#fff" />
                 </Avatar>
-                <Typography variant="subtitle1" fontWeight={600}>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#2c2416' }}>
                   {profile.contact_name || profile.display_name || 'Unknown'}
                 </Typography>
               </Box>
-              <Divider sx={{ my: 1 }} />
+              <Divider sx={{ my: 1.5, borderColor: '#e9edef' }} />
               {profile.phone && (
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#41525d' }}>
                   Phone: {formatPhoneForDisplay(profile.phone)}
                 </Typography>
               )}
               {profile.mobile_phone && profile.mobile_phone !== profile.phone && (
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#41525d' }}>
                   Mobile: {formatPhoneForDisplay(profile.mobile_phone)}
                 </Typography>
               )}
               {profile.email && (
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#41525d' }}>
                   Email: {profile.email}
                 </Typography>
               )}
               {(profile.billing_city || profile.billing_state) && (
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#41525d' }}>
                   Location: {[profile.billing_city, profile.billing_state, profile.billing_country].filter(Boolean).join(', ')}
                 </Typography>
               )}
               <Button
-                variant="outlined"
+                variant="contained"
                 size="small"
-                sx={{ mt: 2 }}
+                sx={{ mt: 2, backgroundColor: '#8b6f47', '&:hover': { backgroundColor: '#6b5537' } }}
                 onClick={() => window.open('/checkout', '_blank')}
               >
                 Create order

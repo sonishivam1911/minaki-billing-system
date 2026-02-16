@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin } from 'lucide-react';
+import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin, MessageCircle, Building2, UserPlus, ShoppingBag } from 'lucide-react';
 import { Breadcrumbs as MuiBreadcrumbs, Typography, Box, Chip } from '@mui/material';
 import { useCart } from '../context/CartContext';
 
@@ -46,8 +46,32 @@ export const Breadcrumbs = () => {
     '/customers': {
       title: 'Customer Management',
       icon: Users,
-      parent: '/checkout',
-      protected: true
+      parent: null
+    },
+    '/whatsapp-crm': {
+      title: 'WhatsApp CRM',
+      icon: MessageCircle,
+      parent: null
+    },
+    '/store-locator': {
+      title: 'Store Locator',
+      icon: MapPin,
+      parent: null
+    },
+    '/store-management': {
+      title: 'Store Management',
+      icon: Building2,
+      parent: null
+    },
+    '/walk-ins': {
+      title: 'Walk-ins',
+      icon: UserPlus,
+      parent: null
+    },
+    '/custom-products': {
+      title: 'Custom Products',
+      icon: ShoppingBag,
+      parent: null
     },
     '/reports': {
       title: 'Reports',

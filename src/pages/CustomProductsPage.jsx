@@ -123,21 +123,21 @@ export const CustomProductsPage = () => {
 
   if (loading && products.length === 0) {
     return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
         <LoadingSpinner message="Loading custom products..." />
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 2 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5, fontSize: { xs: '1.5rem', sm: '2rem' } }}>
               Custom Products
             </Typography>
-            <Typography variant="body1" sx={{ color: '#6b7280' }}>
+            <Typography variant="body1" sx={{ color: '#6b7280', fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Manage Lab Grown Diamond custom products (Made to Order)
             </Typography>
           </Box>
@@ -150,7 +150,8 @@ export const CustomProductsPage = () => {
             }}
             sx={{
               bgcolor: '#8b6f47',
-              '&:hover': { bgcolor: '#6d5637' }
+              '&:hover': { bgcolor: '#6d5637' },
+              alignSelf: { xs: 'stretch', sm: 'center' },
             }}
           >
             New Custom Product
@@ -163,8 +164,8 @@ export const CustomProductsPage = () => {
           </Box>
         )}
 
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Box sx={{ flex: 1, minWidth: 200 }}>
+        <Box sx={{ mb: { xs: 2, sm: 3 }, display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ flex: { xs: '1 1 100%', sm: 1 }, minWidth: { xs: '100%', sm: 200 } }}>
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
@@ -172,7 +173,7 @@ export const CustomProductsPage = () => {
             />
           </Box>
 
-          <FormControl sx={{ minWidth: 150 }}>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
             <InputLabel>Status</InputLabel>
             <Select
               value={filters.status}
@@ -195,7 +196,7 @@ export const CustomProductsPage = () => {
             value={filters.start_date}
             onChange={(e) => setFilters(prev => ({ ...prev, start_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
+            sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
           />
 
           <TextField
@@ -204,7 +205,7 @@ export const CustomProductsPage = () => {
             value={filters.end_date}
             onChange={(e) => setFilters(prev => ({ ...prev, end_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
+            sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
           />
         </Box>
 

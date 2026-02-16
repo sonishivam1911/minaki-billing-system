@@ -6,6 +6,9 @@ import {
   DialogActions,
   TextField,
   Button,
+  IconButton,
+  useMediaQuery,
+  useTheme,
   List,
   ListItem,
   ListItemButton,
@@ -29,6 +32,8 @@ import { TemplateSelector } from './TemplateSelector';
  * Modal to broadcast a message to multiple customers.
  */
 export const BroadcastModal = ({ open, onClose, onSuccess }) => {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -177,15 +182,34 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Megaphone size={24} />
-          <Typography variant="h6">Broadcast message</Typography>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth 
+      fullScreen={fullScreen}
+      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : '16px', overflow: 'hidden' } }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        backgroundColor: '#f0f2f5',
+        borderBottom: '1px solid #e9edef',
+        py: 2,
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: '10px', backgroundColor: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Megaphone size={22} color="#fff" />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416' }}>Broadcast message</Typography>
+            <Typography variant="caption" sx={{ color: '#667781' }}>Send to multiple customers</Typography>
+          </Box>
         </Box>
-        <Button size="small" onClick={handleClose} sx={{ minWidth: 'auto', p: 0.5 }}>
-          <X size={24} />
-        </Button>
+        <IconButton onClick={handleClose} size="small" sx={{ color: '#667781' }}>
+          <X size={20} />
+        </IconButton>
       </DialogTitle>
       <DialogContent dividers>
         <TextField
@@ -330,10 +354,15 @@ export const BroadcastModal = ({ open, onClose, onSuccess }) => {
           </Typography>
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSend} disabled={!canSend() || sending}>
-          {sending ? <CircularProgress size={20} /> : 'Send broadcast'}
+      <DialogActions sx={{ px: 2, pb: 2, pt: 2, gap: 1, borderTop: '1px solid #e9edef' }}>
+        <Button onClick={handleClose} sx={{ color: '#667781' }}>Cancel</Button>
+        <Button 
+          variant="contained" 
+          onClick={handleSend} 
+          disabled={!canSend() || sending}
+          sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}
+        >
+          {sending ? <CircularProgress size={20} color="inherit" /> : 'Send broadcast'}
         </Button>
       </DialogActions>
     </Dialog>
