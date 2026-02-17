@@ -84,6 +84,7 @@ export const productsApi = {
           price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
           base_price: parseFloat(variant?.base_cost || variant?.price || 0),
           sku: variant?.sku,
+          minaki_code: variant?.minaki_code || variant?.sku,
           sku_name: variant?.sku_name,
           handle: product.handle,
           
@@ -205,6 +206,7 @@ export const productsApi = {
       price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
       base_price: parseFloat(variant?.base_cost || variant?.price || 0),
       sku: variant?.sku,
+      minaki_code: variant?.minaki_code || product?.minaki_code || variant?.sku,
       sku_name: variant?.sku_name,
       handle: product.handle,
       
@@ -228,6 +230,7 @@ export const productsApi = {
       // Metal and diamond components - preserve full structure
       metal_components: variant?.metal_components || [],
       diamond_components: variant?.diamond_components || [],
+      gemstone_components: variant?.gemstone_components || [],
       
       // Variant details
       barcode: variant?.barcode,
@@ -771,6 +774,12 @@ export const demistifiedProductsApi = {
         cf_finish: product.cf_finish ?? product.cf_finish_unformatted ?? '',
         cf_finding: product.cf_finding ?? product.cf_finding_unformatted ?? '',
         cf_collection: product.cf_collection ?? product.cf_collection_unformatted ?? '',
+        cf_lines: product.cf_lines ?? product.cf_lines_unformatted ?? '',
+        length: product.length,
+        width: product.width,
+        height: product.height,
+        weight: product.weight,
+        image_name: product.image_name,
         isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {

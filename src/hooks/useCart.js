@@ -29,6 +29,12 @@ const normalizeCartItems = (items) => {
       purity: item.purity || item.cf_finish || item.cf_work,
       weight: item.weight || item.net_weight || item.weight_g,
       image: item.image || (item.shopify_image && item.shopify_image.url) || '💎',
+      minaki_code: item.minaki_code || item.sku,
+      sku: item.sku,
+      metal_breakdown: item.metal_breakdown,
+      stone_breakdown: item.stone_breakdown,
+      gemstone_breakdown: item.gemstone_breakdown,
+      item_type: item.item_type,
       // Keep original data for debugging
       _originalData: item
     };

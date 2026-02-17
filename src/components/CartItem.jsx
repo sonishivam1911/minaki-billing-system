@@ -20,6 +20,10 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
     purity,
     weight,
     image = '💎',
+    minaki_code,
+    sku,
+    stone_breakdown,
+    item_type,
   } = item;
 
   const itemId = cart_item_id || id;
@@ -44,12 +48,25 @@ export const CartItem = ({ item, onUpdateQuantity, onRemove }) => {
       <div className="cart-item-details">
         <h3>{name}</h3>
         <div className="cart-item-meta">
+          {(minaki_code || sku) && (
+            <span>MINAKI: {minaki_code || sku}</span>
+          )}
+          {(minaki_code || sku) && (purity || weight) && <span>•</span>}
           {purity && <span>{purity}</span>}
           {purity && weight && <span>•</span>}
-          {weight && <span>{weight}</span>}
+          {weight && <span>{weight}g</span>}
           <span>•</span>
           <span>₹{formatCurrency(safePrice)} each</span>
         </div>
+        {item_type === 'real_jewelry' && stone_breakdown?.length > 0 && stone_breakdown.some(s => s.report_url) && (
+          <div className="cart-item-certificates" style={{ marginTop: 4, fontSize: '0.85rem' }}>
+            {stone_breakdown.filter(s => s.report_url).map((s, i) => (
+              <a key={i} href={s.report_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline', marginRight: 8 }}>
+                View Certificate {stone_breakdown.length > 1 ? `#${i + 1}` : ''}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="cart-item-quantity">
