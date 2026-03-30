@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Download, Send, Mail, MoreHorizontal, Eye } from 'lucide-react';
-import { invoicesApi } from '../services/api';
+import { Download, Send, Mail, MoreHorizontal, Eye, Link2 } from 'lucide-react';
+import { invoicesApi, paymentsApi } from '../services/api';
 
 /**
  * InvoiceActions Component
@@ -16,10 +16,13 @@ export const InvoiceActions = ({
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [sendType, setSendType] = useState('whatsapp');
 
   const invoiceId = invoice?.id || invoice?.invoice_id;
   const invoiceNumber = invoice?.invoice_number || invoice?.number;
+  const outstandingAmount = parseFloat(invoice?.outstanding_amount ?? invoice?.outstanding ?? 0) || 0;
+  const hasOutstanding = outstandingAmount > 0;
 
   const handleDownloadPDF = async () => {
     if (!invoiceId) {
@@ -41,6 +44,11 @@ export const InvoiceActions = ({
   const handleSendInvoice = (type) => {
     setSendType(type);
     setShowSendModal(true);
+    setShowDropdown(false);
+  };
+
+  const handleSendPaymentLink = () => {
+    setShowPaymentLinkModal(true);
     setShowDropdown(false);
   };
 
@@ -99,6 +107,16 @@ export const InvoiceActions = ({
                 <Mail size={16} />
                 Email Invoice
               </button>
+              {hasOutstanding && (
+                <button 
+                  className="dropdown-item" 
+                  onClick={handleSendPaymentLink}
+                  disabled={!invoiceId}
+                >
+                  <Link2 size={16} />
+                  Send Payment Link
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -111,6 +129,16 @@ export const InvoiceActions = ({
             invoiceId={invoiceId}
             invoiceNumber={invoiceNumber}
             sendType={sendType}
+            customerData={customer}
+          />
+        )}
+        {showPaymentLinkModal && (
+          <SendPaymentLinkModal
+            isOpen={showPaymentLinkModal}
+            onClose={() => setShowPaymentLinkModal(false)}
+            invoiceId={invoiceId}
+            invoiceNumber={invoiceNumber}
+            amount={outstandingAmount}
             customerData={customer}
           />
         )}
@@ -147,6 +175,17 @@ export const InvoiceActions = ({
         Email Invoice
       </button>
 
+      {hasOutstanding && (
+        <button
+          className="btn-secondary"
+          onClick={handleSendPaymentLink}
+          disabled={!invoiceId}
+        >
+          <Link2 size={18} />
+          Send Payment Link
+        </button>
+      )}
+
       {showViewButton && (
         <button className="btn-outline" onClick={handleView}>
           <Eye size={18} />
@@ -162,6 +201,16 @@ export const InvoiceActions = ({
           invoiceId={invoiceId}
           invoiceNumber={invoiceNumber}
           sendType={sendType}
+          customerData={customer}
+        />
+      )}
+      {showPaymentLinkModal && (
+        <SendPaymentLinkModal
+          isOpen={showPaymentLinkModal}
+          onClose={() => setShowPaymentLinkModal(false)}
+          invoiceId={invoiceId}
+          invoiceNumber={invoiceNumber}
+          amount={outstandingAmount}
           customerData={customer}
         />
       )}
@@ -331,6 +380,116 @@ const SendInvoiceModal = ({
               onClick={onClose}
               disabled={loading}
             >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * SendPaymentLinkModal - Send Razorpay payment link to customer for outstanding invoice
+ */
+const SendPaymentLinkModal = ({
+  isOpen,
+  onClose,
+  invoiceId,
+  invoiceNumber,
+  amount,
+  customerData = {}
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState(customerData.phone || customerData.Phone || customerData.MobilePhone || '');
+  const [email, setEmail] = useState(customerData.email || customerData.Email || '');
+  const [name, setName] = useState(customerData.name || customerData['Contact Name'] || '');
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!invoiceId || !phone?.trim() || !email?.trim()) {
+      alert('❌ Invoice ID, phone and email are required');
+      return;
+    }
+    if (amount <= 0) {
+      alert('❌ No outstanding amount to collect');
+      return;
+    }
+    try {
+      setLoading(true);
+      const formattedPhone = phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`;
+      await paymentsApi.createAndSendRazorpayPaymentLink({
+        name: name.trim() || 'Customer',
+        phone: formattedPhone,
+        email: email.trim(),
+        amount,
+        invoice_id: invoiceId,
+        currency: 'INR',
+        send_whatsapp: true,
+        send_email: true,
+      });
+      alert('✅ Payment link sent to customer via WhatsApp and Email!');
+      onClose();
+    } catch (error) {
+      console.error('Send payment link error:', error);
+      alert(`❌ Failed to send: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content send-invoice-modal">
+        <div className="modal-header">
+          <h3><Link2 size={20} /> Send Payment Link</h3>
+          <p className="modal-subtitle">
+            Invoice: {invoiceNumber || invoiceId} • Outstanding: ₹{amount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </p>
+          <button className="modal-close-btn" onClick={onClose}>×</button>
+        </div>
+        <form onSubmit={handleSend}>
+          <div className="modal-body">
+            <div className="form-group">
+              <label className="form-label">Customer Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Customer name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Phone (with country code) *</label>
+              <input
+                type="tel"
+                className="form-input"
+                placeholder="+91 9876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email *</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="customer@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="modal-actions">
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Payment Link'}
+            </button>
+            <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
               Cancel
             </button>
           </div>

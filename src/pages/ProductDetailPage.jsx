@@ -610,9 +610,18 @@ export const ProductDetailPage = () => {
   // Get price calculation breakdown
   const getPriceCalculationBreakdown = () => {
     const totals = calculateTotals();
+    const makingRate = pricingBreakdown.making_rate_per_gm || 2500;
+    // When metal net_weight is 0 but we have selling_making_charge, derive gold wt for display
+    const sellingMaking = parseFloat(pricingBreakdown.selling_making_charge || 0);
+    const derivedGoldWt = totals.totalGoldNetWeightG === 0 && sellingMaking > 0 && makingRate > 0
+      ? sellingMaking / makingRate
+      : totals.totalGoldNetWeightG;
+    const displayMakingCharges = totals.makingCharges === 0 && sellingMaking > 0 ? sellingMaking : totals.makingCharges;
     return {
       ...totals,
-      makingRate: pricingBreakdown.making_rate_per_gm || 2500,
+      makingRate,
+      makingGoldWt: derivedGoldWt,
+      makingCharges: displayMakingCharges,
     };
   };
 

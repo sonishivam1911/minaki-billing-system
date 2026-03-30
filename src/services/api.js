@@ -1798,6 +1798,50 @@ export const paymentsApi = {
   },
 
   /**
+   * Create Razorpay Payment Link (rzp.io) - link only, no send
+   * POST /billing_system/api/payment/razorpay/create-payment-link
+   */
+  createRazorpayPaymentLink: async (data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create payment link: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Razorpay payment link:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Razorpay Payment Link and send to customer via WhatsApp/Email
+   * POST /billing_system/api/payment/razorpay/create-and-send-payment-link
+   */
+  createAndSendRazorpayPaymentLink: async (data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-and-send-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create/send payment link: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating/sending Razorpay payment link:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Create Razorpay Order
    * POST /billing_system/api/payment/razorpay/create-order
    */

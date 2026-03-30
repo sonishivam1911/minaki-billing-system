@@ -157,7 +157,7 @@ export const TemplateSelector = ({
         size="small"
         fullWidth
         label="Template name"
-        placeholder="e.g. hello_world (type if not in list above)"
+        placeholder="Use a template from the dropdown above, or type an approved template name (e.g. order_confirmation)"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
