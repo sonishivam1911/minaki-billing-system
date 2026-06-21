@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -53,12 +53,18 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
 
   const isActive = (path) => location.pathname === path;
   const isHrActive = location.pathname.startsWith('/hr');
+  const isAgentsActive = location.pathname.startsWith('/agents');
   const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
+  const [agentsNavOpen, setAgentsNavOpen] = useState(isAgentsActive);
   const hasItemsInCart = cartItemCount > 0;
 
   React.useEffect(() => {
     if (isHrActive) setHrNavOpen(true);
   }, [isHrActive]);
+
+  React.useEffect(() => {
+    if (isAgentsActive) setAgentsNavOpen(true);
+  }, [isAgentsActive]);
 
   const handleCartClick = (e) => {
     e.preventDefault();
@@ -178,6 +184,13 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   const hrNavItems = [
     { path: '/hr/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/hr/weekly-schedule', label: 'Weekly Schedule', icon: Calendar },
+  ];
+
+  const agentsNavItems = [
+    { path: '/agents/writer', label: 'Product Writer', icon: PenLine },
+    { path: '/agents/keywords', label: 'Keywords', icon: Tags },
+    { path: '/agents/naming-teams', label: 'Naming Teams', icon: Sparkles },
+    { path: '/agents/collections', label: 'Collections', icon: LayoutDashboard },
   ];
 
   return (
@@ -463,6 +476,75 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                           <Icon size={18} />
                         </ListItemIcon>
                         <ListItemText 
+                          primary={item.label}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Collapse>
+            <Divider sx={{ my: 2, mx: 2 }} />
+            <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
+              Agents
+            </Typography>
+            <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
+              <ListItemButton
+                onClick={() => setAgentsNavOpen(!agentsNavOpen)}
+                sx={{
+                  borderRadius: '8px',
+                  mx: 0.5,
+                  '&:hover': {
+                    backgroundColor: '#f8f6f0',
+                  },
+                  py: { xs: 1.25, sm: 1.25 },
+                  px: { xs: 1.5, sm: 1.5 },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isAgentsActive ? '#8b6f47' : 'inherit' }}>
+                  <Sparkles size={isMobile ? 22 : 20} />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Agents"
+                  primaryTypographyProps={{
+                    fontWeight: isAgentsActive ? 600 : 500,
+                    fontSize: { xs: '0.95rem', sm: '0.9rem' },
+                  }}
+                />
+                <Typography variant="body2" sx={{ transform: agentsNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={agentsNavOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding sx={{ pl: 1 }}>
+                {agentsNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <ListItem key={item.path} disablePadding sx={{ pl: 2, mb: 0.25 }}>
+                      <ListItemButton
+                        component={Link}
+                        to={item.path}
+                        selected={active}
+                        onClick={closeSidebar}
+                        sx={{
+                          borderRadius: '8px',
+                          '&.Mui-selected': {
+                            backgroundColor: '#f5f1e8',
+                            color: '#8b6f47',
+                            '&:hover': { backgroundColor: '#f5f1e8' },
+                          },
+                          '&:hover': {
+                            backgroundColor: '#f8f6f0',
+                          },
+                          py: 1,
+                          px: 2,
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: active ? '#8b6f47' : 'inherit' }}>
+                          <Icon size={18} />
+                        </ListItemIcon>
+                        <ListItemText
                           primary={item.label}
                           primaryTypographyProps={{ fontSize: '0.9rem' }}
                         />
