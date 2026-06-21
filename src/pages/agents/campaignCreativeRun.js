@@ -6,9 +6,16 @@ export function ensureStringArray(value) {
   return [];
 }
 
+export function isDisplayableImageUrl(value) {
+  return (
+    typeof value === 'string'
+    && (HTTP_URL_PATTERN.test(value) || value.startsWith('data:image/'))
+  );
+}
+
 export function collectHttpImageUrls(value, collectedUrls = []) {
   if (!value) return collectedUrls;
-  if (typeof value === 'string' && HTTP_URL_PATTERN.test(value)) {
+  if (isDisplayableImageUrl(value)) {
     collectedUrls.push(value);
     return collectedUrls;
   }
@@ -22,13 +29,45 @@ export function collectHttpImageUrls(value, collectedUrls = []) {
   return collectedUrls;
 }
 
+export function sortUgcFrames(frames) {
+  return [...(frames || [])].sort((left, right) => {
+    const sceneLeft = Number(left.scene) || 0;
+    const sceneRight = Number(right.scene) || 0;
+    if (sceneLeft !== sceneRight) return sceneLeft - sceneRight;
+    return String(left.asset_id || '').localeCompare(String(right.asset_id || ''));
+  });
+}
+
+export function formatHashtags(hashtags) {
+  return ensureStringArray(hashtags)
+    .map((tag) => (tag.startsWith('#') ? tag : `#${tag}`))
+    .join(' ');
+}
+
+export const CAMPAIGN_KIT_LABELS = {
+  fine: 'Fine by MINAKI',
+  kundan: 'Kundan / Traditional',
+  eleganza: 'Eleganza',
+  crystal: 'Crystal',
+  modern: 'Fine by MINAKI',
+  traditional: 'Kundan / Traditional',
+};
+
+export function campaignBrandKitLabel(kitId, apiLabel) {
+  if (apiLabel) return apiLabel;
+  if (!kitId) return '—';
+  return CAMPAIGN_KIT_LABELS[kitId] || kitId;
+}
+
 export function normalizeCampaignRunForDisplay(apiRun) {
   if (!apiRun) return null;
   const plan = apiRun.plan_json || apiRun.plan || {};
+  const brandKitId = apiRun.brand_kit_id;
   return {
     runId: apiRun.run_id ?? apiRun.id,
     status: apiRun.status,
-    brandKitId: apiRun.brand_kit_id,
+    brandKitId,
+    brandKitLabel: campaignBrandKitLabel(brandKitId, apiRun.brand_kit_label),
     campaignConfig: apiRun.campaign_config_json || {},
     plan,
     strategySummary: plan.strategy_summary || '',

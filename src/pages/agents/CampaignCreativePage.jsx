@@ -4,8 +4,10 @@ import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import {
   approvalStatusClass,
-  collectHttpImageUrls,
+  campaignBrandKitLabel,
+  formatHashtags,
   normalizeCampaignRunForDisplay,
+  sortUgcFrames,
 } from './campaignCreativeRun';
 
 const RECENT_RUNS_LIMIT = 15;
@@ -13,7 +15,7 @@ const POSTS_PER_WEEK_OPTIONS = [3, 5, 7, 14];
 
 export const CampaignCreativePage = () => {
   const [brandKits, setBrandKits] = useState([]);
-  const [brandKitId, setBrandKitId] = useState('modern');
+  const [brandKitId, setBrandKitId] = useState('fine');
   const [campaignGoal, setCampaignGoal] = useState('awareness');
   const [postsPerWeek, setPostsPerWeek] = useState(5);
   const [horizonDays, setHorizonDays] = useState(14);
@@ -230,8 +232,10 @@ export const CampaignCreativePage = () => {
               ))}
               {!brandKits.length && (
                 <>
-                  <option value="modern">Modern</option>
-                  <option value="traditional">Traditional</option>
+                  <option value="fine">Fine by MINAKI</option>
+                  <option value="kundan">Kundan / Traditional</option>
+                  <option value="eleganza">Eleganza</option>
+                  <option value="crystal">Crystal</option>
                 </>
               )}
             </select>
@@ -299,7 +303,7 @@ export const CampaignCreativePage = () => {
       {activeRun && (
         <section className="agents-card">
           <h2 className="agents-section-title">
-            Run #{activeRun.runId} — {activeRun.status}
+            Run #{activeRun.runId} — {activeRun.brandKitLabel || campaignBrandKitLabel(activeRun.brandKitId)} — {activeRun.status}
           </h2>
           {activeRun.errorMessage && (
             <p className="agents-status-err">{activeRun.errorMessage}</p>
@@ -342,7 +346,9 @@ export const CampaignCreativePage = () => {
           </label>
 
           {themes.map((theme) => {
-            const frameUrls = collectHttpImageUrls(theme.ugc_package?.frames || []);
+            const ugcFrames = sortUgcFrames(theme.ugc_package?.frames);
+            const caption = theme.ugc_package?.caption;
+            const captionHashtags = formatHashtags(caption?.hashtags);
             return (
               <div key={theme.theme_key} className="agents-copy-block">
                 <h3>
@@ -397,71 +403,91 @@ export const CampaignCreativePage = () => {
                   </button>
                 </div>
 
-                {frameUrls.length > 0 && (
-                  <div className="agents-banner-grid">
-                    {frameUrls.map((imageUrl) => (
-                      <a
-                        key={imageUrl}
-                        href={imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="agents-banner-cell"
-                      >
-                        <img src={imageUrl} alt="UGC frame" loading="lazy" />
-                      </a>
-                    ))}
-                  </div>
-                )}
-
                 {theme.ugc_package && (
                   <div className="agents-copy-block nested">
                     <h4>Asset review</h4>
-                    {theme.ugc_package.caption && (
-                      <div className="agents-actions-row compact">
-                        <span className={approvalStatusClass(theme.ugc_package.caption.approval_status)}>
-                          Caption ({theme.ugc_package.caption.approval_status || 'pending'})
-                        </span>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, 'caption', 'approved')}
-                          disabled={isSubmitting}
-                        >
-                          Approve caption
-                        </button>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, 'caption', 'rejected')}
-                          disabled={isSubmitting}
-                        >
-                          Reject caption
-                        </button>
+                    <p className="agents-muted">
+                      Read the caption and preview each scene image before approving.
+                    </p>
+
+                    {caption && (
+                      <div className="agents-ugc-caption-review">
+                        <div className="agents-actions-row compact">
+                          <span className={approvalStatusClass(caption.approval_status)}>
+                            Caption ({caption.approval_status || 'pending'})
+                          </span>
+                          <button
+                            type="button"
+                            className="agents-btn secondary"
+                            onClick={() => approveAsset(theme.theme_key, 'caption', 'approved')}
+                            disabled={isSubmitting}
+                          >
+                            Approve caption
+                          </button>
+                          <button
+                            type="button"
+                            className="agents-btn secondary"
+                            onClick={() => approveAsset(theme.theme_key, 'caption', 'rejected')}
+                            disabled={isSubmitting}
+                          >
+                            Reject caption
+                          </button>
+                        </div>
+                        {(caption.text || theme.caption_draft) && (
+                          <p className="agents-lead">{caption.text || theme.caption_draft}</p>
+                        )}
+                        {captionHashtags && (
+                          <p className="agents-muted">{captionHashtags}</p>
+                        )}
                       </div>
                     )}
-                    {(theme.ugc_package.frames || []).map((frame) => (
-                      <div key={frame.asset_id} className="agents-actions-row compact">
-                        <span className={approvalStatusClass(frame.approval_status)}>
-                          {frame.asset_id} ({frame.approval_status || 'pending'})
-                        </span>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'approved')}
-                          disabled={isSubmitting}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'rejected')}
-                          disabled={isSubmitting}
-                        >
-                          Reject
-                        </button>
+
+                    {ugcFrames.length > 0 && (
+                      <div className="agents-banner-grid agents-ugc-frame-grid">
+                        {ugcFrames.map((frame) => (
+                          <div key={frame.asset_id} className="agents-ugc-frame-card">
+                            {frame.url ? (
+                              <a
+                                href={frame.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="agents-ugc-frame-image"
+                              >
+                                <img src={frame.url} alt={frame.asset_id} loading="lazy" />
+                              </a>
+                            ) : (
+                              <div className="agents-ugc-frame-missing">
+                                Image not generated
+                                {frame.error ? `: ${frame.error}` : ''}
+                              </div>
+                            )}
+                            <div className="agents-ugc-frame-meta">
+                              <span className={approvalStatusClass(frame.approval_status)}>
+                                {frame.asset_id} ({frame.approval_status || 'pending'})
+                              </span>
+                              <div className="agents-actions-row compact">
+                                <button
+                                  type="button"
+                                  className="agents-btn secondary"
+                                  onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'approved')}
+                                  disabled={isSubmitting}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  className="agents-btn secondary"
+                                  onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'rejected')}
+                                  disabled={isSubmitting}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>
@@ -501,7 +527,7 @@ export const CampaignCreativePage = () => {
                 {recentRuns.map((runRow) => (
                   <tr key={runRow.id}>
                     <td>{runRow.id}</td>
-                    <td>{runRow.brand_kit_id || '—'}</td>
+                    <td>{runRow.brand_kit_label || campaignBrandKitLabel(runRow.brand_kit_id)}</td>
                     <td>{runRow.status}</td>
                     <td>{runRow.created_at ? String(runRow.created_at).slice(0, 19) : '—'}</td>
                     <td>

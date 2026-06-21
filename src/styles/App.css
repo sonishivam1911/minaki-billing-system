@@ -9077,3 +9077,53 @@
   max-height: 320px;
   object-fit: cover;
 }
+
+.agents-ugc-caption-review {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.agents-ugc-frame-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.agents-ugc-frame-card {
+  border: 1px solid #d4c4a8;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.agents-ugc-frame-image {
+  display: block;
+  background: #f5f0e8;
+}
+
+.agents-ugc-frame-image img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+}
+
+.agents-ugc-frame-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  padding: 1rem;
+  text-align: center;
+  color: #8b4513;
+  background: #faf6f0;
+  font-size: 0.9rem;
+}
+
+.agents-ugc-frame-meta {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
