@@ -50,7 +50,7 @@ export const CustomersPage = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
         <LoadingSpinner message="Loading customers..." />
       </Container>
     );
@@ -58,21 +58,21 @@ export const CustomersPage = () => {
 
   if (error) {
     return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
         <ErrorMessage message={error} onRetry={refetch} />
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 2 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5, fontSize: { xs: '1.5rem', sm: '2rem' } }}>
               Customers
             </Typography>
-            <Typography variant="body1" sx={{ color: '#6b7280' }}>
+            <Typography variant="body1" sx={{ color: '#6b7280', fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Manage customer database
             </Typography>
           </Box>
@@ -80,12 +80,13 @@ export const CustomersPage = () => {
             variant="contained"
             startIcon={<User size={18} />}
             onClick={() => setIsCustomerModalOpen(true)}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'center' }, minWidth: { xs: '100%', sm: 'auto' } }}
           >
             Add New Customer
           </Button>
         </Box>
 
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: { xs: 2, sm: 3 } }}>
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
@@ -116,7 +117,7 @@ export const CustomersPage = () => {
           </Typography>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {filteredCustomers.map((customer, index) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={getCustomerKey(customer) ?? `customer-${index}`}>
               <CustomerCard

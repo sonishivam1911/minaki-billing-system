@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './pages';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, KeywordsPage, NamingTeamsPage, CollectionPage, CampaignCreativePage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -65,12 +65,6 @@ function App() {
   const handleSidebarToggle = (isOpen) => {
     setIsSidebarOpen(isOpen);
   };
-
-  // #region agent log
-  React.useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/e8108bd9-bb63-4042-831f-98035e7b18c4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'App.jsx:60',message:'DndProvider initialized',data:{backend:'HTML5Backend'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  }, []);
-  // #endregion
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -343,6 +337,48 @@ function App() {
                       <OnboardingPage />
                     </ProtectedRoute>
                   } 
+                />
+
+                {/* AI Agents */}
+                <Route
+                  path="/agents/writer"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ProductWriterPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/keywords"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <KeywordsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/naming-teams"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <NamingTeamsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/collections"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CollectionPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/campaign-creative"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <CampaignCreativePage />
+                    </ProtectedRoute>
+                  }
                 />
                 
                 {/* Fallback for invalid routes */}

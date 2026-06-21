@@ -32,21 +32,26 @@ export const useDemistifiedProducts = ({
   // Filters state
   const [filters, setFilters] = useState({});
 
-  // Convert filters object to API params
+  // Convert filters object to API params - map frontend keys to backend param names
   const filtersToParams = (filterObj) => {
     const params = {};
-    
-    // Dropdown filters
+    const paramMapping = {
+      // Range filters: frontend uses field_min/max, backend expects specific names
+      rate_min: 'price_min',
+      rate_max: 'price_max',
+      stock_on_hand_min: 'stock_min',
+      stock_on_hand_max: 'stock_max',
+      // available_stock_min, available_stock_max - already match backend
+    };
+
     Object.keys(filterObj).forEach(key => {
-      if (key.endsWith('_min') || key.endsWith('_max')) {
-        // Range filters
-        params[key] = filterObj[key].toString();
-      } else {
-        // Dropdown filters
-        params[key] = filterObj[key];
-      }
+      const value = filterObj[key];
+      if (value === '' || value === null || value === undefined) return;
+
+      const mappedKey = paramMapping[key] || key;
+      params[mappedKey] = typeof value === 'number' ? value.toString() : String(value);
     });
-    
+
     return params;
   };
 

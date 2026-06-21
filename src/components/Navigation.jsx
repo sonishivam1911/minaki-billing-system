@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -53,12 +53,18 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
 
   const isActive = (path) => location.pathname === path;
   const isHrActive = location.pathname.startsWith('/hr');
+  const isAgentsActive = location.pathname.startsWith('/agents');
   const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
+  const [agentsNavOpen, setAgentsNavOpen] = useState(isAgentsActive);
   const hasItemsInCart = cartItemCount > 0;
 
   React.useEffect(() => {
     if (isHrActive) setHrNavOpen(true);
   }, [isHrActive]);
+
+  React.useEffect(() => {
+    if (isAgentsActive) setAgentsNavOpen(true);
+  }, [isAgentsActive]);
 
   const handleCartClick = (e) => {
     e.preventDefault();
@@ -180,6 +186,13 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/hr/weekly-schedule', label: 'Weekly Schedule', icon: Calendar },
   ];
 
+  const agentsNavItems = [
+    { path: '/agents/writer', label: 'Product Writer', icon: PenLine },
+    { path: '/agents/keywords', label: 'Keywords', icon: Tags },
+    { path: '/agents/naming-teams', label: 'Naming Teams', icon: Sparkles },
+    { path: '/agents/collections', label: 'Collections', icon: LayoutDashboard },
+  ];
+
   return (
     <>
       {/* Top Header Bar */}
@@ -189,6 +202,8 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
           zIndex: (theme) => theme.zIndex.drawer + 1,
           backgroundColor: '#ffffff',
           color: '#2c2416',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          borderBottom: '1px solid #e9edef',
         }}
       >
         <Toolbar sx={{ 
@@ -336,72 +351,86 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
         open={sidebarOpen}
         onClose={closeSidebar}
         sx={{
-          width: { xs: 280, sm: 250 },
+          width: { xs: 280, sm: 260 },
           flexShrink: 0,
           '& .MuiDrawer-paper': {
-            width: { xs: 280, sm: 250 },
+            width: { xs: 280, sm: 260 },
             boxSizing: 'border-box',
             mt: { xs: '60px', sm: '70px' },
             borderRight: '2px solid #8b6f47',
+            backgroundColor: '#faf8f5',
+            boxShadow: '4px 0 20px rgba(139, 111, 71, 0.08)',
           },
         }}
       >
-        <Box sx={{ overflow: 'auto', pt: 1 }}>
-          <List>
+        <Box sx={{ overflow: 'auto', pt: 2, pb: 2 }}>
+          <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
+            Main Menu
+          </Typography>
+          <List sx={{ pt: 0 }}>
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const isWhatsApp = item.path === '/whatsapp-crm';
               return (
-                <ListItem key={item.path} disablePadding>
+                <ListItem key={item.path} disablePadding sx={{ px: 1, mb: 0.25 }}>
                   <ListItemButton
                     component={Link}
                     to={item.path}
                     selected={active}
                     onClick={closeSidebar}
                     sx={{
+                      borderRadius: '8px',
+                      mx: 0.5,
                       '&.Mui-selected': {
-                        backgroundColor: '#f5f1e8',
-                        color: '#8b6f47',
-                        borderRight: '3px solid #8b6f47',
+                        backgroundColor: isWhatsApp ? 'rgba(37, 211, 102, 0.12)' : '#f5f1e8',
+                        color: isWhatsApp ? '#128C7E' : '#8b6f47',
+                        borderRight: 'none',
                         '&:hover': {
-                          backgroundColor: '#f5f1e8',
+                          backgroundColor: isWhatsApp ? 'rgba(37, 211, 102, 0.18)' : '#f5f1e8',
+                        },
+                        '& .MuiListItemIcon-root': {
+                          color: isWhatsApp ? '#25D366' : '#8b6f47',
                         },
                       },
                       '&:hover': {
-                        backgroundColor: '#f8f6f0',
-                        borderRight: '3px solid #d4c4a8',
+                        backgroundColor: isWhatsApp ? 'rgba(37, 211, 102, 0.08)' : '#f8f6f0',
+                        borderRight: 'none',
                       },
-                      borderRight: '3px solid transparent',
-                      py: { xs: 1.5, sm: 1.5 },
-                      px: { xs: 2, sm: 1.5 },
+                      py: { xs: 1.25, sm: 1.25 },
+                      px: { xs: 1.5, sm: 1.5 },
                     }}
                   >
-                    <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: active ? '#8b6f47' : 'inherit' }}>
+                    <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: active ? (isWhatsApp ? '#25D366' : '#8b6f47') : 'inherit' }}>
                       <Icon size={isMobile ? 22 : 20} />
                     </ListItemIcon>
                     <ListItemText 
                       primary={item.label}
                       primaryTypographyProps={{
                         fontWeight: active ? 600 : 500,
-                        fontSize: { xs: '1rem', sm: '0.95rem' },
+                        fontSize: { xs: '0.95rem', sm: '0.9rem' },
                       }}
                     />
                   </ListItemButton>
                 </ListItem>
               );
             })}
+            <Divider sx={{ my: 2, mx: 2 }} />
+            <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
+              HR
+            </Typography>
             {/* HR section with expandable sub-nav */}
-            <ListItem disablePadding>
+            <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
               <ListItemButton
                 onClick={() => setHrNavOpen(!hrNavOpen)}
                 sx={{
+                  borderRadius: '8px',
+                  mx: 0.5,
                   '&:hover': {
                     backgroundColor: '#f8f6f0',
-                    borderRight: '3px solid #d4c4a8',
                   },
-                  borderRight: '3px solid transparent',
-                  py: { xs: 1.5, sm: 1.5 },
-                  px: { xs: 2, sm: 1.5 },
+                  py: { xs: 1.25, sm: 1.25 },
+                  px: { xs: 1.5, sm: 1.5 },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isHrActive ? '#8b6f47' : 'inherit' }}>
@@ -411,36 +440,34 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                   primary="HR"
                   primaryTypographyProps={{
                     fontWeight: isHrActive ? 600 : 500,
-                    fontSize: { xs: '1rem', sm: '0.95rem' },
+                    fontSize: { xs: '0.95rem', sm: '0.9rem' },
                   }}
                 />
-                <Typography variant="body2" sx={{ transform: hrNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</Typography>
+                <Typography variant="body2" sx={{ transform: hrNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
               </ListItemButton>
             </ListItem>
             <Collapse in={hrNavOpen} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
+              <List component="div" disablePadding sx={{ pl: 1 }}>
                 {hrNavItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (
-                    <ListItem key={item.path} disablePadding sx={{ pl: 2 }}>
+                    <ListItem key={item.path} disablePadding sx={{ pl: 2, mb: 0.25 }}>
                       <ListItemButton
                         component={Link}
                         to={item.path}
                         selected={active}
                         onClick={closeSidebar}
                         sx={{
+                          borderRadius: '8px',
                           '&.Mui-selected': {
                             backgroundColor: '#f5f1e8',
                             color: '#8b6f47',
-                            borderRight: '3px solid #8b6f47',
                             '&:hover': { backgroundColor: '#f5f1e8' },
                           },
                           '&:hover': {
                             backgroundColor: '#f8f6f0',
-                            borderRight: '3px solid #d4c4a8',
                           },
-                          borderRight: '3px solid transparent',
                           py: 1,
                           px: 2,
                         }}
@@ -449,6 +476,75 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                           <Icon size={18} />
                         </ListItemIcon>
                         <ListItemText 
+                          primary={item.label}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Collapse>
+            <Divider sx={{ my: 2, mx: 2 }} />
+            <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
+              Agents
+            </Typography>
+            <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
+              <ListItemButton
+                onClick={() => setAgentsNavOpen(!agentsNavOpen)}
+                sx={{
+                  borderRadius: '8px',
+                  mx: 0.5,
+                  '&:hover': {
+                    backgroundColor: '#f8f6f0',
+                  },
+                  py: { xs: 1.25, sm: 1.25 },
+                  px: { xs: 1.5, sm: 1.5 },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isAgentsActive ? '#8b6f47' : 'inherit' }}>
+                  <Sparkles size={isMobile ? 22 : 20} />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Agents"
+                  primaryTypographyProps={{
+                    fontWeight: isAgentsActive ? 600 : 500,
+                    fontSize: { xs: '0.95rem', sm: '0.9rem' },
+                  }}
+                />
+                <Typography variant="body2" sx={{ transform: agentsNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={agentsNavOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding sx={{ pl: 1 }}>
+                {agentsNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <ListItem key={item.path} disablePadding sx={{ pl: 2, mb: 0.25 }}>
+                      <ListItemButton
+                        component={Link}
+                        to={item.path}
+                        selected={active}
+                        onClick={closeSidebar}
+                        sx={{
+                          borderRadius: '8px',
+                          '&.Mui-selected': {
+                            backgroundColor: '#f5f1e8',
+                            color: '#8b6f47',
+                            '&:hover': { backgroundColor: '#f5f1e8' },
+                          },
+                          '&:hover': {
+                            backgroundColor: '#f8f6f0',
+                          },
+                          py: 1,
+                          px: 2,
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: active ? '#8b6f47' : 'inherit' }}>
+                          <Icon size={18} />
+                        </ListItemIcon>
+                        <ListItemText
                           primary={item.label}
                           primaryTypographyProps={{ fontSize: '0.9rem' }}
                         />

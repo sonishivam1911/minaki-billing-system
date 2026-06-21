@@ -4,11 +4,12 @@ import { productFiltersApi } from '../services/api';
 
 /**
  * DemistifiedFilters Component
- * Provides filtering options for demistified products
+ * Provides filtering options for demistified products.
+ * Filters are applied only when user clicks "Filter Now" - no auto-filtering on selection.
  * 
  * @param {Object} props
- * @param {Object} props.filters - Current filter values
- * @param {Function} props.onFiltersChange - Callback when filters change
+ * @param {Object} props.filters - Currently applied filter values
+ * @param {Function} props.onFiltersChange - Callback when user applies filters (Filter Now)
  */
 export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,6 +18,8 @@ export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
     dropdown: {},
     range: {}
   });
+  // Pending filters - user selections that haven't been applied yet
+  const [pendingFilters, setPendingFilters] = useState({ ...filters });
 
   // Dropdown filter fields
   const dropdownFields = [
@@ -84,38 +87,52 @@ export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
     loadFilterOptions();
   }, []);
 
-  // Handle dropdown filter change
+  // Sync pending filters when applied filters change (e.g. from parent after Filter Now)
+  useEffect(() => {
+    setPendingFilters({ ...filters });
+  }, [filters]);
+
+  // Handle dropdown filter change - only updates pending, does NOT apply
   const handleDropdownChange = (field, value) => {
-    const newFilters = { ...filters };
-    if (value === '' || value === null) {
-      delete newFilters[field];
-    } else {
-      newFilters[field] = value;
-    }
-    onFiltersChange(newFilters);
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      if (value === '' || value === null) {
+        delete newFilters[field];
+      } else {
+        newFilters[field] = value;
+      }
+      return newFilters;
+    });
   };
 
-  // Handle range filter change
+  // Handle range filter change - only updates pending, does NOT apply
   const handleRangeChange = (field, type, value) => {
-    const newFilters = { ...filters };
-    const rangeKey = `${field}_${type}`;
-    
-    if (value === '' || value === null || value === undefined) {
-      delete newFilters[rangeKey];
-    } else {
-      newFilters[rangeKey] = parseFloat(value) || 0;
-    }
-    
-    onFiltersChange(newFilters);
+    setPendingFilters(prev => {
+      const newFilters = { ...prev };
+      const rangeKey = `${field}_${type}`;
+      if (value === '' || value === null || value === undefined) {
+        delete newFilters[rangeKey];
+      } else {
+        newFilters[rangeKey] = parseFloat(value) || 0;
+      }
+      return newFilters;
+    });
   };
 
-  // Clear all filters
+  // Apply filters - called when user clicks "Filter Now"
+  const handleFilterNow = () => {
+    onFiltersChange({ ...pendingFilters });
+  };
+
+  // Clear all filters - applies immediately
   const handleClearFilters = () => {
+    setPendingFilters({});
     onFiltersChange({});
   };
 
-  // Count active filters
+  // Count applied filters (for badge)
   const activeFilterCount = Object.keys(filters).length;
+  const hasPendingChanges = JSON.stringify(pendingFilters) !== JSON.stringify(filters);
 
   return (
     <div className="demistified-filters">
@@ -146,7 +163,7 @@ export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
                       <label className="filter-label">{field.label}</label>
                       <select
                         className="filter-select"
-                        value={filters[field.key] || ''}
+                        value={pendingFilters[field.key] || ''}
                         onChange={(e) => handleDropdownChange(field.key, e.target.value)}
                       >
                         <option value="">All {field.label}</option>
@@ -167,8 +184,8 @@ export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
                 <div className="filters-grid">
                   {rangeFields.map(field => {
                     const rangeData = filterOptions.range[field.key] || { min: 0, max: 0 };
-                    const minValue = filters[`${field.key}_min`] ?? '';
-                    const maxValue = filters[`${field.key}_max`] ?? '';
+                    const minValue = pendingFilters[`${field.key}_min`] ?? '';
+                    const maxValue = pendingFilters[`${field.key}_max`] ?? '';
                     
                     return (
                       <div key={field.key} className="filter-field range-field">
@@ -200,18 +217,27 @@ export const DemistifiedFilters = ({ filters = {}, onFiltersChange }) => {
                 </div>
               </div>
 
-              {/* Clear Filters Button */}
-              {activeFilterCount > 0 && (
-                <div className="filters-actions">
-                  <button
-                    className="btn btn-secondary btn-clear-filters"
-                    onClick={handleClearFilters}
-                  >
-                    <X size={16} />
-                    Clear All Filters
-                  </button>
-                </div>
-              )}
+              {/* Filter Now & Clear Buttons */}
+              <div className="filters-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-clear-filters"
+                  onClick={handleClearFilters}
+                >
+                  <X size={16} />
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleFilterNow}
+                  disabled={!hasPendingChanges}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Filter size={16} />
+                  Filter Now
+                </button>
+              </div>
             </>
           )}
         </div>

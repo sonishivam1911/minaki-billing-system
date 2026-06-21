@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin } from 'lucide-react';
+import { Home, ChevronRight, Package, ShoppingCart, CreditCard, Users, Eye, BarChart3, FileText, TrendingUp, Move, DollarSign, MapPin, MessageCircle, Building2, UserPlus, ShoppingBag, Sparkles, PenLine, Tags, LayoutDashboard } from 'lucide-react';
 import { Breadcrumbs as MuiBreadcrumbs, Typography, Box, Chip } from '@mui/material';
 import { useCart } from '../context/CartContext';
 
@@ -46,8 +46,32 @@ export const Breadcrumbs = () => {
     '/customers': {
       title: 'Customer Management',
       icon: Users,
-      parent: '/checkout',
-      protected: true
+      parent: null
+    },
+    '/whatsapp-crm': {
+      title: 'WhatsApp CRM',
+      icon: MessageCircle,
+      parent: null
+    },
+    '/store-locator': {
+      title: 'Store Locator',
+      icon: MapPin,
+      parent: null
+    },
+    '/store-management': {
+      title: 'Store Management',
+      icon: Building2,
+      parent: null
+    },
+    '/walk-ins': {
+      title: 'Walk-ins',
+      icon: UserPlus,
+      parent: null
+    },
+    '/custom-products': {
+      title: 'Custom Products',
+      icon: ShoppingBag,
+      parent: null
     },
     '/reports': {
       title: 'Reports',
@@ -93,11 +117,32 @@ export const Breadcrumbs = () => {
       title: 'Location Report',
       icon: MapPin,
       parent: '/reports'
+    },
+    '/agents/writer': {
+      title: 'Product Writer',
+      icon: PenLine,
+      parent: null
+    },
+    '/agents/keywords': {
+      title: 'Keywords',
+      icon: Tags,
+      parent: null
+    },
+    '/agents/naming-teams': {
+      title: 'Naming Teams',
+      icon: Sparkles,
+      parent: null
+    },
+    '/agents/collections': {
+      title: 'Collection Pages',
+      icon: LayoutDashboard,
+      parent: null
     }
   };
 
   // Check if this is a reports page
   const isReportPage = location.pathname.startsWith('/reports');
+  const isAgentsPage = location.pathname.startsWith('/agents');
   
   // Handle dynamic product routes
   const isProductRoute = location.pathname.match(/^\/product\/([^/]+)\/([^/]+)$/);
@@ -122,12 +167,12 @@ export const Breadcrumbs = () => {
 
   // If no config found or it's a protected route without cart items, don't show breadcrumbs
   // Exception: Always show breadcrumbs for reports pages
-  if (!isReportPage && (!currentConfig || (currentConfig.protected && !hasItemsInCart))) {
+  if (!isReportPage && !isAgentsPage && (!currentConfig || (currentConfig.protected && !hasItemsInCart))) {
     return null;
   }
   
   // For reports pages, ensure we have a config
-  if (isReportPage && !currentConfig) {
+  if ((isReportPage || isAgentsPage) && !currentConfig) {
     return null;
   }
 

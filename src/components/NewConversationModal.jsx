@@ -6,6 +6,9 @@ import {
   DialogActions,
   TextField,
   Button,
+  IconButton,
+  useMediaQuery,
+  useTheme,
   List,
   ListItemButton,
   ListItemAvatar,
@@ -19,7 +22,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { X, Search, User, Phone, Mail, FileText } from 'lucide-react';
+import { X, Search, User, Phone, Mail, FileText, MessageCircle } from 'lucide-react';
 import { customersApi } from '../services/api';
 import { getCustomerDisplay, getCustomerKey } from '../utils/customerFields';
 import { isValidPhone, formatPhoneForWhatsApp, formatPhoneForDisplay } from '../utils/phoneValidation';
@@ -30,6 +33,8 @@ import { TemplateSelector } from './TemplateSelector';
  * User can search/select a customer or enter phone manually.
  */
 export const NewConversationModal = ({ open, onClose, onSuccess }) => {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchQuery, setSearchQuery] = useState('');
   const [useManualPhone, setUseManualPhone] = useState(false);
   const [manualPhone, setManualPhone] = useState('');
@@ -185,12 +190,34 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
   const info = getDisplayInfo();
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6">New conversation</Typography>
-        <Button size="small" onClick={handleClose} sx={{ minWidth: 'auto', p: 0.5 }}>
-          <X size={24} />
-        </Button>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth 
+      fullScreen={fullScreen}
+      PaperProps={{ sx: { borderRadius: fullScreen ? 0 : '16px', overflow: 'hidden' } }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        backgroundColor: '#f0f2f5',
+        borderBottom: '1px solid #e9edef',
+        py: 2,
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: '10px', backgroundColor: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageCircle size={22} color="#fff" />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#2c2416' }}>New conversation</Typography>
+            <Typography variant="caption" sx={{ color: '#667781' }}>Start a chat with a customer</Typography>
+          </Box>
+        </Box>
+        <IconButton onClick={handleClose} size="small" sx={{ color: '#667781' }}>
+          <X size={20} />
+        </IconButton>
       </DialogTitle>
       <DialogContent dividers>
         {!useManualPhone ? (
@@ -374,10 +401,15 @@ export const NewConversationModal = ({ open, onClose, onSuccess }) => {
           </Typography>
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 2, pb: 2 }}>
-        <Button onClick={handleClose}>Cancel</Button>
-        <Button variant="contained" onClick={handleSend} disabled={!canSend() || sending}>
-          {sending ? <CircularProgress size={20} /> : 'Send'}
+      <DialogActions sx={{ px: 2, pb: 2, pt: 2, gap: 1, borderTop: '1px solid #e9edef' }}>
+        <Button onClick={handleClose} sx={{ color: '#667781' }}>Cancel</Button>
+        <Button 
+          variant="contained" 
+          onClick={handleSend} 
+          disabled={!canSend() || sending}
+          sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}
+        >
+          {sending ? <CircularProgress size={20} color="inherit" /> : 'Send'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -53,6 +53,7 @@ export const ProductDetailPage = () => {
   });
   const [productImages, setProductImages] = useState([]);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState(null);
   const [generatingContent, setGeneratingContent] = useState(false);
@@ -109,6 +110,7 @@ export const ProductDetailPage = () => {
 
         setProduct(response);
         setEditedProduct(response);
+        setSelectedImageIndex(0);
       } catch (err) {
         console.error('Error fetching product:', err);
         setError('Failed to load product details. Please try again.');
@@ -541,20 +543,21 @@ export const ProductDetailPage = () => {
   };
 
   // Calculate totals for real jewellery display
-  // Making charges = total gold net weight (g) × rate per gm. Always calculated, not stored.
+  // When API returns cost fields (metal_cost, stone_cost), use them. Otherwise use pricing_breakdown selling_* fields.
   const calculateTotals = () => {
-    const goldTotal = metalComponents.reduce((sum, metal) => sum + parseFloat(metal.metal_cost || 0), 0);
-    const diamondTotal = diamondComponents.reduce((sum, diamond) => sum + parseFloat(diamond.stone_cost || 0), 0);
     const totalGoldNetWeightG = metalComponents.reduce(
       (sum, m) => sum + parseFloat(m.net_weight_g || m.net_weight || 0),
       0
     );
     const makingRatePerGm = parseFloat(pricingBreakdown.making_rate_per_gm || 2500);
+    const goldTotal = metalComponents.reduce((sum, metal) => sum + parseFloat(metal.metal_cost || 0), 0);
+    const diamondTotal = diamondComponents.reduce((sum, diamond) => sum + parseFloat(diamond.stone_cost || 0), 0);
+    const hasCostFields = goldTotal > 0 || diamondTotal > 0;
     const makingCharges = totalGoldNetWeightG * makingRatePerGm;
-    const grandTotal = goldTotal + diamondTotal + makingCharges;
+    const grandTotal = hasCostFields ? goldTotal + diamondTotal + makingCharges : null;
     const gstRate = parseFloat(pricingBreakdown.gst_rate_percent || 3);
-    const gstAmount = (grandTotal * gstRate) / 100;
-    const finalPrice = grandTotal + gstAmount;
+    const gstAmount = grandTotal != null ? (grandTotal * gstRate) / 100 : parseFloat(pricingBreakdown.gst_amount || 0);
+    const finalPrice = parseFloat(pricingBreakdown.final_price) || (grandTotal != null ? grandTotal + gstAmount : 0);
     
     return {
       goldTotal,
@@ -564,13 +567,24 @@ export const ProductDetailPage = () => {
       grandTotal,
       gstRate,
       gstAmount,
-      finalPrice
+      finalPrice,
+      hasCostFields,
+      // Selling breakdown from API (when cost is stripped)
+      sellingPrice: parseFloat(pricingBreakdown.selling_price || 0),
+      sellingMakingCharge: parseFloat(pricingBreakdown.selling_making_charge || 0),
+      sellingMetalPrice: parseFloat(pricingBreakdown.selling_metal_price || 0),
+      gemstoneSellingPrice: parseFloat(pricingBreakdown.gemstone_selling_price || 0),
     };
   };
 
-  // Get main certificate number (from first diamond component)
+  // Get main certificate number - prefer Main Stone, else first diamond with cert
   const getMainCertificateNo = () => {
-    return diamondComponents.find(d => d.certificate_no)?.certificate_no || 'N/A';
+    const withCert = diamondComponents.filter(d => d.certificate_no || d.cert_no);
+    const mainStone = withCert.find(d => 
+      (d.position || '').toLowerCase().includes('main')
+    );
+    const d = mainStone || withCert[0];
+    return d?.certificate_no || d?.cert_no || 'N/A';
   };
 
   // Get gold rate today (from first metal component)
@@ -596,16 +610,18 @@ export const ProductDetailPage = () => {
   // Get price calculation breakdown
   const getPriceCalculationBreakdown = () => {
     const totals = calculateTotals();
+    const makingRate = pricingBreakdown.making_rate_per_gm || 2500;
+    // When metal net_weight is 0 but we have selling_making_charge, derive gold wt for display
+    const sellingMaking = parseFloat(pricingBreakdown.selling_making_charge || 0);
+    const derivedGoldWt = totals.totalGoldNetWeightG === 0 && sellingMaking > 0 && makingRate > 0
+      ? sellingMaking / makingRate
+      : totals.totalGoldNetWeightG;
+    const displayMakingCharges = totals.makingCharges === 0 && sellingMaking > 0 ? sellingMaking : totals.makingCharges;
     return {
-      goldTotal: totals.goldTotal,
-      diamondTotal: totals.diamondTotal,
-      makingCharges: totals.makingCharges,
-      makingRate: pricingBreakdown.making_rate_per_gm || 2500,
-      makingGoldWt: totals.totalGoldNetWeightG,
-      grandTotal: totals.grandTotal,
-      gstRate: totals.gstRate,
-      gstAmount: totals.gstAmount,
-      finalPrice: totals.finalPrice
+      ...totals,
+      makingRate,
+      makingGoldWt: derivedGoldWt,
+      makingCharges: displayMakingCharges,
     };
   };
 
@@ -723,41 +739,80 @@ export const ProductDetailPage = () => {
         <div className="product-detail-grid">
           <div className="product-detail-image">
             <div className="image-container">
-              {isReal && productImages.length > 0 ? (
-                <img 
-                  src={productImages[0].url} 
-                  alt={product.name || product.item_name}
-                  className="product-img"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                />
-              ) : (product.image && typeof product.image === 'string' && 
-               (product.image.startsWith('http') || product.image.startsWith('https'))) ||
-               (product.shopify_image && product.shopify_image.url) ? (
-                <img 
-                  src={product.image || product.shopify_image?.url} 
-                  alt={product.name || product.item_name}
-                  className="product-img"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'block';
-                  }}
-                />
-              ) : null}
-              <div 
-                className="product-icon-large" 
-                style={{ 
-                  display: ((isReal && productImages.length > 0) ||
-                    (product.image && typeof product.image === 'string' && 
-                    (product.image.startsWith('http') || product.image.startsWith('https'))) ||
-                    (product.shopify_image && product.shopify_image.url))
-                    ? 'none' : 'flex' 
-                }}
-              >
-                💎
-              </div>
+              {(() => {
+                // Demistified: use shopify_images array (all Shopify images from API)
+                const demistifiedImages = isDemistified
+                  ? (product.shopify_images?.length > 0 ? product.shopify_images : product.shopify_image?.url ? [{ url: product.shopify_image.url }] : product.image && typeof product.image === 'string' && product.image.startsWith('http') ? [{ url: product.image }] : [])
+                  : [];
+                const displayImages = isReal ? productImages : demistifiedImages;
+                const mainImageUrl = displayImages.length > 0
+                  ? (typeof displayImages[selectedImageIndex] === 'string' ? displayImages[selectedImageIndex] : displayImages[selectedImageIndex]?.url)
+                  : product.image || product.shopify_image?.url;
+                const hasValidImage = !!mainImageUrl && (mainImageUrl.startsWith('http') || mainImageUrl.startsWith('https'));
+
+                return (
+                  <>
+                    {hasValidImage ? (
+                      <img 
+                        src={mainImageUrl} 
+                        alt={product.name || product.item_name}
+                        className="product-img"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling?.style && (e.target.nextSibling.style.display = 'block');
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className="product-icon-large" 
+                      style={{ 
+                        display: hasValidImage ? 'none' : 'flex' 
+                      }}
+                    >
+                      💎
+                    </div>
+                    {/* Image gallery thumbnails - for demistified with multiple images */}
+                    {isDemistified && demistifiedImages.length > 1 && (
+                      <div className="product-image-thumbnails" style={{
+                        display: 'flex',
+                        gap: '8px',
+                        marginTop: '12px',
+                        flexWrap: 'wrap',
+                        justifyContent: 'flex-start'
+                      }}>
+                        {demistifiedImages.map((img, idx) => {
+                          const imgUrl = typeof img === 'string' ? img : img?.url;
+                          if (!imgUrl) return null;
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setSelectedImageIndex(idx)}
+                              style={{
+                                padding: 0,
+                                border: selectedImageIndex === idx ? '2px solid #8b6f47' : '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                background: 'none',
+                                width: 56,
+                                height: 56
+                              }}
+                            >
+                              <img
+                                src={imgUrl}
+                                alt={`${product.name || 'Product'} ${idx + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               {isReal && isEditing && (
                 <div className="image-upload-section">
                   <label className="image-upload-btn-large">
@@ -1058,6 +1113,10 @@ export const ProductDetailPage = () => {
                       <label>Gold Rate Today</label>
                       {(() => {
                         const goldRateInfo = getGoldRateDisplay();
+                        // In display mode, hide if API no longer returns rate (cost fields stripped)
+                        if (!isEditing && !goldRateInfo.rate) {
+                          return <span>—</span>;
+                        }
                         return isEditing ? (
                           <div className="gold-rate-edit-group">
                             <div className="gold-rate-type-display">
@@ -1089,16 +1148,16 @@ export const ProductDetailPage = () => {
                       })()}
                     </div>
                     <div className="info-item">
-                      <label>SKU</label>
+                      <label>MINAKI Code</label>
                       {isEditing ? (
                         <input
                           type="text"
-                          value={editedProduct.sku || ''}
+                          value={editedProduct.sku || editedProduct.minaki_code || ''}
                           onChange={(e) => handleInputChange('sku', e.target.value)}
                           className="form-input"
                         />
                       ) : (
-                        <span>{product.sku || 'N/A'}</span>
+                        <span>{product.minaki_code || product.sku || 'N/A'}</span>
                       )}
                     </div>
                     <div className="info-item">
@@ -1138,8 +1197,12 @@ export const ProductDetailPage = () => {
                             <th>Gold Color</th>
                             <th>Gross Wt</th>
                             <th>Net Wt</th>
-                            <th>Rate</th>
-                            <th>Total</th>
+                            {isEditing && (
+                              <>
+                                <th>Rate</th>
+                                <th>Total</th>
+                              </>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
@@ -1205,32 +1268,28 @@ export const ProductDetailPage = () => {
                                     <span>{formatCurrency(metal.net_weight_g || metal.net_weight || 0)}</span>
                                   )}
                                 </td>
-                                <td>
-                                  {isEditing ? (
-                                    <input
-                                      type="number"
-                                      value={metal.rate_per_g || ''}
-                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `metal_components.${index}.rate_per_g`)}
-                                      className="form-input table-input"
-                                      step="0.01"
-                                    />
-                                  ) : (
-                                    <span>₹{formatCurrency(metal.rate_per_g || 0)}</span>
-                                  )}
-                                </td>
-                                <td>
-                                  {isEditing ? (
-                                    <input
-                                      type="number"
-                                      value={metal.metal_cost || ''}
-                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `metal_components.${index}.metal_cost`)}
-                                      className="form-input table-input"
-                                      step="0.01"
-                                    />
-                                  ) : (
-                                    <span>₹{formatCurrency(metal.metal_cost || 0)}</span>
-                                  )}
-                                </td>
+                                {isEditing && (
+                                  <>
+                                    <td>
+                                      <input
+                                        type="number"
+                                        value={metal.rate_per_g || ''}
+                                        onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `metal_components.${index}.rate_per_g`)}
+                                        className="form-input table-input"
+                                        step="0.01"
+                                      />
+                                    </td>
+                                    <td>
+                                      <input
+                                        type="number"
+                                        value={metal.metal_cost || ''}
+                                        onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `metal_components.${index}.metal_cost`)}
+                                        className="form-input table-input"
+                                        step="0.01"
+                                      />
+                                    </td>
+                                  </>
+                                )}
                               </tr>
                             );
                           })}
@@ -1254,15 +1313,28 @@ export const ProductDetailPage = () => {
                       <table>
                         <thead>
                           <tr>
+                            <th>Position</th>
+                            <th>Diamond Code</th>
                             <th>Description</th>
                             <th>Shape</th>
+                            <th>Size</th>
                             <th>Color</th>
                             <th>Cut</th>
                             <th>Clarity</th>
+                            <th>Polish</th>
+                            <th>Symmetry</th>
+                            <th>Fluorescence</th>
                             <th>No of Pcs</th>
                             <th>Carat</th>
-                            <th>Rate</th>
-                            <th>Total</th>
+                            <th>Certifying Body</th>
+                            <th>Certificate No</th>
+                            <th>Report URL</th>
+                            {isEditing && (
+                              <>
+                                <th>Rate</th>
+                                <th>Total</th>
+                              </>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
@@ -1276,27 +1348,29 @@ export const ProductDetailPage = () => {
                             const caratWt = stone.carat_weight ?? stone.carat ?? 0;
                             return (
                             <tr key={stone.id || index}>
+                              <td><span>{stone.position || '—'}</span></td>
+                              <td><span>{stone.diamond_code || '—'}</span></td>
                               <td>
                                 {isEditing ? (
                                   <input
-                                      type="text"
-                                      value={description !== 'N/A' ? description : ''}
-                                      onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.description`)}
+                                    type="text"
+                                    value={description !== 'N/A' ? description : ''}
+                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.description`)}
                                     className="form-input table-input"
-                                      placeholder="Description"
+                                    placeholder="Description"
                                   />
                                 ) : (
-                                    <span>{description}</span>
+                                  <span>{description}</span>
                                 )}
                               </td>
                               <td>
                                 {isEditing ? (
                                   <select
-                                      value={shape !== 'N/A' ? shape : ''}
+                                    value={shape !== 'N/A' ? shape : ''}
                                     onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.cut`)}
                                     className="form-select table-input"
                                   >
-                                      <option value="">Select Shape</option>
+                                    <option value="">Select Shape</option>
                                     <option value="Round">Round</option>
                                     <option value="Oval">Oval</option>
                                     <option value="Pear">Pear</option>
@@ -1308,9 +1382,10 @@ export const ProductDetailPage = () => {
                                     <option value="Heart">Heart</option>
                                   </select>
                                 ) : (
-                                    <span>{shape}</span>
+                                  <span>{shape}</span>
                                 )}
                               </td>
+                              <td><span>{stone.size || '—'}</span></td>
                               <td>
                                 {isEditing ? (
                                   <input
@@ -1321,7 +1396,7 @@ export const ProductDetailPage = () => {
                                     placeholder="e.g. D, E, F"
                                   />
                                 ) : (
-                                    <span>{color}</span>
+                                  <span>{color}</span>
                                 )}
                               </td>
                               <td>
@@ -1334,32 +1409,23 @@ export const ProductDetailPage = () => {
                                     placeholder="e.g. Excellent, Very Good"
                                   />
                                 ) : (
-                                    <span>{cutGrade}</span>
+                                  <span>{cutGrade}</span>
                                 )}
                               </td>
+                              <td><span>{stone.clarity || stone.clarity_grade || '—'}</span></td>
+                              <td><span>{stone.polish || '—'}</span></td>
+                              <td><span>{stone.symmetry || '—'}</span></td>
+                              <td><span>{stone.fluorescence || '—'}</span></td>
                               <td>
                                 {isEditing ? (
                                   <input
-                                    type="text"
-                                    value={stone.clarity || stone.clarity_grade || ''}
-                                    onChange={(e) => handleInputChange('', e.target.value, `diamond_components.${index}.clarity`)}
+                                    type="number"
+                                    value={stone.quantity || ''}
+                                    onChange={(e) => handleInputChange('', parseInt(e.target.value) || 0, `diamond_components.${index}.quantity`)}
                                     className="form-input table-input"
-                                    placeholder="e.g. VVS1, VS1"
                                   />
                                 ) : (
-                                    <span>{clarity}</span>
-                                )}
-                              </td>
-                              <td>
-                                {isEditing ? (
-                                  <input
-                                      type="number"
-                                      value={stone.quantity || ''}
-                                      onChange={(e) => handleInputChange('', parseInt(e.target.value) || 0, `diamond_components.${index}.quantity`)}
-                                      className="form-input table-input"
-                                  />
-                                ) : (
-                                    <span>{stone.quantity || 0}</span>
+                                  <span>{stone.quantity || 0}</span>
                                 )}
                               </td>
                               <td>
@@ -1372,45 +1438,57 @@ export const ProductDetailPage = () => {
                                     step="0.01"
                                   />
                                 ) : (
-                                    <span>{Number(caratWt) ? Number(caratWt) : '—'}</span>
+                                  <span>{Number(caratWt) ? Number(caratWt) : '—'}</span>
                                 )}
                               </td>
+                              <td><span>{stone.certifying_body || '—'}</span></td>
+                              <td><span>{stone.certificate_no || '—'}</span></td>
                               <td>
-                                {isEditing ? (
-                                  <input
-                                    type="number"
-                                    value={stone.rate_per_carat || ''}
-                                    onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.rate_per_carat`)}
-                                    className="form-input table-input"
-                                    step="0.01"
-                                  />
+                                {stone.report_url ? (
+                                  <a href={stone.report_url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                                    View Certificate (PDF)
+                                  </a>
                                 ) : (
-                                  <span>₹{formatCurrency(stone.rate_per_carat || 0)}</span>
+                                  <span>—</span>
                                 )}
                               </td>
-                              <td>
-                                {isEditing ? (
-                                  <input
-                                    type="number"
-                                    value={stone.stone_cost || ''}
-                                    onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.stone_cost`)}
-                                    className="form-input table-input"
-                                    step="0.01"
-                                  />
-                                ) : (
-                                  <span>₹{formatCurrency(stone.stone_cost || 0)}</span>
-                                )}
-                              </td>
+                              {isEditing && (
+                                <>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      value={stone.rate_per_carat || ''}
+                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.rate_per_carat`)}
+                                      className="form-input table-input"
+                                      step="0.01"
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      value={stone.stone_cost || ''}
+                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, `diamond_components.${index}.stone_cost`)}
+                                      className="form-input table-input"
+                                      step="0.01"
+                                    />
+                                  </td>
+                                </>
+                              )}
                             </tr>
                             );
                           })}
                         </tbody>
                         <tfoot>
                           <tr className="diamond-table-totals">
-                            <td colSpan="6" style={{ textAlign: 'right', fontWeight: 600 }}>Total Carat</td>
+                            <td colSpan="12" style={{ textAlign: 'right', fontWeight: 600 }}>Total Carat</td>
                             <td>{diamondComponents.reduce((sum, s) => sum + (parseFloat(s.carat_weight ?? s.carat) || 0), 0).toFixed(2)}</td>
-                            <td style={{ fontWeight: 600 }}>Total</td>
-                            <td style={{ fontWeight: 600 }}>₹{formatCurrency(diamondComponents.reduce((sum, s) => sum + (parseFloat(s.stone_cost) || 0), 0))}</td>
+                            <td colSpan="2" />
+                            {isEditing && (
+                              <>
+                                <td style={{ fontWeight: 600 }}>Total</td>
+                                <td style={{ fontWeight: 600 }}>₹{formatCurrency(diamondComponents.reduce((sum, s) => sum + (parseFloat(s.stone_cost) || 0), 0))}</td>
+                              </>
+                            )}
                           </tr>
                         </tfoot>
                       </table>
@@ -1420,6 +1498,47 @@ export const ProductDetailPage = () => {
                   )}
                 </div>
             </div>
+
+              {/* Gemstone Details Section (non-diamond stones) */}
+              {(() => {
+                const gemstoneComponents = editedProduct.gemstone_components || product.gemstone_components || [];
+                if (gemstoneComponents.length === 0) return null;
+                return (
+                  <div className="detail-section">
+                    <div className="section-header">
+                      <h2><Gem size={18} /> Gemstone Details</h2>
+                    </div>
+                    <div className="section-content">
+                      <div className="components-table-simple">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Position</th>
+                              <th>Gemstone Code</th>
+                              <th>Carat</th>
+                              <th>Quantity</th>
+                              <th>Size</th>
+                              <th>Weight (g)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {gemstoneComponents.map((g, i) => (
+                              <tr key={i}>
+                                <td>{g.position || '—'}</td>
+                                <td>{g.gemstone_code || '—'}</td>
+                                <td>{g.carat_weight ?? g.carat ?? '—'}</td>
+                                <td>{g.quantity ?? '—'}</td>
+                                <td>{g.size || '—'}</td>
+                                <td>{g.weight_g ?? '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Making Charges Section - Total = Gold Wt (g) × Rate per gm (always calculated) */}
             <div className="detail-section">
@@ -1472,53 +1591,100 @@ export const ProductDetailPage = () => {
                 <div className="section-content">
                   {(() => {
                     const calc = getPriceCalculationBreakdown();
+                    // When API strips cost fields, show selling breakdown; otherwise show internal cost breakdown
+                    const useSellingBreakdown = !calc.hasCostFields && (calc.sellingPrice > 0 || calc.sellingMetalPrice > 0 || calc.sellingMakingCharge > 0);
                     return (
                       <div className="price-calculation-breakdown">
-                        <div className="calc-step">
-                          <div className="calc-label">1. Gold Total</div>
-                          <div className="calc-value">₹{formatCurrency(calc.goldTotal)}</div>
-                        </div>
-                        <div className="calc-step">
-                          <div className="calc-label">2. Diamond Total</div>
-                          <div className="calc-value">₹{formatCurrency(calc.diamondTotal)}</div>
-                        </div>
-                        <div className="calc-step">
-                          <div className="calc-label">
-                            3. Making Charges
-                            <span className="calc-sub-label">
-                              ({formatCurrency(calc.makingGoldWt)}g × ₹{formatCurrency(calc.makingRate)}/gm)
-                            </span>
-                          </div>
-                          <div className="calc-value">₹{formatCurrency(calc.makingCharges)}</div>
-                        </div>
-                        <div className="calc-divider"></div>
-                        <div className="calc-step calc-grand-total">
-                          <div className="calc-label">Grand Total (1+2+3)</div>
-                          <div className="calc-value">₹{formatCurrency(calc.grandTotal)}</div>
-                        </div>
-                        <div className="calc-step">
-                          <div className="calc-label">
-                            GST (@{calc.gstRate}%)
-                            <span className="calc-sub-label">
-                              ({formatCurrency(calc.grandTotal)} × {calc.gstRate}%)
-                            </span>
-                          </div>
-                          {isEditing ? (
-                            <div className="gst-input-group">
-                              <span>@</span>
-                              <input
-                                type="number"
-                                value={calc.gstRate}
-                                onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.gst_rate_percent')}
-                                className="form-input"
-                                step="0.01"
-                              />
-                              <span>%</span>
+                        {useSellingBreakdown ? (
+                          <>
+                            {calc.sellingMetalPrice > 0 && (
+                              <div className="calc-step">
+                                <div className="calc-label">Metal Price</div>
+                                <div className="calc-value">₹{formatCurrency(calc.sellingMetalPrice)}</div>
+                              </div>
+                            )}
+                            {calc.sellingMakingCharge > 0 && (
+                              <div className="calc-step">
+                                <div className="calc-label">Making Charge</div>
+                                <div className="calc-value">₹{formatCurrency(calc.sellingMakingCharge)}</div>
+                              </div>
+                            )}
+                            {calc.gemstoneSellingPrice > 0 && (
+                              <div className="calc-step">
+                                <div className="calc-label">Gemstone Price</div>
+                                <div className="calc-value">₹{formatCurrency(calc.gemstoneSellingPrice)}</div>
+                              </div>
+                            )}
+                            {calc.gstAmount > 0 && (
+                              <div className="calc-step">
+                                <div className="calc-label">GST (@{calc.gstRate}%)</div>
+                                {isEditing ? (
+                                  <div className="gst-input-group">
+                                    <span>@</span>
+                                    <input
+                                      type="number"
+                                      value={calc.gstRate}
+                                      onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.gst_rate_percent')}
+                                      className="form-input"
+                                      step="0.01"
+                                    />
+                                    <span>%</span>
+                                  </div>
+                                ) : (
+                                  <div className="calc-value">₹{formatCurrency(calc.gstAmount)}</div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="calc-step">
+                              <div className="calc-label">1. Gold Total</div>
+                              <div className="calc-value">₹{formatCurrency(calc.goldTotal)}</div>
                             </div>
-                          ) : (
-                            <div className="calc-value">₹{formatCurrency(calc.gstAmount)}</div>
-                          )}
-                        </div>
+                            <div className="calc-step">
+                              <div className="calc-label">2. Diamond Total</div>
+                              <div className="calc-value">₹{formatCurrency(calc.diamondTotal)}</div>
+                            </div>
+                            <div className="calc-step">
+                              <div className="calc-label">
+                                3. Making Charges
+                                <span className="calc-sub-label">
+                                  ({formatCurrency(calc.makingGoldWt)}g × ₹{formatCurrency(calc.makingRate)}/gm)
+                                </span>
+                              </div>
+                              <div className="calc-value">₹{formatCurrency(calc.makingCharges)}</div>
+                            </div>
+                            <div className="calc-divider"></div>
+                            <div className="calc-step calc-grand-total">
+                              <div className="calc-label">Grand Total (1+2+3)</div>
+                              <div className="calc-value">₹{formatCurrency(calc.grandTotal)}</div>
+                            </div>
+                            <div className="calc-step">
+                              <div className="calc-label">
+                                GST (@{calc.gstRate}%)
+                                <span className="calc-sub-label">
+                                  ({formatCurrency(calc.grandTotal)} × {calc.gstRate}%)
+                                </span>
+                              </div>
+                              {isEditing ? (
+                                <div className="gst-input-group">
+                                  <span>@</span>
+                                  <input
+                                    type="number"
+                                    value={calc.gstRate}
+                                    onChange={(e) => handleInputChange('', parseFloat(e.target.value) || 0, 'pricing_breakdown.gst_rate_percent')}
+                                    className="form-input"
+                                    step="0.01"
+                                  />
+                                  <span>%</span>
+                                </div>
+                              ) : (
+                                <div className="calc-value">₹{formatCurrency(calc.gstAmount)}</div>
+                              )}
+                            </div>
+                          </>
+                        )}
                         <div className="calc-divider"></div>
                         <div className="calc-step calc-final-price">
                           <div className="calc-label">Price (Final)</div>
@@ -1629,6 +1795,36 @@ export const ProductDetailPage = () => {
                     <div className="info-item">
                       <label>SKU</label>
                       <span className="read-only">{product.sku}</span>
+                    </div>
+                  )}
+                  {product.length != null && product.length !== '' && (
+                    <div className="info-item">
+                      <label>Length</label>
+                      <span>{product.length}</span>
+                    </div>
+                  )}
+                  {product.width != null && product.width !== '' && (
+                    <div className="info-item">
+                      <label>Width</label>
+                      <span>{product.width}</span>
+                    </div>
+                  )}
+                  {product.height != null && product.height !== '' && (
+                    <div className="info-item">
+                      <label>Height</label>
+                      <span>{product.height}</span>
+                    </div>
+                  )}
+                  {product.weight != null && product.weight !== '' && (
+                    <div className="info-item">
+                      <label>Weight</label>
+                      <span>{product.weight}</span>
+                    </div>
+                  )}
+                  {product.cf_lines && (
+                    <div className="info-item">
+                      <label>Lines</label>
+                      <span>{product.cf_lines}</span>
                     </div>
                   )}
                   {product.stock_on_hand !== undefined && product.stock_on_hand !== null && (
@@ -1808,7 +2004,7 @@ export const ProductDetailPage = () => {
                   product={{
                     name: product.name || product.item_name,
                     sku: product.sku,
-                    image: productImages[0]?.url || product.image || product.shopify_image?.url,
+                    image: productImages[0]?.url || product.shopify_images?.[0]?.url || product.image || product.shopify_image?.url,
                     price: product.final_price || product.price || product.rate
                   }}
                   locations={productLocations.map(loc => ({

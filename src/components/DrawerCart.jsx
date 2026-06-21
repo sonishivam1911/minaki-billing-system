@@ -198,6 +198,11 @@ export const DrawerCart = ({ isOpen, onClose }) => {
                           <Typography variant="body1" sx={{ fontWeight: 500 }}>
                             {item.name}
                           </Typography>
+                          {(item.minaki_code || item.sku) && (
+                            <Typography variant="caption" sx={{ color: '#8b6f47', display: 'block' }}>
+                              MINAKI: {item.minaki_code || item.sku}
+                            </Typography>
+                          )}
                           <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
                             ₹{safePrice.toLocaleString()}
                           </Typography>

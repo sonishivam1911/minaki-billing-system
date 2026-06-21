@@ -1,13 +1,10 @@
 /**
  * WhatsApp CRM API - conversations, messages, profile, send.
- * Base URL: /billing_system/api/whatsapp-crm
+ * Uses apiRequest to include Firebase auth token (required by backend).
  */
-let VITE_API_URL = import.meta.env.VITE_API_URL;
-if (!VITE_API_URL || VITE_API_URL.startsWith('http://localhost:')) {
-  VITE_API_URL = null;
-}
-const API_BASE_URL = VITE_API_URL || '/billing_system/api';
-const WHATSAPP_CRM_PREFIX = `${API_BASE_URL}/whatsapp-crm`;
+import { apiRequest } from './apiClient';
+
+const BASE_PATH = '/whatsapp-crm';
 
 export const whatsappCrmApi = {
   getConversations: async (params = {}) => {
@@ -16,71 +13,45 @@ export const whatsappCrmApi = {
     if (params.filter) qs.set('filter', params.filter);
     if (params.limit != null) qs.set('limit', params.limit);
     if (params.offset != null) qs.set('offset', params.offset);
-    const url = `${WHATSAPP_CRM_PREFIX}/conversations${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch conversations: ${res.status}`);
-    return res.json();
+    const query = qs.toString();
+    return apiRequest('GET', `${BASE_PATH}/conversations${query ? `?${query}` : ''}`);
   },
 
   getMessages: async (conversationId, params = {}) => {
     const qs = new URLSearchParams();
     if (params.before != null) qs.set('before', params.before);
     if (params.limit != null) qs.set('limit', params.limit);
-    const url = `${WHATSAPP_CRM_PREFIX}/conversations/${conversationId}/messages${qs.toString() ? `?${qs.toString()}` : ''}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
-    return res.json();
+    const query = qs.toString();
+    return apiRequest('GET', `${BASE_PATH}/conversations/${conversationId}/messages${query ? `?${query}` : ''}`);
   },
 
   markConversationRead: async (conversationId) => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/conversations/${conversationId}/read`, { method: 'POST' });
-    if (!res.ok) throw new Error(`Failed to mark read: ${res.status}`);
-    return res.json();
+    return apiRequest('POST', `${BASE_PATH}/conversations/${conversationId}/read`);
   },
 
   getConversationProfile: async (conversationId) => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/conversations/${conversationId}/profile`);
-    if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
-    return res.json();
+    return apiRequest('GET', `${BASE_PATH}/conversations/${conversationId}/profile`);
   },
 
   getTemplates: async () => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/templates`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    try {
+      const data = await apiRequest('GET', `${BASE_PATH}/templates`);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
   },
 
   getContactProfile: async (contactId) => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/contacts/${contactId}/profile`);
-    if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
-    return res.json();
+    return apiRequest('GET', `${BASE_PATH}/contacts/${contactId}/profile`);
   },
 
   sendMessage: async (payload) => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Send failed: ${res.status}`);
-    }
-    return res.json();
+    return apiRequest('POST', `${BASE_PATH}/send`, payload);
   },
 
   broadcast: async (payload) => {
-    const res = await fetch(`${WHATSAPP_CRM_PREFIX}/broadcast`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || `Broadcast failed: ${res.status}`);
-    }
-    return res.json();
+    return apiRequest('POST', `${BASE_PATH}/broadcast`, payload);
   },
 };
 

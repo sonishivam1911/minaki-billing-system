@@ -117,7 +117,7 @@ export const InvoicesPage = () => {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 3 } }}>
         <LoadingSpinner message="Loading invoices..." />
       </Box>
     );
@@ -125,7 +125,7 @@ export const InvoicesPage = () => {
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 3 } }}>
         <ErrorMessage message={error} />
       </Box>
     );
@@ -140,21 +140,21 @@ export const InvoicesPage = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
           <FileText size={24} color="#8b6f47" />
-          <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416' }}>
+          <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '1.5rem', sm: '2rem' } }}>
             Invoices
           </Typography>
         </Box>
-        <Typography variant="body1" sx={{ color: '#6b7280' }}>
+        <Typography variant="body1" sx={{ color: '#6b7280', fontSize: { xs: '0.875rem', sm: '1rem' } }}>
           Manage and send invoices to customers
         </Typography>
       </Box>
 
       {/* Search */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
         <TextField
           fullWidth
           placeholder="Search invoices by number, customer, or amount..."
@@ -176,7 +176,7 @@ export const InvoicesPage = () => {
       </Box>
 
       {/* Invoice Stats */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
         <Grid item xs={6} sm={3}>
           <Card>
             <CardContent>

@@ -84,6 +84,7 @@ export const productsApi = {
           price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
           base_price: parseFloat(variant?.base_cost || variant?.price || 0),
           sku: variant?.sku,
+          minaki_code: variant?.minaki_code || variant?.sku,
           sku_name: variant?.sku_name,
           handle: product.handle,
           
@@ -205,6 +206,7 @@ export const productsApi = {
       price: parseFloat(pricingBreakdown?.final_price || variant?.price || 0),
       base_price: parseFloat(variant?.base_cost || variant?.price || 0),
       sku: variant?.sku,
+      minaki_code: variant?.minaki_code || product?.minaki_code || variant?.sku,
       sku_name: variant?.sku_name,
       handle: product.handle,
       
@@ -228,6 +230,7 @@ export const productsApi = {
       // Metal and diamond components - preserve full structure
       metal_components: variant?.metal_components || [],
       diamond_components: variant?.diamond_components || [],
+      gemstone_components: variant?.gemstone_components || [],
       
       // Variant details
       barcode: variant?.barcode,
@@ -630,26 +633,34 @@ export const demistifiedProductsApi = {
       });
 
       // Transform API response to match our product structure
-      const transformedProducts = data.products?.map(product => ({
-        id: product.item_id,
-        item_id: product.item_id, // Include item_id explicitly
-        name: product.name || product.item_name,
-        category: product.category_name || 'Uncategorized',
-        price: product.rate || 0,
-        stock: product.available_stock || 0,
-        weight: null, // Not provided in API
-        purity: product.cf_finish || product.cf_work,
-        image: product.shopify_image?.url || '💎',
-        brand: product.brand,
-        description: product.description,
-        sku: product.sku,
-        gender: product.cf_gender,
-        work: product.cf_work,
-        finish: product.cf_finish,
-        finding: product.cf_finding,
-        collection: product.cf_collection,
-        isDemistified: true, // Flag to identify demistified products
-      })) || [];
+      const transformedProducts = data.products?.map(product => {
+        const shopifyImages = product.shopify_images || [];
+        const firstImage = shopifyImages[0] || product.shopify_image;
+        return {
+          id: product.item_id,
+          item_id: product.item_id, // Include item_id explicitly
+          name: product.name || product.item_name,
+          category: product.category_name || 'Uncategorized',
+          price: product.rate || 0,
+          stock: product.available_stock ?? product.stock_on_hand ?? 0,
+          stock_on_hand: product.stock_on_hand ?? product.available_stock ?? 0,
+          available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
+          weight: null, // Not provided in API
+          purity: product.cf_finish || product.cf_work,
+          image: firstImage?.url || product.shopify_image?.url || '💎',
+          shopify_image: product.shopify_image,
+          shopify_images: shopifyImages,
+          brand: product.brand,
+          description: product.description,
+          sku: product.sku,
+          gender: product.cf_gender,
+          work: product.cf_work,
+          finish: product.cf_finish,
+          finding: product.cf_finding,
+          collection: product.cf_collection,
+          isDemistified: true, // Flag to identify demistified products
+        };
+      }) || [];
 
       // Return both products and pagination metadata
       return {
@@ -729,6 +740,8 @@ export const demistifiedProductsApi = {
 
       // Transform single product response to match our structure
       const product = data.product || data;
+      const shopifyImages = product.shopify_images || [];
+      const firstImage = shopifyImages[0] || product.shopify_image;
       return {
         id: product.item_id,
         item_id: product.item_id, // Include item_id explicitly
@@ -743,7 +756,9 @@ export const demistifiedProductsApi = {
         available_stock: product.available_stock ?? product.stock_on_hand ?? 0,
         weight: null, // Not provided in API
         purity: product.cf_finish || product.cf_work,
-        image: product.shopify_image?.url || '💎',
+        image: firstImage?.url || product.shopify_image?.url || '💎',
+        shopify_image: product.shopify_image,
+        shopify_images: shopifyImages,
         brand: product.brand,
         description: product.description,
         sku: product.sku,
@@ -759,7 +774,12 @@ export const demistifiedProductsApi = {
         cf_finish: product.cf_finish ?? product.cf_finish_unformatted ?? '',
         cf_finding: product.cf_finding ?? product.cf_finding_unformatted ?? '',
         cf_collection: product.cf_collection ?? product.cf_collection_unformatted ?? '',
-        shopify_image: product.shopify_image,
+        cf_lines: product.cf_lines ?? product.cf_lines_unformatted ?? '',
+        length: product.length,
+        width: product.width,
+        height: product.height,
+        weight: product.weight,
+        image_name: product.image_name,
         isDemistified: true, // Flag to identify demistified products
       };
     } catch (error) {
@@ -1773,6 +1793,50 @@ export const paymentsApi = {
       return await response.json();
     } catch (error) {
       console.error('Error generating UPI QR code:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Razorpay Payment Link (rzp.io) - link only, no send
+   * POST /billing_system/api/payment/razorpay/create-payment-link
+   */
+  createRazorpayPaymentLink: async (data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create payment link: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating Razorpay payment link:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create Razorpay Payment Link and send to customer via WhatsApp/Email
+   * POST /billing_system/api/payment/razorpay/create-and-send-payment-link
+   */
+  createAndSendRazorpayPaymentLink: async (data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/payment/razorpay/create-and-send-payment-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create/send payment link: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating/sending Razorpay payment link:', error);
       throw error;
     }
   },

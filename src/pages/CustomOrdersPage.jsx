@@ -131,21 +131,21 @@ export const CustomOrdersPage = () => {
 
   if (loading && orders.length === 0) {
     return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
         <LoadingSpinner message="Loading custom orders..." />
       </Container>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, mb: 2 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#2c2416', mb: 0.5, fontSize: { xs: '1.5rem', sm: '2rem' } }}>
               Custom Orders
             </Typography>
-            <Typography variant="body1" sx={{ color: '#6b7280' }}>
+            <Typography variant="body1" sx={{ color: '#6b7280', fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Manage custom orders and quotes
             </Typography>
           </Box>
@@ -158,7 +158,8 @@ export const CustomOrdersPage = () => {
             }}
             sx={{
               bgcolor: '#8b6f47',
-              '&:hover': { bgcolor: '#6d5637' }
+              '&:hover': { bgcolor: '#6d5637' },
+              alignSelf: { xs: 'stretch', sm: 'center' },
             }}
           >
             New Custom Order
@@ -172,8 +173,8 @@ export const CustomOrdersPage = () => {
         )}
 
         {/* Filters */}
-        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Box sx={{ flex: 1, minWidth: 200 }}>
+        <Box sx={{ mb: { xs: 2, sm: 3 }, display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ flex: { xs: '1 1 100%', sm: 1 }, minWidth: { xs: '100%', sm: 200 } }}>
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
@@ -181,7 +182,7 @@ export const CustomOrdersPage = () => {
             />
           </Box>
           
-          <FormControl sx={{ minWidth: 150 }}>
+          <FormControl sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}>
             <InputLabel>Status</InputLabel>
             <Select
               value={filters.status}
@@ -204,7 +205,7 @@ export const CustomOrdersPage = () => {
             value={filters.start_date}
             onChange={(e) => setFilters(prev => ({ ...prev, start_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
+            sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
           />
 
           <TextField
@@ -213,13 +214,13 @@ export const CustomOrdersPage = () => {
             value={filters.end_date}
             onChange={(e) => setFilters(prev => ({ ...prev, end_date: e.target.value }))}
             InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
+            sx={{ minWidth: { xs: '100%', sm: 150 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
           />
         </Box>
 
         {/* Summary Cards */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: 120 }}>
+        <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, mb: { xs: 2, sm: 3 }, flexWrap: 'wrap' }}>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: { xs: 80, sm: 120 }, flex: 1 }}>
             <Typography variant="caption" sx={{ color: '#6b7280' }}>
               Draft
             </Typography>
@@ -227,37 +228,21 @@ export const CustomOrdersPage = () => {
               {ordersByStatus.draft}
             </Typography>
           </Box>
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: 120 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              Quoted
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
-              {ordersByStatus.quoted}
-            </Typography>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: { xs: 80, sm: 120 }, flex: 1 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280' }}>Quoted</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '1.5rem', sm: '2rem' } }}>{ordersByStatus.quoted}</Typography>
           </Box>
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: 120 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              In Production
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
-              {ordersByStatus.in_production}
-            </Typography>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: { xs: 80, sm: 120 }, flex: 1 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280' }}>In Production</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '1.5rem', sm: '2rem' } }}>{ordersByStatus.in_production}</Typography>
           </Box>
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: 120 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              Completed
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
-              {ordersByStatus.completed}
-            </Typography>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: { xs: 80, sm: 120 }, flex: 1 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280' }}>Completed</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '1.5rem', sm: '2rem' } }}>{ordersByStatus.completed}</Typography>
           </Box>
-          <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: 120 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280' }}>
-              Total
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416' }}>
-              {filteredOrders.length}
-            </Typography>
+          <Box sx={{ p: { xs: 1.5, sm: 2 }, bgcolor: '#f5f5f5', borderRadius: 2, minWidth: { xs: 80, sm: 120 }, flex: 1 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280' }}>Total</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 600, color: '#2c2416', fontSize: { xs: '1.5rem', sm: '2rem' } }}>{filteredOrders.length}</Typography>
           </Box>
         </Box>
       </Box>
@@ -284,7 +269,7 @@ export const CustomOrdersPage = () => {
           </Typography>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {filteredOrders.map((order) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={order.id}>
               <CustomOrderCard

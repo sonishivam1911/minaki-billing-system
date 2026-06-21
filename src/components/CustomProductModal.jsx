@@ -176,8 +176,7 @@ export const CustomProductModal = ({
     try {
       setIsUploading(true);
       setError(null);
-      const productNumber = formData.product_number || `CP-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-      if (!formData.product_number) setFormData((prev) => ({ ...prev, product_number: productNumber }));
+      const productNumber = formData.product_number || `temp-${Date.now()}`;
       const result = await imageUploadApi.uploadCustomOrderImages(productNumber, files, { compress: true, makePublic: true });
       const imageUrls = result.uploaded?.map((img) => img.url) || [];
       setUploadedImageUrls((prev) => [...prev, ...imageUrls]);
@@ -233,13 +232,14 @@ export const CustomProductModal = ({
 
       const totalAmount = formData.total_amount ? parseFloat(formData.total_amount) : (totalPriceJewelry || formData.estimated_price ? parseFloat(formData.estimated_price) : null);
 
+      const { product_number: _pn, ...restForm } = formData;
       const productData = {
-        ...formData,
+        ...restForm,
         reference_images: uploadedImageUrls,
         specifications: specs,
         estimated_price: formData.estimated_price ? parseFloat(formData.estimated_price) : totalPriceJewelry || null,
         total_amount: totalAmount || totalPriceJewelry || null,
-        product_number: formData.product_number || undefined
+        ...(initialData?.product_number ? { product_number: formData.product_number } : {})
       };
 
       await onSubmit(productData);
@@ -284,23 +284,19 @@ export const CustomProductModal = ({
             {/* Header */}
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Product Details</Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+                {initialData?.product_number && (
+                  <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                    Product #: <strong>{formData.product_number}</strong>
+                  </Typography>
+                )}
                 <TextField
                   label="Article Code"
                   name="article_code"
                   value={formData.article_code}
                   onChange={handleChange}
                   fullWidth
-                  sx={{ mr: 2 }}
                   placeholder="e.g. ART-001"
-                />
-                <TextField
-                  label="Product Number"
-                  name="product_number"
-                  value={formData.product_number}
-                  disabled
-                  fullWidth
-                  helperText="Auto-generated"
                 />
               </Box>
               <FormControl fullWidth>

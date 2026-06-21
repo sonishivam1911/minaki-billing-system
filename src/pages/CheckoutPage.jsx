@@ -291,14 +291,58 @@ export const CheckoutPage = () => {
     }
   };
 
+  // Handle Razorpay Payment Link - create invoice, send link to customer (no modal)
+  const handleSendRazorpayPaymentLink = async () => {
+    const phone = selectedCustomer?.phone || selectedCustomer?.Phone || selectedCustomer?.MobilePhone || '';
+    const email = selectedCustomer?.email || selectedCustomer?.Email || '';
+    if (!phone || !email) {
+      setPaymentError('Customer phone and email are required to send payment link.');
+      return;
+    }
+    try {
+      setProcessing(true);
+      setPaymentError(null);
+      // 1. Complete checkout with razorpay_link (creates invoice, unpaid)
+      const checkoutData = {
+        cart_id: cartId,
+        customer_id: selectedCustomer?.id || selectedCustomer?.["Contact ID"] || null,
+        payments: [{ payment_method: 'razorpay_link', payment_amount: total }],
+        tax_rate_percent: 3.0,
+        notes: null,
+        sales_person: null,
+      };
+      const result = await checkoutApi.completeSale(checkoutData);
+      if (!result?.invoice_id) throw new Error('Checkout failed - no invoice created');
+      // 2. Create and send payment link to customer
+      const linkData = {
+        name: selectedCustomer?.name || selectedCustomer?.["Contact Name"] || 'Customer',
+        phone: phone.startsWith('+') ? phone : `+91${phone.replace(/\D/g, '')}`,
+        email,
+        amount: total,
+        invoice_id: result.invoice_id,
+        currency: 'INR',
+        send_whatsapp: true,
+        send_email: true,
+      };
+      await paymentsApi.createAndSendRazorpayPaymentLink(linkData);
+      setCheckoutResult(result);
+      setShowReceiptOptionsView(true);
+    } catch (error) {
+      console.error('Error sending payment link:', error);
+      setPaymentError(error.message || 'Failed to send payment link. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleCompleteSale = async () => {
     try {
       setProcessing(true);
       setPaymentError(null);
 
-      // Razorpay: open Razorpay checkout
-      if (paymentMethod === 'razorpay') {
-        await handleRazorpayPayment();
+      // Razorpay Payment Link: send link to customer (no checkout modal)
+      if (paymentMethod === 'razorpay_link') {
+        await handleSendRazorpayPaymentLink();
         return;
       }
 
@@ -393,7 +437,12 @@ export const CheckoutPage = () => {
     if (paymentMethod === 'upi') {
       return true;
     }
-    if (paymentMethod === 'razorpay' || paymentMethod === 'card_terminal') {
+    if (paymentMethod === 'razorpay_link') {
+      const phone = selectedCustomer?.phone || selectedCustomer?.Phone || selectedCustomer?.MobilePhone;
+      const email = selectedCustomer?.email || selectedCustomer?.Email;
+      return !!selectedCustomer && !!phone && !!email;
+    }
+    if (paymentMethod === 'card_terminal') {
       return true;
     }
     return true;
@@ -401,8 +450,8 @@ export const CheckoutPage = () => {
 
   const getCompleteSaleButtonText = () => {
     if (processing) return 'Processing...';
-    if (paymentMethod === 'razorpay') {
-      return 'Pay via Razorpay';
+    if (paymentMethod === 'razorpay_link') {
+      return 'Send Payment Link to Customer';
     }
     if (paymentMethod === 'card_terminal' && !pineLabsOrder) {
       return 'Create Pine Labs Order';
@@ -413,7 +462,7 @@ export const CheckoutPage = () => {
   const paymentMethodLabels = {
     cash: 'Cash',
     upi: 'UPI',
-    razorpay: 'Razorpay',
+    razorpay_link: 'Razorpay (Send Link)',
     card_terminal: 'Card Terminal',
   };
 
@@ -593,7 +642,7 @@ export const CheckoutPage = () => {
             <h2 className="section-title">Payment Method</h2>
 
             <div className="payment-methods">
-              {['cash', 'upi', 'razorpay', 'card_terminal'].map((method) => (
+              {['cash', 'upi', 'razorpay_link', 'card_terminal'].map((method) => (
                 <button
                   key={method}
                   className={`payment-method ${paymentMethod === method ? 'active' : ''}`}
@@ -616,11 +665,11 @@ export const CheckoutPage = () => {
               </div>
             )}
 
-            {/* Razorpay Payment Details */}
-            {paymentMethod === 'razorpay' && (
+            {/* Razorpay Payment Link Details */}
+            {paymentMethod === 'razorpay_link' && (
               <div className="payment-details">
                 <div className="payment-gateway-info">
-                  <p style={{ marginBottom: '15px' }}>Pay securely using Razorpay. Click &quot;Pay via Razorpay&quot; to proceed.</p>
+                  <p style={{ marginBottom: '15px' }}>Send a payment link (rzp.io) to the customer&apos;s phone and email. They can pay on their device.</p>
                 </div>
               </div>
             )}
