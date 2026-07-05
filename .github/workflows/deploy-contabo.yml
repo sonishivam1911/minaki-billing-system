@@ -1,0 +1,99 @@
+name: Deploy Billing Frontend to Contabo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-contabo-billing-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      CONTABO_SSH_USER: ${{ secrets.CONTABO_SSH_USER }}
+      CONTABO_REMOTE_DIR: ${{ secrets.CONTABO_REMOTE_DIR }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deploy secrets
+        run: |
+          test -n "${{ secrets.CONTABO_SSH_PRIVATE_KEY }}" || {
+            echo "Missing secret: CONTABO_SSH_PRIVATE_KEY"
+            exit 1
+          }
+          test -n "${{ secrets.CONTABO_SERVER_IP }}" || {
+            echo "Missing secret: CONTABO_SERVER_IP"
+            exit 1
+          }
+          test -n "${{ secrets.VITE_API_URL }}" || {
+            echo "Missing secret: VITE_API_URL"
+            exit 1
+          }
+          test -n "${{ secrets.VITE_FIREBASE_API_KEY }}" || {
+            echo "Missing secret: VITE_FIREBASE_API_KEY"
+            exit 1
+          }
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.CONTABO_SSH_PRIVATE_KEY }}" > ~/.ssh/contabo_deploy
+          chmod 600 ~/.ssh/contabo_deploy
+          ssh-keyscan -H "${{ secrets.CONTABO_SERVER_IP }}" >> ~/.ssh/known_hosts
+
+      - name: Write production env for Vite build
+        run: |
+          cat > .env.production <<EOF
+          VITE_API_URL=${{ secrets.VITE_API_URL }}
+          VITE_AGENT_API_URL=${{ secrets.VITE_AGENT_API_URL }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          EOF
+
+      - name: Rsync source to VPS
+        run: |
+          SSH_USER="${CONTABO_SSH_USER:-root}"
+          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            -e "ssh -i ~/.ssh/contabo_deploy" \
+            ./ \
+            "${SSH_USER}@${{ secrets.CONTABO_SERVER_IP }}:${REMOTE_DIR}/sources/minaki-billing-src/"
+
+      - name: Build on server and restart billing_frontend
+        run: |
+          SSH_USER="${CONTABO_SSH_USER:-root}"
+          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
+          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${{ secrets.CONTABO_SERVER_IP }}" \
+            "cd '${REMOTE_DIR}' && chmod +x scripts/build-minaki-billing-on-server.sh && ./scripts/build-minaki-billing-on-server.sh"
+          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${{ secrets.CONTABO_SERVER_IP }}" \
+            "cd '${REMOTE_DIR}' && docker compose up -d billing_frontend"
+
+      - name: Health check
+        run: |
+          if [ -z "${{ secrets.CONTABO_BILLING_HEALTH_URL }}" ]; then
+            echo "CONTABO_BILLING_HEALTH_URL not set — skip health check"
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "${{ secrets.CONTABO_BILLING_HEALTH_URL }}"; then
+              echo "Health check OK"
+              exit 0
+            fi
+            echo "Waiting for billing app... (${attempt}/5)"
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1
