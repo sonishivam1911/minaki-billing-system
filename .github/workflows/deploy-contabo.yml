@@ -1,0 +1,117 @@
+name: Deploy Billing Frontend to Contabo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-contabo-billing-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate GitHub repository variables
+        run: |
+          test -n "${{ vars.INFISICAL_IDENTITY_ID }}" || {
+            echo "Missing repo variable: INFISICAL_IDENTITY_ID"
+            echo "Run homelab-contabo/scripts/setup-github-actions-infisical.sh"
+            exit 1
+          }
+          test -n "${{ vars.INFISICAL_PROJECT_SLUG }}" || {
+            echo "Missing repo variable: INFISICAL_PROJECT_SLUG"
+            exit 1
+          }
+
+      - name: Fetch deploy secrets from Infisical
+        uses: Infisical/secrets-action@v1.0.9
+        with:
+          method: oidc
+          domain: https://secrets.minaki.me
+          identity-id: ${{ vars.INFISICAL_IDENTITY_ID }}
+          project-slug: ${{ vars.INFISICAL_PROJECT_SLUG }}
+          oidc-audience: https://github.com/sonishivam1911
+          env-slug: prod
+          secret-path: /
+          export-type: env
+
+      - name: Write production env for Vite build
+        run: |
+          : > .env.production
+          env | grep '^VITE_' | while IFS= read -r line; do
+            printf '%s\n' "$line" >> .env.production
+          done
+          test -s .env.production || {
+            echo "No VITE_* secrets found in Infisical prod /"
+            exit 1
+          }
+
+      - name: Validate Infisical configuration
+        run: |
+          test -n "${CONTABO_SSH_PRIVATE_KEY:-}" || {
+            echo "Missing Infisical secret: CONTABO_SSH_PRIVATE_KEY at prod /"
+            exit 1
+          }
+          test -n "${CONTABO_SERVER_IP:-}" || {
+            echo "Missing Infisical secret: CONTABO_SERVER_IP at prod /"
+            exit 1
+          }
+          test -f .env.production || {
+            echo "Missing .env.production from Infisical prod /"
+            exit 1
+          }
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CONTABO_SSH_PRIVATE_KEY" > ~/.ssh/contabo_deploy
+          chmod 600 ~/.ssh/contabo_deploy
+          ssh-keyscan -H "$CONTABO_SERVER_IP" >> ~/.ssh/known_hosts
+
+      - name: Rsync source to VPS
+        run: |
+          SSH_USER="${CONTABO_SSH_USER:-root}"
+          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            -e "ssh -i ~/.ssh/contabo_deploy" \
+            ./ \
+            "${SSH_USER}@${CONTABO_SERVER_IP}:${REMOTE_DIR}/sources/minaki-billing-src/"
+
+      - name: Build on server and restart billing_frontend
+        run: |
+          SSH_USER="${CONTABO_SSH_USER:-root}"
+          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
+          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${CONTABO_SERVER_IP}" \
+            "cd '${REMOTE_DIR}' && chmod +x scripts/build-minaki-billing-on-server.sh && ./scripts/build-minaki-billing-on-server.sh"
+          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${CONTABO_SERVER_IP}" \
+            "cd '${REMOTE_DIR}' && docker compose up -d billing_frontend"
+
+      - name: Health check
+        run: |
+          if [ -z "${CONTABO_BILLING_HEALTH_URL:-}" ]; then
+            echo "CONTABO_BILLING_HEALTH_URL not set — skip health check"
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "$CONTABO_BILLING_HEALTH_URL"; then
+              echo "Health check OK"
+              exit 0
+            fi
+            echo "Waiting for billing app... (${attempt}/5)"
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1
