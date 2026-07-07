@@ -21,6 +21,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate GitHub repository variables
+        run: |
+          test -n "${{ vars.INFISICAL_IDENTITY_ID }}" || {
+            echo "Missing repo variable: INFISICAL_IDENTITY_ID"
+            echo "Run homelab-contabo/scripts/setup-github-actions-infisical.sh"
+            exit 1
+          }
+          test -n "${{ vars.INFISICAL_PROJECT_SLUG }}" || {
+            echo "Missing repo variable: INFISICAL_PROJECT_SLUG"
+            exit 1
+          }
+
       - name: Fetch deploy secrets from Infisical
         uses: Infisical/secrets-action@v1.0.9
         with:
@@ -28,6 +40,7 @@ jobs:
           domain: https://secrets.minaki.me
           identity-id: ${{ vars.INFISICAL_IDENTITY_ID }}
           project-slug: ${{ vars.INFISICAL_PROJECT_SLUG }}
+          oidc-audience: https://github.com/sonishivam1911
           env-slug: prod
           secret-path: /
           export-type: env
@@ -45,14 +58,6 @@ jobs:
 
       - name: Validate Infisical configuration
         run: |
-          test -n "${{ vars.INFISICAL_IDENTITY_ID }}" || {
-            echo "Missing repo variable: INFISICAL_IDENTITY_ID"
-            exit 1
-          }
-          test -n "${{ vars.INFISICAL_PROJECT_SLUG }}" || {
-            echo "Missing repo variable: INFISICAL_PROJECT_SLUG"
-            exit 1
-          }
           test -n "${CONTABO_SSH_PRIVATE_KEY:-}" || {
             echo "Missing Infisical secret: CONTABO_SSH_PRIVATE_KEY at prod /"
             exit 1
