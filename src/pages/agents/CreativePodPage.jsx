@@ -3,6 +3,7 @@ import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { FieldLabel } from '../../components/agents/FieldInfoTip';
 import { LoadingSpinner, ErrorMessage } from '../../components';
+import { useAuth } from '../../context/AuthContext';
 import {
   collectHttpImageUrls,
   normalizeCreativePodRunForDisplay,
@@ -44,6 +45,10 @@ const FIELD_HELP = {
 };
 
 export const CreativePodPage = () => {
+  const { userInfo } = useAuth();
+  const canViewAllRuns = ['admin', 'manager'].includes(
+    String(userInfo?.role || '').toLowerCase()
+  );
   const [goals, setGoals] = useState([]);
   const [platforms, setPlatforms] = useState([]);
   const [schemaReady, setSchemaReady] = useState(true);
@@ -65,6 +70,8 @@ export const CreativePodPage = () => {
   const [recentRuns, setRecentRuns] = useState([]);
   const [recentRunsTotal, setRecentRunsTotal] = useState(0);
   const [recentRunsLoading, setRecentRunsLoading] = useState(false);
+  const [historyScope, setHistoryScope] = useState('mine');
+  const [historyViewer, setHistoryViewer] = useState(null);
 
   const loadCatalog = async () => {
     try {
@@ -83,12 +90,20 @@ export const CreativePodPage = () => {
     }
   };
 
-  const loadRecentRuns = async () => {
+  const loadRecentRuns = async (scopeOverride) => {
     setRecentRunsLoading(true);
     try {
-      const response = await agentsApi.listCreativePodRuns({ limit: RECENT_RUNS_LIMIT });
+      const scope = scopeOverride || historyScope || 'mine';
+      const response = await agentsApi.listCreativePodRuns({
+        limit: RECENT_RUNS_LIMIT,
+        scope: canViewAllRuns ? scope : 'mine',
+      });
       setRecentRuns(response.items || []);
       setRecentRunsTotal(response.total || 0);
+      setHistoryViewer(response.viewer || null);
+      if (response.scope) {
+        setHistoryScope(response.scope);
+      }
       if (response.schema_ready === false) {
         setSchemaReady(false);
       }
@@ -101,8 +116,8 @@ export const CreativePodPage = () => {
 
   useEffect(() => {
     loadCatalog();
-    loadRecentRuns();
-  }, []);
+    loadRecentRuns(canViewAllRuns ? historyScope : 'mine');
+  }, [canViewAllRuns]);
 
   const createCreativePodRun = async () => {
     if (!briefText.trim()) {
@@ -485,12 +500,38 @@ export const CreativePodPage = () => {
       )}
 
       <section className="agents-card">
-        <h2 className="agents-section-title">Recent runs</h2>
+        <h2 className="agents-section-title">
+          {historyScope === 'all' ? 'All banner runs' : 'Your banner history'}
+        </h2>
+        <p className="agents-collection-meta">
+          {historyViewer?.email
+            ? `Signed in as ${historyViewer.email}`
+            : userInfo?.email
+              ? `Signed in as ${userInfo.email}`
+              : 'Sign in so new runs are saved to your history.'}
+          {canViewAllRuns ? ' · Admin/manager can switch scope.' : ''}
+        </p>
         <div className="agents-actions-row compact">
+          {canViewAllRuns && (
+            <label className="agents-history-scope">
+              Scope
+              <select
+                value={historyScope}
+                onChange={(event) => {
+                  const nextScope = event.target.value;
+                  setHistoryScope(nextScope);
+                  loadRecentRuns(nextScope);
+                }}
+              >
+                <option value="mine">My runs</option>
+                <option value="all">All users</option>
+              </select>
+            </label>
+          )}
           <button
             type="button"
             className="agents-btn secondary"
-            onClick={loadRecentRuns}
+            onClick={() => loadRecentRuns()}
             disabled={recentRunsLoading}
           >
             Refresh
@@ -500,11 +541,15 @@ export const CreativePodPage = () => {
           <LoadingSpinner message="Loading runs…" />
         ) : (
           <div className="agents-table-wrap">
-            <p className="agents-preview-skus">{recentRunsTotal} total runs</p>
+            <p className="agents-preview-skus">
+              {recentRunsTotal} run{recentRunsTotal === 1 ? '' : 's'}
+              {historyScope === 'mine' ? ' in your history' : ''}
+            </p>
             <table className="agents-table creative-pod-runs-table">
               <thead>
                 <tr>
                   <th>ID</th>
+                  {historyScope === 'all' && <th>User</th>}
                   <th>Goal</th>
                   <th>Status</th>
                   <th>Brief</th>
@@ -512,23 +557,34 @@ export const CreativePodPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {recentRuns.map((runRow) => (
-                  <tr key={runRow.id}>
-                    <td data-label="ID">{runRow.id}</td>
-                    <td data-label="Goal">{runRow.goal_type || '—'}</td>
-                    <td data-label="Status">{runRow.status}</td>
-                    <td data-label="Brief">{(runRow.brief_text || '').slice(0, 60) || '—'}</td>
-                    <td data-label="">
-                      <button
-                        type="button"
-                        className="agents-link-btn"
-                        onClick={() => viewRunDetails(runRow.id)}
-                      >
-                        View
-                      </button>
+                {recentRuns.length === 0 ? (
+                  <tr>
+                    <td colSpan={historyScope === 'all' ? 6 : 5}>
+                      No runs yet. Generate a banner to start your history.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentRuns.map((runRow) => (
+                    <tr key={runRow.id}>
+                      <td data-label="ID">{runRow.id}</td>
+                      {historyScope === 'all' && (
+                        <td data-label="User">{runRow.created_by_email || '—'}</td>
+                      )}
+                      <td data-label="Goal">{runRow.goal_type || '—'}</td>
+                      <td data-label="Status">{runRow.status}</td>
+                      <td data-label="Brief">{(runRow.brief_text || '').slice(0, 60) || '—'}</td>
+                      <td data-label="">
+                        <button
+                          type="button"
+                          className="agents-link-btn"
+                          onClick={() => viewRunDetails(runRow.id)}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
