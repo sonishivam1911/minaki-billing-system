@@ -26,6 +26,39 @@ export function parseCommaSeparatedEmails(value) {
     .filter(Boolean);
 }
 
+/** Prefer structured variants[]; fall back to flattening top-level banner_urls. */
+export function normalizeCreativePodVariants(bannerUrls) {
+  const payload = bannerUrls || {};
+  const structured = Array.isArray(payload.variants) ? payload.variants : [];
+  if (structured.length) {
+    return structured.map((variantRow, index) => {
+      const imageUrls = collectHttpImageUrls(variantRow.banner_urls || variantRow);
+      return {
+        variantIndex: variantRow.variant_index ?? index + 1,
+        diversityKey: variantRow.diversity_key || '',
+        diversityLabel: variantRow.diversity_label || `Variant ${index + 1}`,
+        imageUrls,
+        ocr: variantRow.ocr || null,
+        models: variantRow.models || {},
+      };
+    });
+  }
+  const flatUrls = collectHttpImageUrls(payload);
+  if (!flatUrls.length) {
+    return [];
+  }
+  return [
+    {
+      variantIndex: 1,
+      diversityKey: '',
+      diversityLabel: 'Variant 1',
+      imageUrls: flatUrls,
+      ocr: null,
+      models: {},
+    },
+  ];
+}
+
 /** Normalize create/get/regenerate API shapes into one UI-friendly object. */
 export function normalizeCreativePodRunForDisplay(apiRun) {
   if (!apiRun) {
@@ -34,6 +67,8 @@ export function normalizeCreativePodRunForDisplay(apiRun) {
   const intake = apiRun.intake || apiRun.intake_json || {};
   const copyPack = apiRun.copy_pack || apiRun.copy_pack_json || {};
   const inImage = copyPack.in_image || copyPack.locked_in_image || {};
+  const bannerUrls = apiRun.banner_urls || apiRun.banner_urls_json;
+  const variants = normalizeCreativePodVariants(bannerUrls);
   return {
     runId: apiRun.run_id ?? apiRun.id,
     success: apiRun.success !== false && apiRun.status !== 'failed',
@@ -45,7 +80,7 @@ export function normalizeCreativePodRunForDisplay(apiRun) {
     platformLabel: intake.platform_label,
     brandLane: intake.brand_lane,
     textRenderMode: intake.text_render_mode,
-    variantCount: intake.variant_count,
+    variantCount: intake.variant_count || variants.length || 1,
     intake,
     contentBrief: apiRun.content_brief || apiRun.content_brief_json,
     copyPack,
@@ -53,7 +88,9 @@ export function normalizeCreativePodRunForDisplay(apiRun) {
     inImageSubtitle: inImage.subtitle || inImage.Subtitle || '',
     inImageCta: inImage.cta || inImage.CTA || '',
     visualSpec: apiRun.visual_spec || apiRun.visual_spec_json,
-    bannerUrls: apiRun.banner_urls || apiRun.banner_urls_json,
+    bannerUrls,
+    variants,
+    ocrQa: Array.isArray(bannerUrls?.ocr_qa) ? bannerUrls.ocr_qa : [],
     modelsUsed: apiRun.models_used,
     emailNotification: apiRun.email_notification || apiRun.email_result_json,
     decisionLogs: apiRun.decision_logs || apiRun.decision_logs_json,

@@ -23,7 +23,7 @@ export const CreativePodPage = () => {
   const [goalType, setGoalType] = useState('');
   const [goalDetail, setGoalDetail] = useState('');
   const [platform, setPlatform] = useState('website');
-  const [variantCount, setVariantCount] = useState(1);
+  const [variantCount, setVariantCount] = useState(2);
   const [textRenderMode, setTextRenderMode] = useState('burned_in');
   const [customWidth, setCustomWidth] = useState('');
   const [customHeight, setCustomHeight] = useState('');
@@ -143,6 +143,7 @@ export const CreativePodPage = () => {
   };
 
   const bannerImageUrls = collectHttpImageUrls(activeRun?.bannerUrls);
+  const variantCards = activeRun?.variants || [];
   const selectedPlatform = platforms.find((row) => row.platform === platform);
 
   return (
@@ -344,20 +345,62 @@ export const CreativePodPage = () => {
             </div>
           )}
 
-          {bannerImageUrls.length > 0 && (
-            <div className="agents-banner-grid">
-              {bannerImageUrls.map((imageUrl) => (
-                <a
-                  key={imageUrl}
-                  href={imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="agents-banner-cell"
-                >
-                  <img src={imageUrl} alt="Creative pod banner" loading="lazy" />
-                </a>
-              ))}
-            </div>
+          {variantCards.length > 0 ? (
+            variantCards.map((variantCard) => (
+              <div key={`variant-${variantCard.variantIndex}`} className="agents-copy-block">
+                <h3>
+                  Variant {variantCard.variantIndex}
+                  {variantCard.diversityLabel ? ` — ${variantCard.diversityLabel}` : ''}
+                </h3>
+                {variantCard.ocr && (
+                  <p className="agents-validation">
+                    Text QA:{' '}
+                    {variantCard.ocr.pass
+                      ? 'pass'
+                      : `needs review (${(variantCard.ocr.reasons || []).join('; ') || 'failed'})`}
+                    {variantCard.ocr.attempt ? ` · attempt ${variantCard.ocr.attempt}` : ''}
+                    {variantCard.ocr.image_model ? ` · ${variantCard.ocr.image_model}` : ''}
+                  </p>
+                )}
+                {variantCard.imageUrls.length > 0 ? (
+                  <div className="agents-banner-grid">
+                    {variantCard.imageUrls.map((imageUrl) => (
+                      <a
+                        key={imageUrl}
+                        href={imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="agents-banner-cell"
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Creative pod variant ${variantCard.variantIndex}`}
+                          loading="lazy"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="agents-muted">No images for this variant.</p>
+                )}
+              </div>
+            ))
+          ) : (
+            bannerImageUrls.length > 0 && (
+              <div className="agents-banner-grid">
+                {bannerImageUrls.map((imageUrl) => (
+                  <a
+                    key={imageUrl}
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="agents-banner-cell"
+                  >
+                    <img src={imageUrl} alt="Creative pod banner" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            )
           )}
 
           {activeRun.emailNotification && (
