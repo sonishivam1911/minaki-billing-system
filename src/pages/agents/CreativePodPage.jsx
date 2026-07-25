@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { FieldLabel } from '../../components/agents/FieldInfoTip';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import {
   collectHttpImageUrls,
@@ -14,6 +15,33 @@ const TEXT_RENDER_MODE_OPTIONS = [
   { value: 'burned_in', label: 'Burned-in text (default)' },
   { value: 'overlay', label: 'Overlay (legacy)' },
 ];
+
+const FIELD_HELP = {
+  brief:
+    'Describe the campaign in plain language: occasion, product, audience, and where traffic should go. This drives strategy, copy, and casting.',
+  goal:
+    'Marketing outcome for this banner (e.g. collection traffic, awareness). Leave on Auto to infer from the brief, or pick a funnel goal explicitly.',
+  goalDetail:
+    'Optional nuance the strategist should not miss — promo dates, avoid-words, audience notes, or channel constraints.',
+  platform:
+    'Output size preset (website, Meta, WhatsApp, etc.). Sets default width/height and aspect unless you override below.',
+  variantCount:
+    'How many distinct image looks to generate. Each variant gets a different pose/camera/wardrobe delta and casting look from the lane pool.',
+  textRenderMode:
+    'Burned-in paints Title/Subtitle/CTA into the image (preferred). Overlay keeps text separate for legacy HTML overlays.',
+  customWidth:
+    'Optional pixel width. Leave blank to use the platform preset. Pair with height when you need a custom crop.',
+  customHeight:
+    'Optional pixel height. Leave blank to use the platform preset. Pair with width when you need a custom crop.',
+  productImage:
+    'Required SKU photo. Ref 1 is product ground truth — metal, stones, and silhouette must match this image in every banner.',
+  lifestyleImages:
+    'Optional mood photos (model, setting, lighting). Used for vibe only — they do not replace the product SKU.',
+  notifyEmails:
+    'Comma-separated addresses that get a completion email with banner links when the run finishes (or fails).',
+  regenerateHint:
+    'Tell the agent what to fix on regenerate — e.g. darker background, shorter headline, sharper product, different pose.',
+};
 
 export const CreativePodPage = () => {
   const [goals, setGoals] = useState([]);
@@ -147,7 +175,7 @@ export const CreativePodPage = () => {
   const selectedPlatform = platforms.find((row) => row.platform === platform);
 
   return (
-    <div className="screen-container agents-page">
+    <div className="screen-container agents-page creative-pod-page">
       <div className="screen-header">
         <div>
           <h1 className="screen-title">Banner Generation</h1>
@@ -176,7 +204,7 @@ export const CreativePodPage = () => {
         <h2 className="agents-section-title">New banner run</h2>
         <div className="agents-form-stack">
           <label>
-            Brief
+            <FieldLabel label="Brief" info={FIELD_HELP.brief} />
             <textarea
               value={briefText}
               onChange={(event) => setBriefText(event.target.value)}
@@ -186,7 +214,7 @@ export const CreativePodPage = () => {
           </label>
 
           <label>
-            Goal
+            <FieldLabel label="Goal" info={FIELD_HELP.goal} />
             <select value={goalType} onChange={(event) => setGoalType(event.target.value)}>
               <option value="">Auto-map from brief</option>
               {goals.map((goal) => (
@@ -199,7 +227,7 @@ export const CreativePodPage = () => {
           </label>
 
           <label>
-            Goal detail (optional)
+            <FieldLabel label="Goal detail (optional)" info={FIELD_HELP.goalDetail} />
             <input
               value={goalDetail}
               onChange={(event) => setGoalDetail(event.target.value)}
@@ -208,7 +236,7 @@ export const CreativePodPage = () => {
           </label>
 
           <label>
-            Platform
+            <FieldLabel label="Platform" info={FIELD_HELP.platform} />
             <select value={platform} onChange={(event) => setPlatform(event.target.value)}>
               {platforms.map((row) => (
                 <option key={row.platform} value={row.platform}>
@@ -223,9 +251,9 @@ export const CreativePodPage = () => {
             )}
           </label>
 
-          <div className="agents-check-group">
+          <div className="agents-form-row">
             <label>
-              Image variants
+              <FieldLabel label="Image variants" info={FIELD_HELP.variantCount} />
               <select
                 value={variantCount}
                 onChange={(event) => setVariantCount(Number(event.target.value))}
@@ -238,7 +266,7 @@ export const CreativePodPage = () => {
               </select>
             </label>
             <label>
-              Text render mode
+              <FieldLabel label="Text render mode" info={FIELD_HELP.textRenderMode} />
               <select
                 value={textRenderMode}
                 onChange={(event) => setTextRenderMode(event.target.value)}
@@ -252,54 +280,70 @@ export const CreativePodPage = () => {
             </label>
           </div>
 
-          <div className="agents-check-group">
+          <div className="agents-form-row">
             <label>
-              Custom width (px, optional)
+              <FieldLabel label="Custom width (px)" info={FIELD_HELP.customWidth} />
               <input
                 type="number"
                 min={1}
+                inputMode="numeric"
                 value={customWidth}
                 onChange={(event) => setCustomWidth(event.target.value)}
-                placeholder="overrides platform"
+                placeholder="optional — platform default"
               />
             </label>
             <label>
-              Custom height (px, optional)
+              <FieldLabel label="Custom height (px)" info={FIELD_HELP.customHeight} />
               <input
                 type="number"
                 min={1}
+                inputMode="numeric"
                 value={customHeight}
                 onChange={(event) => setCustomHeight(event.target.value)}
-                placeholder="overrides platform"
+                placeholder="optional — platform default"
               />
             </label>
           </div>
 
           <label>
-            Product image (required)
+            <FieldLabel label="Product image (required)" info={FIELD_HELP.productImage} />
             <input
               type="file"
               accept="image/*"
               onChange={(event) => setProductImageFile(event.target.files?.[0] || null)}
             />
+            {productImageFile && (
+              <span className="agents-collection-meta">{productImageFile.name}</span>
+            )}
           </label>
 
           <label>
-            Lifestyle reference images (optional)
+            <FieldLabel
+              label="Lifestyle reference images (optional)"
+              info={FIELD_HELP.lifestyleImages}
+            />
             <input
               type="file"
               accept="image/*"
               multiple
               onChange={(event) => setLifestyleImageFiles(Array.from(event.target.files || []))}
             />
+            {lifestyleImageFiles.length > 0 && (
+              <span className="agents-collection-meta">
+                {lifestyleImageFiles.length} file{lifestyleImageFiles.length === 1 ? '' : 's'}{' '}
+                selected
+              </span>
+            )}
           </label>
 
           <label>
-            Notify emails (comma-separated)
+            <FieldLabel label="Notify emails" info={FIELD_HELP.notifyEmails} />
             <input
               value={notifyEmails}
               onChange={(event) => setNotifyEmails(event.target.value)}
               placeholder="you@minaki.com, team@minaki.com"
+              inputMode="email"
+              autoComplete="email"
             />
           </label>
 
@@ -352,6 +396,9 @@ export const CreativePodPage = () => {
                   Variant {variantCard.variantIndex}
                   {variantCard.diversityLabel ? ` — ${variantCard.diversityLabel}` : ''}
                 </h3>
+                {variantCard.castingKey && (
+                  <p className="agents-collection-meta">Casting: {variantCard.castingKey}</p>
+                )}
                 {variantCard.ocr && (
                   <p className="agents-validation">
                     Text QA:{' '}
@@ -414,23 +461,25 @@ export const CreativePodPage = () => {
             </p>
           )}
 
-          <label>
-            Regenerate hint (optional feedback)
-            <input
-              value={regenerateHint}
-              onChange={(event) => setRegenerateHint(event.target.value)}
-              placeholder="e.g. darker background, sharper product, shorter headline"
-            />
-          </label>
-          <div className="agents-actions-row compact">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={regenerateBanners}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Regenerating…' : 'Regenerate banners'}
-            </button>
+          <div className="agents-form-stack agents-regen-stack">
+            <label>
+              <FieldLabel label="Regenerate hint" info={FIELD_HELP.regenerateHint} />
+              <input
+                value={regenerateHint}
+                onChange={(event) => setRegenerateHint(event.target.value)}
+                placeholder="e.g. darker background, sharper product, shorter headline"
+              />
+            </label>
+            <div className="agents-actions-row compact">
+              <button
+                type="button"
+                className="agents-btn primary"
+                onClick={regenerateBanners}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Regenerating…' : 'Regenerate banners'}
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -452,7 +501,7 @@ export const CreativePodPage = () => {
         ) : (
           <div className="agents-table-wrap">
             <p className="agents-preview-skus">{recentRunsTotal} total runs</p>
-            <table className="agents-table">
+            <table className="agents-table creative-pod-runs-table">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -465,11 +514,11 @@ export const CreativePodPage = () => {
               <tbody>
                 {recentRuns.map((runRow) => (
                   <tr key={runRow.id}>
-                    <td>{runRow.id}</td>
-                    <td>{runRow.goal_type || '—'}</td>
-                    <td>{runRow.status}</td>
-                    <td>{(runRow.brief_text || '').slice(0, 60) || '—'}</td>
-                    <td>
+                    <td data-label="ID">{runRow.id}</td>
+                    <td data-label="Goal">{runRow.goal_type || '—'}</td>
+                    <td data-label="Status">{runRow.status}</td>
+                    <td data-label="Brief">{(runRow.brief_text || '').slice(0, 60) || '—'}</td>
+                    <td data-label="">
                       <button
                         type="button"
                         className="agents-link-btn"
