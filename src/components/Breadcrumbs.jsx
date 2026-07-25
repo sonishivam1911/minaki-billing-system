@@ -137,6 +137,11 @@ export const Breadcrumbs = () => {
       title: 'Collection Pages',
       icon: LayoutDashboard,
       parent: null
+    },
+    '/agents/creative-pod': {
+      title: 'Banner Generation',
+      icon: Sparkles,
+      parent: null
     }
   };
 

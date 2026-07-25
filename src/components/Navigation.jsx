@@ -191,6 +191,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/keywords', label: 'Keywords', icon: Tags },
     { path: '/agents/naming-teams', label: 'Naming Teams', icon: Sparkles },
     { path: '/agents/collections', label: 'Collections', icon: LayoutDashboard },
+    { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
   ];
 
   return (
