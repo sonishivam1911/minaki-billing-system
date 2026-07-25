@@ -55,7 +55,8 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   const isHrActive = location.pathname.startsWith('/hr');
   const isAgentsActive = location.pathname.startsWith('/agents');
   const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
-  const [agentsNavOpen, setAgentsNavOpen] = useState(isAgentsActive);
+  // Keep Agents expanded by default so lower-nav items stay discoverable once the sidebar scrolls.
+  const [agentsNavOpen, setAgentsNavOpen] = useState(true);
   const hasItemsInCart = cartItemCount > 0;
 
   React.useEffect(() => {
@@ -191,6 +192,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/keywords', label: 'Keywords', icon: Tags },
     { path: '/agents/naming-teams', label: 'Naming Teams', icon: Sparkles },
     { path: '/agents/collections', label: 'Collections', icon: LayoutDashboard },
+    { path: '/agents/campaign-creative', label: 'Campaign Creative', icon: Sparkles },
     { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
   ];
 
@@ -358,13 +360,29 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
             width: { xs: 280, sm: 260 },
             boxSizing: 'border-box',
             mt: { xs: '60px', sm: '70px' },
+            // Cap height under the AppBar so the inner list can scroll to Agents / HR.
+            height: { xs: 'calc(100% - 60px)', sm: 'calc(100% - 70px)' },
+            maxHeight: { xs: 'calc(100dvh - 60px)', sm: 'calc(100dvh - 70px)' },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             borderRight: '2px solid #8b6f47',
             backgroundColor: '#faf8f5',
             boxShadow: '4px 0 20px rgba(139, 111, 71, 0.08)',
           },
         }}
       >
-        <Box sx={{ overflow: 'auto', pt: 2, pb: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            pt: 2,
+            pb: 3,
+          }}
+        >
           <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
             Main Menu
           </Typography>
