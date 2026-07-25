@@ -224,6 +224,59 @@ export const agentsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+
+  listCreativePodGoals: () => agentFetch('/api/agent/creative-pod/goals'),
+
+  listCreativePodPlatforms: () => agentFetch('/api/agent/creative-pod/platforms'),
+
+  listCreativePodRuns: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') q.set(k, v);
+    });
+    return agentFetch(`/api/agent/creative-pod/runs?${q}`);
+  },
+
+  getCreativePodRun: (runId) => agentFetch(`/api/agent/creative-pod/runs/${runId}`),
+
+  createCreativePodRun: async ({
+    briefText,
+    productImageFile,
+    lifestyleImageFiles = [],
+    goalType,
+    goalDetail,
+    platform,
+    width,
+    height,
+    variantCount = 1,
+    textRenderMode = 'burned_in',
+    notifyEmails = [],
+  }) => {
+    const form = new FormData();
+    form.append('brief_text', briefText);
+    form.append('product_image', productImageFile);
+    form.append('variant_count', String(variantCount));
+    form.append('text_render_mode', textRenderMode || 'burned_in');
+    if (goalType) form.append('goal_type', goalType);
+    if (goalDetail) form.append('goal_detail', goalDetail);
+    if (platform) form.append('platform', platform);
+    if (width) form.append('width', String(width));
+    if (height) form.append('height', String(height));
+    if (notifyEmails?.length) {
+      form.append('notify_emails', notifyEmails.join(','));
+    }
+    (lifestyleImageFiles || []).forEach((file) => {
+      form.append('lifestyle_images', file);
+    });
+    return agentFetch('/api/agent/creative-pod/runs', { method: 'POST', body: form });
+  },
+
+  regenerateCreativePodRun: (runId, body = {}) =>
+    agentFetch(`/api/agent/creative-pod/runs/${runId}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 };
 
 export default agentsApi;

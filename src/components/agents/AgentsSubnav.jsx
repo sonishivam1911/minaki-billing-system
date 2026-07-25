@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/agents/naming-teams', label: 'Naming Teams' },
   { to: '/agents/collections', label: 'Collections' },
   { to: '/agents/campaign-creative', label: 'Campaign Creative' },
+  { to: '/agents/creative-pod', label: 'Banner Generation' },
 ];
 
 export const AgentsSubnav = () => {
