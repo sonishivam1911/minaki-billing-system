@@ -15,8 +15,29 @@ function getAgentApiBase() {
 
 const AGENT_API_BASE = getAgentApiBase();
 
+async function getAgentAuthToken() {
+  try {
+    const { auth } = await import('../config/firebase');
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    return await currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
 async function agentFetch(path, options = {}) {
-  const response = await fetch(`${AGENT_API_BASE}${path}`, options);
+  const headers = new Headers(options.headers || {});
+  if (!options.skipAuth) {
+    const token = await getAgentAuthToken();
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
+  const response = await fetch(`${AGENT_API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -231,8 +252,8 @@ export const agentsApi = {
 
   listCreativePodRuns: (params = {}) => {
     const q = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
-      if (v != null && v !== '') q.set(k, v);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== '') q.set(key, value);
     });
     return agentFetch(`/api/agent/creative-pod/runs?${q}`);
   },

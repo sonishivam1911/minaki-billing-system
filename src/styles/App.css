@@ -9164,6 +9164,21 @@
   margin-top: 1rem;
 }
 
+.agents-history-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.agents-history-scope select {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d4c4a8;
+  border-radius: 8px;
+  font-family: inherit;
+  background: #fff;
+}
+
 .creative-pod-page .agents-actions-row .agents-btn {
   min-height: 2.75rem;
 }
