@@ -14,6 +14,7 @@ import { StockMovementReportPage } from './pages/reports/StockMovementReportPage
 import { FinancialReportPage } from './pages/reports/FinancialReportPage';
 import { LocationReportPage } from './pages/reports/LocationReportPage';
 import { ShopifyCommerceReportPage } from './pages/reports/ShopifyCommerceReportPage';
+import { MetaMarketingReportPage } from './pages/reports/MetaMarketingReportPage';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -320,6 +321,14 @@ function App() {
                       <ShopifyCommerceReportPage />
                     </ProtectedRoute>
                   } 
+                />
+                <Route
+                  path="/reports/meta-marketing"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <MetaMarketingReportPage />
+                    </ProtectedRoute>
+                  }
                 />
                 
                 {/* HR Management (recent UI: Dashboard + Weekly Schedule) */}

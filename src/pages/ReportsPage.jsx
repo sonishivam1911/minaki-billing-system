@@ -11,6 +11,7 @@ import {
   DollarSign,
   MapPin,
   ShoppingCart,
+  Megaphone,
 } from 'lucide-react';
 import {
   Box,
@@ -102,6 +103,15 @@ export const ReportsPage = () => {
       icon: ShoppingCart,
       path: '/reports/shopify-commerce',
       color: '#5e8b47',
+    },
+    {
+      id: 'meta-marketing',
+      title: 'Meta Marketing Report',
+      description:
+        'Select Meta campaigns, view spend/clicks/ROAS trends by day/week/month, ACTIVE ad sets, and ads',
+      icon: Megaphone,
+      path: '/reports/meta-marketing',
+      color: '#1877f2',
     },
   ];
 

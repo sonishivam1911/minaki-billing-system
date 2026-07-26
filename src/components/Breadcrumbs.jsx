@@ -123,6 +123,11 @@ export const Breadcrumbs = () => {
       icon: TrendingUp,
       parent: '/reports'
     },
+    '/reports/meta-marketing': {
+      title: 'Meta Marketing Report',
+      icon: TrendingUp,
+      parent: '/reports'
+    },
     '/agents/writer': {
       title: 'Product Writer',
       icon: PenLine,
