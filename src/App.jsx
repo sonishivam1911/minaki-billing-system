@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, KeywordsPage, NamingTeamsPage, CollectionPage, CampaignCreativePage, CreativePodPage } from './pages';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, KeywordsPage, NamingTeamsPage, CollectionPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -13,6 +13,7 @@ import { CustomerReportPage } from './pages/reports/CustomerReportPage';
 import { StockMovementReportPage } from './pages/reports/StockMovementReportPage';
 import { FinancialReportPage } from './pages/reports/FinancialReportPage';
 import { LocationReportPage } from './pages/reports/LocationReportPage';
+import { ShopifyCommerceReportPage } from './pages/reports/ShopifyCommerceReportPage';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -312,6 +313,14 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
+                <Route 
+                  path="/reports/shopify-commerce" 
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ShopifyCommerceReportPage />
+                    </ProtectedRoute>
+                  } 
+                />
                 
                 {/* HR Management (recent UI: Dashboard + Weekly Schedule) */}
                 <Route 
@@ -385,6 +394,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <CreativePodPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/marketing"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <MetaMarketingPage />
                     </ProtectedRoute>
                   }
                 />

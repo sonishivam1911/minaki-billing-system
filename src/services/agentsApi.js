@@ -15,8 +15,29 @@ function getAgentApiBase() {
 
 const AGENT_API_BASE = getAgentApiBase();
 
-async function agentFetch(path, options = {}) {
-  const response = await fetch(`${AGENT_API_BASE}${path}`, options);
+async function getAgentAuthToken() {
+  try {
+    const { auth } = await import('../config/firebase');
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    return await currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
+export async function agentFetch(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (!options.skipAuth) {
+    const token = await getAgentAuthToken();
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+  }
+  const response = await fetch(`${AGENT_API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -277,6 +298,32 @@ export const agentsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+
+  listMetaCampaigns: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== '') q.set(key, value);
+    });
+    return agentFetch(`/api/agent/marketing/meta/campaigns?${q}`);
+  },
+
+  createMetaPortfolioRun: (body) =>
+    agentFetch('/api/agent/marketing/meta/portfolio-runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  listMetaPortfolioRuns: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== '') q.set(key, value);
+    });
+    return agentFetch(`/api/agent/marketing/meta/portfolio-runs?${q}`);
+  },
+
+  getMetaPortfolioRun: (runId) =>
+    agentFetch(`/api/agent/marketing/meta/portfolio-runs/${runId}`),
 };
 
 export default agentsApi;

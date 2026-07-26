@@ -132,7 +132,7 @@ export const ProductPerformanceReportPage = () => {
       <ReportFilters
         filters={filters}
         onFiltersChange={handleFilterChange}
-        availableFilters={['date_range', 'category', 'location', 'price_range']}
+        availableFilters={['date_range', 'category', 'sku', 'location', 'price_range']}
       />
 
       {summary && <ReportSummaryCards cards={summaryCards} />}

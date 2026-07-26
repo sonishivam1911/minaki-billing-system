@@ -88,6 +88,14 @@ export const DateRangePicker = ({
       },
     },
     {
+      label: 'Last 90 Days',
+      getRange: () => {
+        const end = new Date();
+        const start = subDays(end, 89);
+        return { start, end };
+      },
+    },
+    {
       label: 'This Month',
       getRange: () => {
         const today = new Date();
