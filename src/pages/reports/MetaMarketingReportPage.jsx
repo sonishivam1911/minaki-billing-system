@@ -309,8 +309,14 @@ export const MetaMarketingReportPage = () => {
         include_shopify: false,
         send_email: false,
       });
-      setActiveRun(normalizeMetaPortfolioRun(response));
-      setFocusCampaignId(ALL_FILTER_VALUE);
+      const normalized = normalizeMetaPortfolioRun(response);
+      setActiveRun(normalized);
+      const loadedCampaigns = normalized.campaigns || [];
+      const firstCampaignId =
+        loadedCampaigns.length === 1
+          ? String(loadedCampaigns[0].campaign_id)
+          : ALL_FILTER_VALUE;
+      setFocusCampaignId(firstCampaignId);
       setFocusAdSetId(ALL_FILTER_VALUE);
       setFocusAdId(ALL_FILTER_VALUE);
     } catch (error) {
@@ -524,6 +530,37 @@ export const MetaMarketingReportPage = () => {
     }
     return flattenPeriodMetricRows(activeRun?.portfolioByPeriod || []);
   }, [selectedFocusAd, selectedFocusAdSet, focusCampaignId, scopedCampaigns, activeRun]);
+
+  const campaignWeeklyComparisonRows = useMemo(() => {
+    if (!runCampaigns.length || focusCampaignId !== ALL_FILTER_VALUE) return [];
+    const periodLabels = new Set();
+    runCampaigns.forEach((campaign) => {
+      (campaign.by_period || []).forEach((bucket) => {
+        if (bucket?.period) periodLabels.add(bucket.period);
+      });
+    });
+    const sortedPeriods = Array.from(periodLabels);
+    return sortedPeriods.map((periodLabel) => {
+      const row = { id: periodLabel, period: periodLabel };
+      runCampaigns.forEach((campaign) => {
+        const key = `c_${campaign.campaign_id}`;
+        const bucket = (campaign.by_period || []).find((entry) => entry.period === periodLabel);
+        const metrics = enrichMetaMetrics(bucket?.metrics || {});
+        row[key] = metrics[chartMetricKey] ?? null;
+      });
+      return row;
+    });
+  }, [runCampaigns, focusCampaignId, chartMetricKey]);
+
+  const campaignWeeklyComparisonLines = useMemo(
+    () =>
+      runCampaigns.map((campaign, campaignIndex) => ({
+        key: `c_${campaign.campaign_id}`,
+        name: campaign.campaign_name || campaign.campaign_id,
+        color: META_CHART_METRICS[campaignIndex % META_CHART_METRICS.length].color,
+      })),
+    [runCampaigns]
+  );
 
   const campaignRows = useMemo(
     () =>
@@ -1014,18 +1051,41 @@ export const MetaMarketingReportPage = () => {
                       xKey: 'period',
                       lines: [{ key: metric.key, name: metric.label, color: metric.color }],
                     }}
-                    title={metric.label}
+                    title={`${metric.label} · ${chartSourceLabel}`}
                   />
                 </Grid>
               ))}
             </Grid>
           )}
 
-          <SectionTitle>By period</SectionTitle>
+          {focusCampaignId === ALL_FILTER_VALUE && campaignWeeklyComparisonRows.length > 0 && (
+            <Box sx={{ mt: 2, mb: 2 }}>
+              <SectionTitle>
+                Campaigns by {activeRun.resolutionLabel || resolution} · {selectedChartMetric.label}
+              </SectionTitle>
+              <Typography variant="body2" sx={{ color: '#6b7280', mb: 1.5 }}>
+                Each line is one campaign’s weekly (or selected resolution) series. Pick a campaign
+                above to drill into that campaign alone, then ad sets and ads.
+              </Typography>
+              <ReportCharts
+                type="line"
+                data={campaignWeeklyComparisonRows}
+                config={{
+                  xKey: 'period',
+                  lines: campaignWeeklyComparisonLines,
+                }}
+                title={`Campaign ${selectedChartMetric.label} by ${activeRun.resolutionLabel || resolution}`}
+              />
+            </Box>
+          )}
+
+          <SectionTitle>
+            By {activeRun.resolutionLabel || resolution} · {chartSourceLabel}
+          </SectionTitle>
           <ReportTable
             columns={PERIOD_COLUMNS}
             data={periodRows}
-            emptyMessage="No period buckets for this run"
+            emptyMessage={`No ${activeRun.resolutionLabel || resolution} buckets for ${chartSourceLabel}`}
             size="small"
             stickyHeader
           />
@@ -1037,6 +1097,13 @@ export const MetaMarketingReportPage = () => {
             emptyMessage="No campaign metrics"
             size="small"
             stickyHeader
+            onRowClick={(row) => {
+              if (row.id) {
+                setFocusCampaignId(String(row.id));
+                setFocusAdSetId(ALL_FILTER_VALUE);
+                setFocusAdId(ALL_FILTER_VALUE);
+              }
+            }}
           />
 
           <SectionTitle>ACTIVE ad sets</SectionTitle>
