@@ -19,6 +19,10 @@ export default defineConfig({
         target: process.env.VITE_API_URL || 'http://localhost:8001',
         changeOrigin: true,
       },
+      '/commerce': {
+        target: process.env.VITE_API_URL || 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
 });

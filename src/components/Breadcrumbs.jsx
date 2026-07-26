@@ -118,6 +118,11 @@ export const Breadcrumbs = () => {
       icon: MapPin,
       parent: '/reports'
     },
+    '/reports/shopify-commerce': {
+      title: 'Shopify Commerce Report',
+      icon: TrendingUp,
+      parent: '/reports'
+    },
     '/agents/writer': {
       title: 'Product Writer',
       icon: PenLine,
@@ -140,6 +145,11 @@ export const Breadcrumbs = () => {
     },
     '/agents/creative-pod': {
       title: 'Banner Generation',
+      icon: Sparkles,
+      parent: null
+    },
+    '/agents/marketing': {
+      title: 'Meta Marketing',
       icon: Sparkles,
       parent: null
     }

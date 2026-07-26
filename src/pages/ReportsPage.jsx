@@ -10,6 +10,7 @@ import {
   Move,
   DollarSign,
   MapPin,
+  ShoppingCart,
 } from 'lucide-react';
 import {
   Box,
@@ -93,6 +94,14 @@ export const ReportsPage = () => {
       icon: MapPin,
       path: '/reports/locations',
       color: '#795548',
+    },
+    {
+      id: 'shopify-commerce',
+      title: 'Shopify Commerce Report',
+      description: 'Storefront funnel, landing pages, product views, cart activity by city, and orders',
+      icon: ShoppingCart,
+      path: '/reports/shopify-commerce',
+      color: '#5e8b47',
     },
   ];
 

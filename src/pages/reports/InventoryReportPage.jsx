@@ -141,6 +141,8 @@ export const InventoryReportPage = () => {
         availableFilters={[
           'date_range',
           'category',
+          'sku',
+          'product_name',
           'location',
           'price_range',
           'diamond_4c',

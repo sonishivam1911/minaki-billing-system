@@ -9263,3 +9263,89 @@
     font-size: 1rem; /* avoid iOS zoom on focus */
   }
 }
+/* Meta Marketing Portfolio */
+.agents-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.agents-summary-card {
+  border: 1px solid #e8e2d6;
+  background: #fbfaf7;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.agents-summary-card span {
+  font-size: 0.78rem;
+  color: #6b6358;
+}
+
+.agents-summary-card strong {
+  font-size: 1.05rem;
+  color: #2c2416;
+}
+
+.agents-chip {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid #d9d1c3;
+  background: #f5f1ea;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.agents-chip.funnel-tof { background: #eef5f8; }
+.agents-chip.funnel-mof { background: #f5f1ea; }
+.agents-chip.funnel-bof { background: #f3ebe3; }
+
+.agents-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.agents-nested-card { margin-top: 0.75rem; }
+
+.agents-accordion-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: transparent;
+  border: 0;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.agents-campaign-picker {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.agents-result-stack h3,
+.agents-result-stack h4 {
+  margin: 1rem 0 0.5rem;
+}
+
+.agents-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.agents-history-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}

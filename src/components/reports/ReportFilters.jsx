@@ -131,10 +131,10 @@ export const ReportFilters = ({
     { value: 'out_of_stock', label: 'Out of Stock' },
   ];
 
-  // Product type options
+  // Product type options — maps to backend data providers (billing_system, zakya)
   const productTypeOptions = [
-    { value: 'real_jewelry', label: 'Real Jewelry' },
-    { value: 'zakya_product', label: 'Akya/Demistified Jewelry' },
+    { value: 'real_jewelry', label: 'Billing System (Real Jewelry)' },
+    { value: 'zakya_product', label: 'Zakya (Demystified Jewelry)' },
   ];
 
   // Group by options
@@ -519,6 +519,43 @@ export const ReportFilters = ({
     );
   };
 
+  const renderProductSearchFilters = () => {
+    const showSku = availableFilters.includes('sku');
+    const showProductName = availableFilters.includes('product_name');
+    if (!showSku && !showProductName) {
+      return null;
+    }
+
+    return (
+      <>
+        {showSku && (
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="SKU"
+              value={filters.sku || ''}
+              onChange={(e) => handleFilterChange('sku', e.target.value)}
+              placeholder="Exact SKU"
+            />
+          </Grid>
+        )}
+        {showProductName && (
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Product Name"
+              value={filters.product_name || ''}
+              onChange={(e) => handleFilterChange('product_name', e.target.value)}
+              placeholder="Partial name match"
+            />
+          </Grid>
+        )}
+      </>
+    );
+  };
+
   const renderProductTypeFilter = () => {
     if (!availableFilters.includes('product_type')) {
       return null;
@@ -527,13 +564,13 @@ export const ReportFilters = ({
     return (
       <Grid item xs={12} sm={6} md={4}>
         <FormControl fullWidth size="small">
-          <InputLabel>Product Type</InputLabel>
+          <InputLabel>Data Source</InputLabel>
           <Select
             value={filters.product_type || ''}
             onChange={(e) => handleFilterChange('product_type', e.target.value)}
-            label="Product Type"
+            label="Data Source"
           >
-            <MenuItem value="">All Types</MenuItem>
+            <MenuItem value="">All Sources</MenuItem>
             {productTypeOptions.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
@@ -698,6 +735,7 @@ export const ReportFilters = ({
               {renderDateRangeFilter()}
               {renderSingleDateFilter()}
               {renderCategoryFilter()}
+              {renderProductSearchFilters()}
               {renderLocationFilter()}
               {renderPriceRangeFilter()}
               {renderDiamondFilters()}
