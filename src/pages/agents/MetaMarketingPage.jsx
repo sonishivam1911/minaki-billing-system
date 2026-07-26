@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Typography } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { LoadingSpinner, ErrorMessage } from '../../components';
+import { ReportTable } from '../../components/reports/ReportTable';
 import { useAuth } from '../../context/AuthContext';
 import { fmtMoney, fmtNum, fmtRoas } from '../../utils/marketingFormat';
 import {
@@ -11,11 +13,54 @@ import {
 } from './portfolioRun';
 
 const RECENT_RUNS_LIMIT = 15;
+const DEFAULT_STATUS_FILTER = 'ACTIVE';
+const ALL_FILTER_VALUE = 'all';
 const RESOLUTION_OPTIONS = [
   { value: 'day', label: 'Daily' },
   { value: 'week', label: 'Weekly' },
   { value: 'month', label: 'Monthly' },
 ];
+
+const campaignStatusValue = (campaign) =>
+  String(campaign?.effective_status || campaign?.status || 'UNKNOWN').trim();
+
+const campaignFunnelValue = (campaign) =>
+  String(campaign?.funnel_mode?.mode || 'MOF').trim().toUpperCase();
+
+const campaignObjectiveValue = (campaign) =>
+  String(campaign?.objective || '—').trim();
+
+const uniqueSortedValues = (values) =>
+  Array.from(new Set(values.filter(Boolean))).sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: 'base' })
+  );
+
+const matchesFilterValue = (actualValue, selectedValue) => {
+  if (!selectedValue || selectedValue === ALL_FILTER_VALUE) return true;
+  return String(actualValue).toLowerCase() === String(selectedValue).toLowerCase();
+};
+
+const SelectAllCheckbox = ({ checked, indeterminate, onChange, ariaLabel }) => {
+  const checkboxRef = useRef(null);
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = Boolean(indeterminate);
+    }
+  }, [indeterminate]);
+
+  return (
+    <input
+      ref={checkboxRef}
+      type="checkbox"
+      className="agents-table-checkbox"
+      checked={checked}
+      onChange={onChange}
+      onClick={(event) => event.stopPropagation()}
+      aria-label={ariaLabel}
+    />
+  );
+};
 
 const MetricsStrip = ({ metrics = {} }) => (
   <div className="agents-summary-grid">
@@ -46,46 +91,89 @@ const MetricsStrip = ({ metrics = {} }) => (
   </div>
 );
 
-const PeriodTable = ({ rows = [], title }) => (
-  <div className="agents-table-wrap">
-    <h4>{title}</h4>
-    <table className="agents-table">
-      <thead>
-        <tr>
-          <th>Period</th>
-          <th>Spend</th>
-          <th>Clicks</th>
-          <th>ATC</th>
-          <th>Purchases</th>
-          <th>Purchase ₹</th>
-          <th>ROAS</th>
-        </tr>
-      </thead>
-      <tbody>
-        {(rows || []).length === 0 ? (
-          <tr>
-            <td colSpan={7}>No period buckets</td>
-          </tr>
-        ) : (
-          rows.map((bucket) => {
-            const metrics = bucket.metrics || {};
-            return (
-              <tr key={bucket.period}>
-                <td>{bucket.period}</td>
-                <td>{fmtMoney(metrics.spend)}</td>
-                <td>{fmtNum(metrics.clicks)}</td>
-                <td>{fmtNum(metrics.add_to_cart)}</td>
-                <td>{fmtNum(metrics.purchases)}</td>
-                <td>{fmtMoney(metrics.purchase_value)}</td>
-                <td>{fmtRoas(metrics.roas)}</td>
-              </tr>
-            );
-          })
-        )}
-      </tbody>
-    </table>
-  </div>
+const SectionTitle = ({ children }) => (
+  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c2416', mb: 1.5, mt: 1 }}>
+    {children}
+  </Typography>
 );
+
+const PERIOD_COLUMNS = [
+  { key: 'period', label: 'Period', sortable: false },
+  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
+  { key: 'clicks', label: 'Clicks', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'purchase_value', label: 'Purchase ₹', sortable: false, render: (value) => fmtMoney(value) },
+  { key: 'roas', label: 'ROAS', sortable: false, render: (value) => fmtRoas(value) },
+];
+
+const flattenPeriodRows = (rows = []) =>
+  (rows || []).map((bucket) => {
+    const metrics = bucket.metrics || {};
+    return {
+      id: bucket.period,
+      period: bucket.period,
+      spend: metrics.spend,
+      clicks: metrics.clicks,
+      add_to_cart: metrics.add_to_cart,
+      purchases: metrics.purchases,
+      purchase_value: metrics.purchase_value,
+      roas: metrics.roas,
+    };
+  });
+
+const PeriodTable = ({ rows = [], title }) => (
+  <Box sx={{ mb: 2 }}>
+    {title && <SectionTitle>{title}</SectionTitle>}
+    <ReportTable
+      columns={PERIOD_COLUMNS}
+      data={flattenPeriodRows(rows)}
+      emptyMessage="No period buckets"
+    />
+  </Box>
+);
+
+const GENDER_COLUMNS = [
+  { key: 'segment', label: 'Gender', sortable: false },
+  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
+  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
+];
+
+const AD_SET_COLUMNS = [
+  {
+    key: 'ad_set_name',
+    label: 'Ad set',
+    sortable: false,
+    render: (value, row) => (
+      <Box>
+        <Typography variant="body2">{value || '—'}</Typography>
+        <Typography variant="caption" sx={{ color: '#6b7280' }}>
+          {row.status || '—'}
+        </Typography>
+      </Box>
+    ),
+  },
+  { key: 'audience_label', label: 'Audience', sortable: false },
+  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
+  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
+];
+
+const CREATIVE_COLUMNS = [
+  { key: 'ad_name', label: 'Ad', sortable: false },
+  { key: 'format', label: 'Format', sortable: false },
+  { key: 'headline', label: 'Headline', sortable: false },
+  { key: 'call_to_action', label: 'CTA', sortable: false },
+];
+
+const SHOPIFY_PRODUCT_COLUMNS = [
+  { key: 'focus_lane_label', label: 'Lane', sortable: false },
+  { key: 'product_name', label: 'Product', sortable: false },
+  { key: 'sku', label: 'SKU', sortable: false },
+  { key: 'units_sold', label: 'Units', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'revenue_inr', label: 'Revenue', sortable: false, render: (value) => fmtMoney(value) },
+];
 
 export const MetaMarketingPage = () => {
   const { userInfo } = useAuth();
@@ -102,6 +190,9 @@ export const MetaMarketingPage = () => {
   const [includeShopify, setIncludeShopify] = useState(true);
   const [sendEmail, setSendEmail] = useState(false);
   const [campaignFilter, setCampaignFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_STATUS_FILTER);
+  const [funnelFilter, setFunnelFilter] = useState(ALL_FILTER_VALUE);
+  const [objectiveFilter, setObjectiveFilter] = useState(ALL_FILTER_VALUE);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -113,14 +204,56 @@ export const MetaMarketingPage = () => {
   const [schemaReady, setSchemaReady] = useState(true);
   const [expandedCampaignId, setExpandedCampaignId] = useState(null);
 
+  const statusFilterOptions = useMemo(() => {
+    const values = uniqueSortedValues(campaigns.map(campaignStatusValue));
+    if (
+      DEFAULT_STATUS_FILTER &&
+      !values.some((value) => value.toLowerCase() === DEFAULT_STATUS_FILTER.toLowerCase())
+    ) {
+      values.unshift(DEFAULT_STATUS_FILTER);
+    }
+    return values;
+  }, [campaigns]);
+
+  const funnelFilterOptions = useMemo(
+    () => uniqueSortedValues(campaigns.map(campaignFunnelValue)),
+    [campaigns]
+  );
+
+  const objectiveFilterOptions = useMemo(
+    () => uniqueSortedValues(campaigns.map(campaignObjectiveValue)),
+    [campaigns]
+  );
+
   const filteredCampaigns = useMemo(() => {
     const needle = campaignFilter.trim().toLowerCase();
-    if (!needle) return campaigns;
     return campaigns.filter((campaign) => {
+      if (!matchesFilterValue(campaignStatusValue(campaign), statusFilter)) return false;
+      if (!matchesFilterValue(campaignFunnelValue(campaign), funnelFilter)) return false;
+      if (!matchesFilterValue(campaignObjectiveValue(campaign), objectiveFilter)) return false;
+      if (!needle) return true;
       const label = campaignOptionLabel(campaign).toLowerCase();
       return label.includes(needle) || String(campaign.id).includes(needle);
     });
-  }, [campaigns, campaignFilter]);
+  }, [campaigns, campaignFilter, statusFilter, funnelFilter, objectiveFilter]);
+
+  const toggleCampaign = (campaignId) => {
+    setSelectedCampaignIds((current) =>
+      current.includes(campaignId)
+        ? current.filter((id) => id !== campaignId)
+        : [...current, campaignId]
+    );
+  };
+
+  const selectFiltered = () => {
+    setSelectedCampaignIds((current) => {
+      const next = new Set(current);
+      filteredCampaigns.forEach((campaign) => next.add(String(campaign.id)));
+      return Array.from(next);
+    });
+  };
+
+  const clearSelection = () => setSelectedCampaignIds([]);
 
   const loadCampaigns = async (refresh = false) => {
     setLoadingCampaigns(true);
@@ -154,28 +287,20 @@ export const MetaMarketingPage = () => {
     }
   };
 
-  useEffect(() => {
-    loadCampaigns(false);
-    loadRecentRuns(canViewAllRuns ? historyScope : 'mine');
-  }, []);
-
-  const toggleCampaign = (campaignId) => {
-    setSelectedCampaignIds((current) =>
-      current.includes(campaignId)
-        ? current.filter((id) => id !== campaignId)
-        : [...current, campaignId]
-    );
+  const openRun = async (runId) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const response = await agentsApi.getMetaPortfolioRun(runId);
+      const normalized = normalizeMetaPortfolioRun(response);
+      setActiveRun(normalized);
+      setExpandedCampaignId(normalized.campaigns?.[0]?.campaign_id || null);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
-  const selectFiltered = () => {
-    setSelectedCampaignIds((current) => {
-      const next = new Set(current);
-      filteredCampaigns.forEach((campaign) => next.add(String(campaign.id)));
-      return Array.from(next);
-    });
-  };
-
-  const clearSelection = () => setSelectedCampaignIds([]);
 
   const createPortfolioRun = async () => {
     if (!selectedCampaignIds.length) {
@@ -209,22 +334,142 @@ export const MetaMarketingPage = () => {
     }
   };
 
-  const openRun = async (runId) => {
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    try {
-      const response = await agentsApi.getMetaPortfolioRun(runId);
-      const normalized = normalizeMetaPortfolioRun(response);
-      setActiveRun(normalized);
-      setExpandedCampaignId(normalized.campaigns?.[0]?.campaign_id || null);
-    } catch (error) {
-      setErrorMessage(error.message);
-    } finally {
-      setIsSubmitting(false);
+  useEffect(() => {
+    loadCampaigns(false);
+    loadRecentRuns(canViewAllRuns ? historyScope : 'mine');
+  }, []);
+
+  const campaignPickerRows = useMemo(
+    () =>
+      filteredCampaigns.map((campaign) => {
+        const campaignId = String(campaign.id);
+        return {
+          id: campaignId,
+          campaign_id: campaignId,
+          name: campaign.name || campaignId,
+          funnel: campaignFunnelValue(campaign),
+          status: campaignStatusValue(campaign),
+          objective: campaignObjectiveValue(campaign),
+        };
+      }),
+    [filteredCampaigns]
+  );
+
+  const allFilteredSelected =
+    campaignPickerRows.length > 0 &&
+    campaignPickerRows.every((row) => selectedCampaignIds.includes(row.campaign_id));
+
+  const someFilteredSelected =
+    !allFilteredSelected &&
+    campaignPickerRows.some((row) => selectedCampaignIds.includes(row.campaign_id));
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      const filteredIds = new Set(campaignPickerRows.map((row) => row.campaign_id));
+      setSelectedCampaignIds((current) => current.filter((id) => !filteredIds.has(id)));
+      return;
     }
+    selectFiltered();
   };
 
+  const campaignPickerColumns = useMemo(
+    () => [
+      {
+        key: 'selected',
+        label: (
+          <SelectAllCheckbox
+            checked={allFilteredSelected}
+            indeterminate={someFilteredSelected}
+            onChange={toggleSelectAllFiltered}
+            ariaLabel="Select all filtered campaigns"
+          />
+        ),
+        sortable: false,
+        render: (_value, row) => (
+          <input
+            type="checkbox"
+            className="agents-table-checkbox"
+            checked={selectedCampaignIds.includes(row.campaign_id)}
+            onChange={() => toggleCampaign(row.campaign_id)}
+            onClick={(event) => event.stopPropagation()}
+            aria-label={`Select ${row.name}`}
+          />
+        ),
+      },
+      { key: 'name', label: 'Campaign', sortable: false },
+      {
+        key: 'funnel',
+        label: 'Funnel',
+        sortable: false,
+        render: (value) => (
+          <span className={`agents-chip funnel-${String(value).toLowerCase()}`}>{value}</span>
+        ),
+      },
+      { key: 'status', label: 'Status', sortable: false },
+      { key: 'objective', label: 'Objective', sortable: false },
+    ],
+    [selectedCampaignIds, allFilteredSelected, someFilteredSelected]
+  );
+
+  const historyColumns = useMemo(() => {
+    const columns = [
+      { key: 'id', label: 'Run', sortable: false, render: (value) => `#${value}` },
+    ];
+    if (historyScope === 'all') {
+      columns.push({
+        key: 'created_by_email',
+        label: 'User',
+        sortable: false,
+        render: (value) => value || '—',
+      });
+    }
+    columns.push(
+      {
+        key: 'window',
+        label: 'Window',
+        sortable: false,
+        render: (_value, row) =>
+          `${row.since || row.since_date || '—'} → ${row.until || row.until_date || '—'}`,
+      },
+      { key: 'resolution', label: 'Resolution', sortable: false },
+      {
+        key: 'campaign_count',
+        label: 'Campaigns',
+        sortable: false,
+        render: (value, row) => value ?? (row.campaign_ids || []).length,
+      },
+      { key: 'status', label: 'Status', sortable: false },
+      {
+        key: 'actions',
+        label: '',
+        sortable: false,
+        render: (_value, row) => (
+          <button
+            type="button"
+            className="agents-btn secondary"
+            onClick={(event) => {
+              event.stopPropagation();
+              openRun(row.id);
+            }}
+          >
+            Open
+          </button>
+        ),
+      }
+    );
+    return columns;
+  }, [historyScope]);
+
   const shopify = activeRun?.shopify || null;
+
+  const shopifyProductRows = (shopify?.top_products_focus || []).map((product) => ({
+    id: `${product.sku}-${product.product_name}`,
+    focus_lane_label: product.focus_lane_label || product.focus_lane || '—',
+    product_name: product.product_name || '—',
+    sku: product.sku || '—',
+    units_sold: product.units_sold,
+    revenue_inr: product.revenue_inr,
+  }));
 
   return (
     <div className="screen-container agents-page">
@@ -248,8 +493,8 @@ export const MetaMarketingPage = () => {
 
       {errorMessage && <ErrorMessage message={errorMessage} />}
 
-      <div className="agents-card agents-form-stack">
-        <div className="agents-form-row">
+      <div className="agents-card agents-form-stack meta-marketing-form">
+        <div className="agents-form-row meta-marketing-dates">
           <label>
             Since
             <input type="date" value={since} onChange={(event) => setSince(event.target.value)} />
@@ -270,14 +515,14 @@ export const MetaMarketingPage = () => {
           </label>
         </div>
 
-        <div className="agents-form-row">
+        <div className="agents-form-row meta-marketing-toggles">
           <label className="agents-checkbox">
             <input
               type="checkbox"
               checked={includeCreatives}
               onChange={(event) => setIncludeCreatives(event.target.checked)}
             />
-            Include creatives
+            <span>Include creatives</span>
           </label>
           <label className="agents-checkbox">
             <input
@@ -285,7 +530,7 @@ export const MetaMarketingPage = () => {
               checked={includeShopify}
               onChange={(event) => setIncludeShopify(event.target.checked)}
             />
-            Include Shopify appendix
+            <span>Include Shopify appendix</span>
           </label>
           <label className="agents-checkbox">
             <input
@@ -293,80 +538,84 @@ export const MetaMarketingPage = () => {
               checked={sendEmail}
               onChange={(event) => setSendEmail(event.target.checked)}
             />
-            Email digest
+            <span>Email digest</span>
           </label>
         </div>
 
-        <div className="agents-form-row">
+        <div className="agents-form-row meta-marketing-filters">
           <label>
-            Filter campaigns
+            Status
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value={ALL_FILTER_VALUE}>All statuses</option>
+              {statusFilterOptions.map((statusValue) => (
+                <option key={statusValue} value={statusValue}>
+                  {statusValue}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Funnel
+            <select value={funnelFilter} onChange={(event) => setFunnelFilter(event.target.value)}>
+              <option value={ALL_FILTER_VALUE}>All funnels</option>
+              {funnelFilterOptions.map((funnelValue) => (
+                <option key={funnelValue} value={funnelValue}>
+                  {funnelValue}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Objective
+            <select
+              value={objectiveFilter}
+              onChange={(event) => setObjectiveFilter(event.target.value)}
+            >
+              <option value={ALL_FILTER_VALUE}>All objectives</option>
+              {objectiveFilterOptions.map((objectiveValue) => (
+                <option key={objectiveValue} value={objectiveValue}>
+                  {objectiveValue}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Search
             <input
               type="search"
               value={campaignFilter}
               onChange={(event) => setCampaignFilter(event.target.value)}
-              placeholder="Name, TOF/MOF/BOF, status, or ID"
+              placeholder="Name or campaign ID"
             />
           </label>
-          <div className="agents-inline-actions">
-            <button type="button" className="agents-btn secondary" onClick={() => loadCampaigns(true)}>
-              Refresh from Meta
-            </button>
-            <button type="button" className="agents-btn secondary" onClick={selectFiltered}>
-              Select filtered
-            </button>
-            <button type="button" className="agents-btn secondary" onClick={clearSelection}>
-              Clear
-            </button>
-          </div>
         </div>
 
-        <div className="agents-table-wrap agents-campaign-picker">
-          <div className="agents-inline-actions">
-            <strong>
+        <div className="agents-inline-actions meta-marketing-filter-actions">
+          <button type="button" className="agents-btn secondary" onClick={() => loadCampaigns(true)}>
+            Refresh from Meta
+          </button>
+          <button type="button" className="agents-btn secondary" onClick={selectFiltered}>
+            Select filtered
+          </button>
+          <button type="button" className="agents-btn secondary" onClick={clearSelection}>
+            Clear
+          </button>
+        </div>
+
+        <div className="meta-marketing-campaign-picker">
+          <div className="meta-marketing-campaign-picker__header">
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#2c2416' }}>
               Campaigns ({selectedCampaignIds.length} selected
-              {loadingCampaigns ? ', loading…' : ''})
-            </strong>
+              {loadingCampaigns ? ', loading…' : ` · ${campaignPickerRows.length} shown`})
+            </Typography>
           </div>
-          <table className="agents-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Campaign</th>
-                <th>Funnel</th>
-                <th>Status</th>
-                <th>Objective</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCampaigns.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>{loadingCampaigns ? 'Loading…' : 'No campaigns'}</td>
-                </tr>
-              ) : (
-                filteredCampaigns.map((campaign) => {
-                  const campaignId = String(campaign.id);
-                  const funnel = campaign.funnel_mode?.mode || 'MOF';
-                  return (
-                    <tr key={campaignId}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedCampaignIds.includes(campaignId)}
-                          onChange={() => toggleCampaign(campaignId)}
-                        />
-                      </td>
-                      <td>{campaign.name || campaignId}</td>
-                      <td>
-                        <span className={`agents-chip funnel-${funnel.toLowerCase()}`}>{funnel}</span>
-                      </td>
-                      <td>{campaign.effective_status || campaign.status || '—'}</td>
-                      <td>{campaign.objective || '—'}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          <ReportTable
+            columns={campaignPickerColumns}
+            data={campaignPickerRows}
+            loading={loadingCampaigns}
+            emptyMessage="No campaigns match these filters"
+            onRowClick={(row) => toggleCampaign(row.campaign_id)}
+          />
         </div>
 
         <button
@@ -409,6 +658,31 @@ export const MetaMarketingPage = () => {
           {(activeRun.campaigns || []).map((campaign) => {
             const isOpen = expandedCampaignId === campaign.campaign_id;
             const funnel = campaign.funnel_mode || {};
+            const genderRows = (campaign.audience?.by_gender || []).map((row) => ({
+              id: row.segment,
+              ...row,
+            }));
+            const adSetRows = (campaign.ad_sets || []).map((adSet) => {
+              const audience = adSet.audience || {};
+              const metrics = adSet.metrics || {};
+              return {
+                id: adSet.ad_set_id || adSet.ad_set_name,
+                ad_set_name: adSet.ad_set_name,
+                status: adSet.status,
+                audience_label: `${audience.genders || '—'}; ages ${audience.age_range || '—'}; ${audience.countries || '—'}`,
+                spend: metrics.spend,
+                add_to_cart: metrics.add_to_cart,
+                purchases: metrics.purchases,
+              };
+            });
+            const creativeRows = (campaign.creatives || []).map((creative, creativeIndex) => ({
+              id: `${creative.ad_id || 'ad'}-${creativeIndex}`,
+              ad_name: creative.ad_name || '—',
+              format: creative.format || '—',
+              headline: creative.headline || '—',
+              call_to_action: creative.call_to_action || '—',
+            }));
+
             return (
               <div key={campaign.campaign_id} className="agents-card agents-nested-card">
                 <button
@@ -436,94 +710,25 @@ export const MetaMarketingPage = () => {
                       rows={campaign.by_period || []}
                     />
 
-                    {(campaign.audience?.by_gender || []).length > 0 && (
-                      <div className="agents-table-wrap">
-                        <h4>Audience — gender</h4>
-                        <table className="agents-table">
-                          <thead>
-                            <tr>
-                              <th>Gender</th>
-                              <th>Spend</th>
-                              <th>ATC</th>
-                              <th>Purchases</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {campaign.audience.by_gender.map((row) => (
-                              <tr key={row.segment}>
-                                <td>{row.segment}</td>
-                                <td>{fmtMoney(row.spend)}</td>
-                                <td>{fmtNum(row.add_to_cart)}</td>
-                                <td>{fmtNum(row.purchases)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    {genderRows.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <SectionTitle>Audience — gender</SectionTitle>
+                        <ReportTable columns={GENDER_COLUMNS} data={genderRows} />
+                      </Box>
                     )}
 
-                    {(campaign.ad_sets || []).length > 0 && (
-                      <div className="agents-table-wrap">
-                        <h4>Ad sets</h4>
-                        <table className="agents-table">
-                          <thead>
-                            <tr>
-                              <th>Ad set</th>
-                              <th>Audience</th>
-                              <th>Spend</th>
-                              <th>ATC</th>
-                              <th>Purchases</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {campaign.ad_sets.map((adSet) => {
-                              const audience = adSet.audience || {};
-                              const metrics = adSet.metrics || {};
-                              return (
-                                <tr key={adSet.ad_set_id || adSet.ad_set_name}>
-                                  <td>
-                                    {adSet.ad_set_name}
-                                    <div className="agents-hint">{adSet.status || '—'}</div>
-                                  </td>
-                                  <td>
-                                    {audience.genders || '—'}; ages {audience.age_range || '—'};{' '}
-                                    {audience.countries || '—'}
-                                  </td>
-                                  <td>{fmtMoney(metrics.spend)}</td>
-                                  <td>{fmtNum(metrics.add_to_cart)}</td>
-                                  <td>{fmtNum(metrics.purchases)}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                    {adSetRows.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <SectionTitle>Ad sets</SectionTitle>
+                        <ReportTable columns={AD_SET_COLUMNS} data={adSetRows} />
+                      </Box>
                     )}
 
-                    {(campaign.creatives || []).length > 0 && (
-                      <div className="agents-table-wrap">
-                        <h4>Creatives</h4>
-                        <table className="agents-table">
-                          <thead>
-                            <tr>
-                              <th>Ad</th>
-                              <th>Format</th>
-                              <th>Headline</th>
-                              <th>CTA</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {campaign.creatives.map((creative, creativeIndex) => (
-                              <tr key={`${creative.ad_id || 'ad'}-${creativeIndex}`}>
-                                <td>{creative.ad_name || '—'}</td>
-                                <td>{creative.format || '—'}</td>
-                                <td>{creative.headline || '—'}</td>
-                                <td>{creative.call_to_action || '—'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                    {creativeRows.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <SectionTitle>Creatives</SectionTitle>
+                        <ReportTable columns={CREATIVE_COLUMNS} data={creativeRows} />
+                      </Box>
                     )}
                   </div>
                 )}
@@ -547,37 +752,14 @@ export const MetaMarketingPage = () => {
                     : null,
                 }}
               />
-              <div className="agents-table-wrap">
-                <h4>Top focus products</h4>
-                <table className="agents-table">
-                  <thead>
-                    <tr>
-                      <th>Lane</th>
-                      <th>Product</th>
-                      <th>SKU</th>
-                      <th>Units</th>
-                      <th>Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(shopify.top_products_focus || []).length === 0 ? (
-                      <tr>
-                        <td colSpan={5}>No focus products</td>
-                      </tr>
-                    ) : (
-                      shopify.top_products_focus.map((product) => (
-                        <tr key={`${product.sku}-${product.product_name}`}>
-                          <td>{product.focus_lane_label || product.focus_lane || '—'}</td>
-                          <td>{product.product_name || '—'}</td>
-                          <td>{product.sku || '—'}</td>
-                          <td>{fmtNum(product.units_sold)}</td>
-                          <td>{fmtMoney(product.revenue_inr)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <Box sx={{ mb: 2 }}>
+                <SectionTitle>Top focus products</SectionTitle>
+                <ReportTable
+                  columns={SHOPIFY_PRODUCT_COLUMNS}
+                  data={shopifyProductRows}
+                  emptyMessage="No focus products"
+                />
+              </Box>
             </div>
           )}
         </div>
@@ -610,56 +792,12 @@ export const MetaMarketingPage = () => {
           {recentRunsTotal} run{recentRunsTotal === 1 ? '' : 's'}
           {canViewAllRuns ? ' · Admin/manager can switch scope.' : ''}
         </p>
-        <div className="agents-table-wrap">
-          <table className="agents-table">
-            <thead>
-              <tr>
-                <th>Run</th>
-                {historyScope === 'all' && <th>User</th>}
-                <th>Window</th>
-                <th>Resolution</th>
-                <th>Campaigns</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentRunsLoading ? (
-                <tr>
-                  <td colSpan={historyScope === 'all' ? 7 : 6}>Loading…</td>
-                </tr>
-              ) : recentRuns.length === 0 ? (
-                <tr>
-                  <td colSpan={historyScope === 'all' ? 7 : 6}>No saved portfolio runs yet</td>
-                </tr>
-              ) : (
-                recentRuns.map((runRow) => (
-                  <tr key={runRow.id}>
-                    <td>#{runRow.id}</td>
-                    {historyScope === 'all' && (
-                      <td>{runRow.created_by_email || '—'}</td>
-                    )}
-                    <td>
-                      {runRow.since || runRow.since_date} → {runRow.until || runRow.until_date}
-                    </td>
-                    <td>{runRow.resolution}</td>
-                    <td>{runRow.campaign_count ?? (runRow.campaign_ids || []).length}</td>
-                    <td>{runRow.status}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="agents-btn secondary"
-                        onClick={() => openRun(runRow.id)}
-                      >
-                        Open
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ReportTable
+          columns={historyColumns}
+          data={recentRuns}
+          loading={recentRunsLoading}
+          emptyMessage="No saved portfolio runs yet"
+        />
       </div>
     </div>
   );
