@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Table,
   TableBody,
@@ -11,14 +11,13 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { ArrowUpDown } from 'lucide-react';
 
 /**
  * ReportTable Component
- * Displays data in a sortable table format
- * 
+ * Displays data in a sortable MUI table format
+ *
  * @param {Object} props
- * @param {Array} props.columns - Array of column definitions { key, label, sortable, format }
+ * @param {Array} props.columns - Array of column definitions { key, label, sortable, format, render, width, align }
  * @param {Array} props.data - Array of data objects
  * @param {Function} props.onSort - Callback when sorting changes
  * @param {string} props.sortBy - Current sort column
@@ -26,6 +25,9 @@ import { ArrowUpDown } from 'lucide-react';
  * @param {boolean} props.loading - Loading state
  * @param {ReactNode} props.emptyMessage - Message to show when no data
  * @param {Function} props.onRowClick - Optional callback when a row is clicked (receives row data)
+ * @param {'small'|'medium'} props.size - MUI Table size
+ * @param {boolean} props.stickyHeader - Enable sticky header
+ * @param {object|number} props.maxHeight - Optional max height for scrollable container
  */
 export const ReportTable = ({
   columns = [],
@@ -36,15 +38,16 @@ export const ReportTable = ({
   loading = false,
   emptyMessage = 'No data available',
   onRowClick,
+  size = 'small',
+  stickyHeader = true,
+  maxHeight = null,
 }) => {
   const handleSort = (columnKey) => {
     if (!onSort) return;
 
     if (sortBy === columnKey) {
-      // Toggle order if same column
       onSort(columnKey, sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      // New column, default to ascending
       onSort(columnKey, 'asc');
     }
   };
@@ -81,18 +84,48 @@ export const ReportTable = ({
     return String(value);
   };
 
+  const headerCells = columns.map((col) => (
+    <TableCell
+      key={col.key}
+      align={col.align || 'left'}
+      sx={{
+        fontWeight: 600,
+        backgroundColor: '#f9fafb',
+        color: '#2c2416',
+        whiteSpace: 'nowrap',
+        width: col.width,
+      }}
+    >
+      {col.sortable !== false && onSort ? (
+        <TableSortLabel
+          active={sortBy === col.key}
+          direction={sortBy === col.key ? sortOrder : 'asc'}
+          onClick={() => handleSort(col.key)}
+          sx={{
+            '& .MuiTableSortLabel-icon': {
+              color: '#8b6f47 !important',
+            },
+          }}
+        >
+          {col.label}
+        </TableSortLabel>
+      ) : (
+        col.label
+      )}
+    </TableCell>
+  ));
+
+  const containerSx = {
+    overflowX: 'auto',
+    ...(maxHeight ? { maxHeight } : {}),
+  };
+
   if (loading) {
     return (
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} variant="outlined" sx={containerSx}>
+        <Table size={size} stickyHeader={stickyHeader}>
           <TableHead>
-            <TableRow>
-              {columns.map((col) => (
-                <TableCell key={col.key} sx={{ fontWeight: 600 }}>
-                  {col.label}
-                </TableCell>
-              ))}
-            </TableRow>
+            <TableRow>{headerCells}</TableRow>
           </TableHead>
         </Table>
         <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -106,66 +139,37 @@ export const ReportTable = ({
 
   if (!data || data.length === 0) {
     return (
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} variant="outlined" sx={containerSx}>
+        <Table size={size} stickyHeader={stickyHeader}>
           <TableHead>
-            <TableRow>
-              {columns.map((col) => (
-                <TableCell key={col.key} sx={{ fontWeight: 600 }}>
-                  {col.label}
-                </TableCell>
-              ))}
-            </TableRow>
+            <TableRow>{headerCells}</TableRow>
           </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={Math.max(columns.length, 1)} align="center" sx={{ py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                  {emptyMessage}
+                </Typography>
+              </TableCell>
+            </TableRow>
+          </TableBody>
         </Table>
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-            {emptyMessage}
-          </Typography>
-        </Box>
       </TableContainer>
     );
   }
 
   return (
-    <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-      <Table>
+    <TableContainer component={Paper} variant="outlined" sx={containerSx}>
+      <Table size={size} stickyHeader={stickyHeader}>
         <TableHead>
-          <TableRow>
-            {columns.map((col) => (
-              <TableCell
-                key={col.key}
-                sx={{
-                  fontWeight: 600,
-                  backgroundColor: '#f9fafb',
-                  color: '#2c2416',
-                }}
-              >
-                {col.sortable !== false && onSort ? (
-                  <TableSortLabel
-                    active={sortBy === col.key}
-                    direction={sortBy === col.key ? sortOrder : 'asc'}
-                    onClick={() => handleSort(col.key)}
-                    sx={{
-                      '& .MuiTableSortLabel-icon': {
-                        color: '#8b6f47 !important',
-                      },
-                    }}
-                  >
-                    {col.label}
-                  </TableSortLabel>
-                ) : (
-                  col.label
-                )}
-              </TableCell>
-            ))}
-          </TableRow>
+          <TableRow>{headerCells}</TableRow>
         </TableHead>
         <TableBody>
           {data.map((row, index) => (
             <TableRow
               key={row.id || index}
               hover
+              selected={Boolean(row._selected)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               sx={{
                 cursor: onRowClick ? 'pointer' : 'default',
@@ -175,7 +179,11 @@ export const ReportTable = ({
               }}
             >
               {columns.map((col) => (
-                <TableCell key={col.key}>
+                <TableCell
+                  key={col.key}
+                  align={col.align || 'left'}
+                  sx={{ whiteSpace: col.nowrap === false ? 'normal' : 'nowrap' }}
+                >
                   {col.render
                     ? col.render(row[col.key], row)
                     : formatCellValue(row[col.key], col.format)}
@@ -188,4 +196,3 @@ export const ReportTable = ({
     </TableContainer>
   );
 };
-
