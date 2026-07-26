@@ -169,6 +169,7 @@ const AD_SET_COLUMNS = [
   },
   { key: 'audience_label', label: 'Audience', sortable: false, nowrap: false },
   { key: 'spend', label: 'Spend', sortable: false, render: metricRender('currency') },
+  { key: 'impressions', label: 'Impr.', sortable: false, render: metricRender('number') },
   { key: 'clicks', label: 'Clicks', sortable: false, render: metricRender('number') },
   { key: 'ctr', label: 'CTR %', sortable: false, render: metricRender('percentage') },
   { key: 'cpc', label: 'CPC', sortable: false, render: metricRender('currency') },
@@ -176,19 +177,30 @@ const AD_SET_COLUMNS = [
   { key: 'purchases', label: 'Purchases', sortable: false, render: metricRender('number') },
   { key: 'purchase_value', label: 'Purchase ₹', sortable: false, render: metricRender('currency') },
   { key: 'roas', label: 'ROAS', sortable: false, render: metricRender('roas') },
+  { key: 'cost_per_purchase', label: 'CPA', sortable: false, render: metricRender('currency') },
 ];
 
 const AD_COLUMNS = [
   { key: 'campaign_name', label: 'Campaign', sortable: false },
+  { key: 'ad_set_name', label: 'Ad set', sortable: false },
   { key: 'ad_name', label: 'Ad', sortable: false },
+  {
+    key: 'status',
+    label: 'Status',
+    sortable: false,
+    render: (value) => <StatusChip value={value} />,
+  },
   { key: 'format', label: 'Format', sortable: false },
   { key: 'headline', label: 'Headline', sortable: false, nowrap: false },
   { key: 'call_to_action', label: 'CTA', sortable: false },
   { key: 'spend', label: 'Spend', sortable: false, render: metricRender('currency') },
+  { key: 'impressions', label: 'Impr.', sortable: false, render: metricRender('number') },
   { key: 'clicks', label: 'Clicks', sortable: false, render: metricRender('number') },
   { key: 'ctr', label: 'CTR %', sortable: false, render: metricRender('percentage') },
+  { key: 'cpc', label: 'CPC', sortable: false, render: metricRender('currency') },
   { key: 'add_to_cart', label: 'ATC', sortable: false, render: metricRender('number') },
   { key: 'purchases', label: 'Purchases', sortable: false, render: metricRender('number') },
+  { key: 'purchase_value', label: 'Purchase ₹', sortable: false, render: metricRender('currency') },
   { key: 'roas', label: 'ROAS', sortable: false, render: metricRender('roas') },
 ];
 
@@ -204,6 +216,9 @@ export const MetaMarketingReportPage = () => {
   const [statusFilter, setStatusFilter] = useState(DEFAULT_STATUS_FILTER);
   const [funnelFilter, setFunnelFilter] = useState(ALL_FILTER_VALUE);
   const [objectiveFilter, setObjectiveFilter] = useState(ALL_FILTER_VALUE);
+  const [focusCampaignId, setFocusCampaignId] = useState(ALL_FILTER_VALUE);
+  const [focusAdSetId, setFocusAdSetId] = useState(ALL_FILTER_VALUE);
+  const [focusAdId, setFocusAdId] = useState(ALL_FILTER_VALUE);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
@@ -295,6 +310,9 @@ export const MetaMarketingReportPage = () => {
         send_email: false,
       });
       setActiveRun(normalizeMetaPortfolioRun(response));
+      setFocusCampaignId(ALL_FILTER_VALUE);
+      setFocusAdSetId(ALL_FILTER_VALUE);
+      setFocusAdId(ALL_FILTER_VALUE);
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -391,14 +409,125 @@ export const MetaMarketingReportPage = () => {
     [activeRun]
   );
 
-  const periodRows = useMemo(
-    () => flattenPeriodMetricRows(activeRun?.portfolioByPeriod || []),
-    [activeRun]
+  const runCampaigns = activeRun?.campaigns || [];
+
+  const focusCampaignOptions = useMemo(
+    () =>
+      runCampaigns.map((campaign) => ({
+        id: String(campaign.campaign_id),
+        label: campaign.campaign_name || campaign.campaign_id,
+      })),
+    [runCampaigns]
   );
+
+  const scopedCampaigns = useMemo(() => {
+    if (focusCampaignId === ALL_FILTER_VALUE) return runCampaigns;
+    return runCampaigns.filter(
+      (campaign) => String(campaign.campaign_id) === String(focusCampaignId)
+    );
+  }, [runCampaigns, focusCampaignId]);
+
+  const focusAdSetOptions = useMemo(() => {
+    const options = [];
+    scopedCampaigns.forEach((campaign) => {
+      (campaign.ad_sets || []).forEach((adSet) => {
+        const adSetId = String(adSet.ad_set_id || '');
+        if (!adSetId) return;
+        options.push({
+          id: adSetId,
+          label: `${adSet.ad_set_name || adSetId} · ${campaign.campaign_name || campaign.campaign_id}`,
+          campaignId: String(campaign.campaign_id),
+        });
+      });
+    });
+    return options;
+  }, [scopedCampaigns]);
+
+  const scopedAdSets = useMemo(() => {
+    const rows = [];
+    scopedCampaigns.forEach((campaign) => {
+      (campaign.ad_sets || []).forEach((adSet) => {
+        const adSetId = String(adSet.ad_set_id || '');
+        if (focusAdSetId !== ALL_FILTER_VALUE && adSetId !== String(focusAdSetId)) return;
+        rows.push({ campaign, adSet });
+      });
+    });
+    return rows;
+  }, [scopedCampaigns, focusAdSetId]);
+
+  const focusAdOptions = useMemo(() => {
+    const options = [];
+    const seen = new Set();
+    scopedCampaigns.forEach((campaign) => {
+      const ads = campaign.ads || campaign.creatives || [];
+      ads.forEach((ad) => {
+        const adId = String(ad.ad_id || '');
+        if (!adId || seen.has(adId)) return;
+        if (focusAdSetId !== ALL_FILTER_VALUE && String(ad.ad_set_id || '') !== String(focusAdSetId)) {
+          return;
+        }
+        seen.add(adId);
+        options.push({
+          id: adId,
+          label: `${ad.ad_name || adId}${ad.ad_set_name ? ` · ${ad.ad_set_name}` : ''}`,
+          adSetId: String(ad.ad_set_id || ''),
+          campaignId: String(campaign.campaign_id),
+        });
+      });
+    });
+    return options;
+  }, [scopedCampaigns, focusAdSetId]);
+
+  const selectedFocusAdSet = useMemo(() => {
+    if (focusAdSetId === ALL_FILTER_VALUE) return null;
+    for (const campaign of scopedCampaigns) {
+      const match = (campaign.ad_sets || []).find(
+        (adSet) => String(adSet.ad_set_id) === String(focusAdSetId)
+      );
+      if (match) return { campaign, adSet: match };
+    }
+    return null;
+  }, [scopedCampaigns, focusAdSetId]);
+
+  const selectedFocusAd = useMemo(() => {
+    if (focusAdId === ALL_FILTER_VALUE) return null;
+    for (const campaign of scopedCampaigns) {
+      const ads = campaign.ads || campaign.creatives || [];
+      const match = ads.find((ad) => String(ad.ad_id) === String(focusAdId));
+      if (match) return { campaign, ad: match };
+    }
+    return null;
+  }, [scopedCampaigns, focusAdId]);
+
+  const chartSourceLabel = useMemo(() => {
+    if (selectedFocusAd) {
+      return `Ad · ${selectedFocusAd.ad.ad_name || selectedFocusAd.ad.ad_id}`;
+    }
+    if (selectedFocusAdSet) {
+      return `Ad set · ${selectedFocusAdSet.adSet.ad_set_name || selectedFocusAdSet.adSet.ad_set_id}`;
+    }
+    if (focusCampaignId !== ALL_FILTER_VALUE && scopedCampaigns[0]) {
+      return `Campaign · ${scopedCampaigns[0].campaign_name || scopedCampaigns[0].campaign_id}`;
+    }
+    return 'Portfolio';
+  }, [selectedFocusAd, selectedFocusAdSet, focusCampaignId, scopedCampaigns]);
+
+  const periodRows = useMemo(() => {
+    if (selectedFocusAd) {
+      return flattenPeriodMetricRows(selectedFocusAd.ad.by_period || []);
+    }
+    if (selectedFocusAdSet) {
+      return flattenPeriodMetricRows(selectedFocusAdSet.adSet.by_period || []);
+    }
+    if (focusCampaignId !== ALL_FILTER_VALUE && scopedCampaigns[0]) {
+      return flattenPeriodMetricRows(scopedCampaigns[0].by_period || []);
+    }
+    return flattenPeriodMetricRows(activeRun?.portfolioByPeriod || []);
+  }, [selectedFocusAd, selectedFocusAdSet, focusCampaignId, scopedCampaigns, activeRun]);
 
   const campaignRows = useMemo(
     () =>
-      (activeRun?.campaigns || []).map((campaign) => {
+      scopedCampaigns.map((campaign) => {
         const metrics = enrichMetaMetrics(campaign.overall || {});
         return {
           id: campaign.campaign_id,
@@ -408,47 +537,60 @@ export const MetaMarketingReportPage = () => {
           ...metrics,
         };
       }),
-    [activeRun]
+    [scopedCampaigns]
   );
 
   const activeAdSetRows = useMemo(() => {
     const rows = [];
-    (activeRun?.campaigns || []).forEach((campaign) => {
-      (campaign.ad_sets || []).forEach((adSet) => {
-        if (!isActiveMetaStatus(adSet.status || adSet.effective_status)) return;
-        const audience = adSet.audience || {};
-        const metrics = enrichMetaMetrics(adSet.metrics || {});
-        rows.push({
-          id: `${campaign.campaign_id}-${adSet.ad_set_id || adSet.ad_set_name}`,
-          campaign_name: campaign.campaign_name || campaign.campaign_id,
-          ad_set_name: adSet.ad_set_name || adSet.ad_set_id || '—',
-          status: adSet.status || adSet.effective_status || 'ACTIVE',
-          audience_label: `${audience.genders || '—'}; ages ${audience.age_range || '—'}; ${audience.countries || '—'}`,
-          ...metrics,
-        });
+    scopedAdSets.forEach(({ campaign, adSet }) => {
+      if (!isActiveMetaStatus(adSet.status || adSet.effective_status)) return;
+      const audience = adSet.audience || {};
+      const metrics = enrichMetaMetrics(adSet.metrics || {});
+      rows.push({
+        id: `${campaign.campaign_id}-${adSet.ad_set_id || adSet.ad_set_name}`,
+        campaign_id: campaign.campaign_id,
+        campaign_name: campaign.campaign_name || campaign.campaign_id,
+        ad_set_id: adSet.ad_set_id,
+        ad_set_name: adSet.ad_set_name || adSet.ad_set_id || '—',
+        status: adSet.status || adSet.effective_status || 'ACTIVE',
+        audience_label: `${audience.genders || '—'}; ages ${audience.age_range || '—'}; ${audience.countries || '—'}`,
+        ...metrics,
       });
     });
     return rows;
-  }, [activeRun]);
+  }, [scopedAdSets]);
 
   const adRows = useMemo(() => {
     const rows = [];
-    (activeRun?.campaigns || []).forEach((campaign) => {
-      (campaign.creatives || []).forEach((creative, creativeIndex) => {
-        const metrics = enrichMetaMetrics(creative.metrics || creative || {});
+    scopedCampaigns.forEach((campaign) => {
+      const ads = campaign.ads || campaign.creatives || [];
+      ads.forEach((ad, adIndex) => {
+        const adId = String(ad.ad_id || `ad-${adIndex}`);
+        if (focusAdSetId !== ALL_FILTER_VALUE && String(ad.ad_set_id || '') !== String(focusAdSetId)) {
+          return;
+        }
+        if (focusAdId !== ALL_FILTER_VALUE && adId !== String(focusAdId)) {
+          return;
+        }
+        const metrics = enrichMetaMetrics(ad.metrics || {});
         rows.push({
-          id: `${campaign.campaign_id}-${creative.ad_id || 'ad'}-${creativeIndex}`,
+          id: `${campaign.campaign_id}-${adId}`,
+          campaign_id: campaign.campaign_id,
           campaign_name: campaign.campaign_name || campaign.campaign_id,
-          ad_name: creative.ad_name || creative.name || '—',
-          format: creative.format || '—',
-          headline: creative.headline || '—',
-          call_to_action: creative.call_to_action || '—',
+          ad_set_id: ad.ad_set_id,
+          ad_set_name: ad.ad_set_name || '—',
+          ad_id: adId,
+          ad_name: ad.ad_name || ad.name || '—',
+          status: ad.ad_status || ad.status || '—',
+          format: ad.format || '—',
+          headline: ad.headline || '—',
+          call_to_action: ad.call_to_action || '—',
           ...metrics,
         });
       });
     });
     return rows;
-  }, [activeRun]);
+  }, [scopedCampaigns, focusAdSetId, focusAdId]);
 
   const summaryCards = activeRun
     ? [
@@ -744,9 +886,83 @@ export const MetaMarketingReportPage = () => {
 
           {activeRun.error && <ErrorMessage message={activeRun.error} />}
 
+          <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c2416', mb: 1.5 }}>
+              2) Drill-down · Campaign → Ad set → Ads
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="focus-campaign-label">Campaign</InputLabel>
+                  <Select
+                    labelId="focus-campaign-label"
+                    label="Campaign"
+                    value={focusCampaignId}
+                    onChange={(event) => {
+                      setFocusCampaignId(event.target.value);
+                      setFocusAdSetId(ALL_FILTER_VALUE);
+                      setFocusAdId(ALL_FILTER_VALUE);
+                    }}
+                  >
+                    <MenuItem value={ALL_FILTER_VALUE}>All campaigns in run</MenuItem>
+                    {focusCampaignOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="focus-adset-label">Ad set</InputLabel>
+                  <Select
+                    labelId="focus-adset-label"
+                    label="Ad set"
+                    value={focusAdSetId}
+                    onChange={(event) => {
+                      setFocusAdSetId(event.target.value);
+                      setFocusAdId(ALL_FILTER_VALUE);
+                    }}
+                  >
+                    <MenuItem value={ALL_FILTER_VALUE}>All ACTIVE ad sets</MenuItem>
+                    {focusAdSetOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="focus-ad-label">Ad</InputLabel>
+                  <Select
+                    labelId="focus-ad-label"
+                    label="Ad"
+                    value={focusAdId}
+                    onChange={(event) => setFocusAdId(event.target.value)}
+                  >
+                    <MenuItem value={ALL_FILTER_VALUE}>All ads</MenuItem>
+                    {focusAdOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+            <Typography variant="body2" sx={{ color: '#6b7280', mt: 1.5 }}>
+              Chart source: {chartSourceLabel} · resolution {activeRun.resolutionLabel || resolution}
+            </Typography>
+          </Paper>
+
           <ReportSummaryCards cards={summaryCards} />
 
-          <SectionTitle>Trends by {activeRun.resolutionLabel || resolution}</SectionTitle>
+          <SectionTitle>
+            Trends by {activeRun.resolutionLabel || resolution} · {chartSourceLabel}
+          </SectionTitle>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
             {META_CHART_METRICS.map((metric) => (
               <Chip
@@ -784,7 +1000,7 @@ export const MetaMarketingReportPage = () => {
                 },
               ],
             }}
-            title={`${selectedChartMetric.label} trend`}
+            title={`${selectedChartMetric.label} · ${chartSourceLabel}`}
           />
 
           {showAllMetricCharts && (
@@ -827,18 +1043,28 @@ export const MetaMarketingReportPage = () => {
           <ReportTable
             columns={AD_SET_COLUMNS}
             data={activeAdSetRows}
-            emptyMessage="No ACTIVE ad sets in the selected campaigns"
+            emptyMessage="No ACTIVE ad sets for this drill-down"
             size="small"
             stickyHeader
+            onRowClick={(row) => {
+              if (row.campaign_id) setFocusCampaignId(String(row.campaign_id));
+              if (row.ad_set_id) setFocusAdSetId(String(row.ad_set_id));
+              setFocusAdId(ALL_FILTER_VALUE);
+            }}
           />
 
           <SectionTitle>Ads</SectionTitle>
           <ReportTable
             columns={AD_COLUMNS}
             data={adRows}
-            emptyMessage="No ads/creatives returned for these campaigns"
+            emptyMessage="No ads for this drill-down (deploy backend ad-level metrics if columns are empty)"
             size="small"
             stickyHeader
+            onRowClick={(row) => {
+              if (row.campaign_id) setFocusCampaignId(String(row.campaign_id));
+              if (row.ad_set_id) setFocusAdSetId(String(row.ad_set_id));
+              if (row.ad_id) setFocusAdId(String(row.ad_id));
+            }}
           />
         </>
       )}
