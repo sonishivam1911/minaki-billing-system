@@ -11,11 +11,20 @@ permissions:
 
 concurrency:
   group: deploy-contabo-billing-frontend
-  cancel-in-progress: true
+  # Never interrupt a deploy midway through the Vite build.
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    # Self-hosted runner living on the Contabo VPS itself, so there is no SSH
+    # hop and no deploy key to manage. See minaki-deployment/scripts/setup-github-actions-runner.sh
+    #
+    # This repository is public, so the trigger is deliberately limited to
+    # pushes on main (which require write access). Do not add pull_request or
+    # pull_request_target triggers here — that would let any fork run code on
+    # the production VPS.
+    runs-on: [self-hosted, contabo]
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout repository
@@ -25,7 +34,6 @@ jobs:
         run: |
           test -n "${{ vars.INFISICAL_IDENTITY_ID }}" || {
             echo "Missing repo variable: INFISICAL_IDENTITY_ID"
-            echo "Run homelab-contabo/scripts/setup-github-actions-infisical.sh"
             exit 1
           }
           test -n "${{ vars.INFISICAL_PROJECT_SLUG }}" || {
@@ -33,7 +41,7 @@ jobs:
             exit 1
           }
 
-      - name: Fetch deploy secrets from Infisical
+      - name: Fetch build secrets from Infisical
         uses: Infisical/secrets-action@v1.0.9
         with:
           method: oidc
@@ -48,70 +56,21 @@ jobs:
       - name: Write production env for Vite build
         run: |
           : > .env.production
-          env | grep '^VITE_' | while IFS= read -r line; do
-            printf '%s\n' "$line" >> .env.production
-          done
+          env | grep '^VITE_' >> .env.production || true
           test -s .env.production || {
             echo "No VITE_* secrets found in Infisical prod /"
             exit 1
           }
+          chmod 600 .env.production
+          echo "Baked $(wc -l < .env.production) VITE_* variables into the build"
 
-      - name: Validate Infisical configuration
+      - name: Deploy and health check
         run: |
-          test -n "${CONTABO_SSH_PRIVATE_KEY:-}" || {
-            echo "Missing Infisical secret: CONTABO_SSH_PRIVATE_KEY at prod /"
-            exit 1
-          }
-          test -n "${CONTABO_SERVER_IP:-}" || {
-            echo "Missing Infisical secret: CONTABO_SERVER_IP at prod /"
-            exit 1
-          }
-          test -f .env.production || {
-            echo "Missing .env.production from Infisical prod /"
-            exit 1
-          }
+          sudo -n /root/homelab/scripts/ci-deploy.sh \
+            minaki-billing \
+            "$GITHUB_WORKSPACE" \
+            "$GITHUB_WORKSPACE/.env.production"
 
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$CONTABO_SSH_PRIVATE_KEY" > ~/.ssh/contabo_deploy
-          chmod 600 ~/.ssh/contabo_deploy
-          ssh-keyscan -H "$CONTABO_SERVER_IP" >> ~/.ssh/known_hosts
-
-      - name: Rsync source to VPS
-        run: |
-          SSH_USER="${CONTABO_SSH_USER:-root}"
-          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
-          rsync -az --delete \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude 'dist' \
-            -e "ssh -i ~/.ssh/contabo_deploy" \
-            ./ \
-            "${SSH_USER}@${CONTABO_SERVER_IP}:${REMOTE_DIR}/sources/minaki-billing-src/"
-
-      - name: Build on server and restart billing_frontend
-        run: |
-          SSH_USER="${CONTABO_SSH_USER:-root}"
-          REMOTE_DIR="${CONTABO_REMOTE_DIR:-/root/homelab}"
-          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${CONTABO_SERVER_IP}" \
-            "cd '${REMOTE_DIR}' && chmod +x scripts/build-minaki-billing-on-server.sh && ./scripts/build-minaki-billing-on-server.sh"
-          ssh -i ~/.ssh/contabo_deploy "${SSH_USER}@${CONTABO_SERVER_IP}" \
-            "cd '${REMOTE_DIR}' && docker compose up -d billing_frontend"
-
-      - name: Health check
-        run: |
-          if [ -z "${CONTABO_BILLING_HEALTH_URL:-}" ]; then
-            echo "CONTABO_BILLING_HEALTH_URL not set — skip health check"
-            exit 0
-          fi
-          for attempt in 1 2 3 4 5; do
-            if curl -fsS "$CONTABO_BILLING_HEALTH_URL"; then
-              echo "Health check OK"
-              exit 0
-            fi
-            echo "Waiting for billing app... (${attempt}/5)"
-            sleep 10
-          done
-          echo "Health check failed"
-          exit 1
+      - name: Remove exported secrets from the runner
+        if: always()
+        run: rm -f .env.production
