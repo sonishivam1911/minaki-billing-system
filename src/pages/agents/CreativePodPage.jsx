@@ -31,6 +31,8 @@ const FIELD_HELP = {
     'Burned-in paints Title/Subtitle/CTA into the image (preferred). Overlay keeps text separate for legacy HTML overlays.',
   imageModel:
     'Which image model renders the banner. Leave on Auto for the best default (Seedream 4.5). Faster models trade off fidelity.',
+  textModel:
+    'Which text model runs the Strategist, Copywriter, and Director agents (one shared pick for all three). Leave on Auto for the default. Type to search — this list covers every general chat model OpenRouter offers.',
   titlePosition:
     'Where to reserve clean empty space for text (added afterward, not burned into the image). Leave on Auto to let the Director pick per aspect.',
   customWidth:
@@ -45,12 +47,245 @@ const FIELD_HELP = {
     'Comma-separated addresses that get a completion email with banner links when the run finishes (or fails).',
   regenerateHint:
     'Tell the agent what to fix on regenerate — e.g. darker background, shorter headline, sharper product, different pose.',
+  compareModels:
+    'Optional: also generate the same locked copy/scene through these additional image models for a side-by-side comparison, right after this run finishes. Costs one extra generation + evaluator call per model checked. Never changes the primary result above.',
+};
+
+const ROUTE_LABELS = { A: 'Route A', B: 'Route B' };
+
+const RouteBlock = ({ routeKey, route }) => {
+  if (!route) return null;
+  return (
+    <div className="agents-copy-block">
+      <p><strong>{ROUTE_LABELS[routeKey] || routeKey}:</strong> {route.angle}</p>
+      {route.emotion && <p className="agents-collection-meta">Emotion: {route.emotion}</p>}
+      {route.gain_quote && <p className="agents-collection-meta">Gain: {route.gain_quote}</p>}
+      {Array.isArray(route.hooks) && route.hooks.length > 0 && (
+        <ul className="agents-hook-list">
+          {route.hooks.map((hook) => (
+            <li key={hook}>{hook}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
+const CopyVariantBlock = ({ variantKey, variant, isRecommended }) => {
+  if (!variant) return null;
+  return (
+    <div className="agents-copy-block">
+      <p>
+        <strong>Variant {variantKey}{isRecommended ? ' (recommended)' : ''}:</strong>{' '}
+        {variant.hook_line}
+      </p>
+      {variant.caption && <p className="agents-collection-meta">{variant.caption}</p>}
+    </div>
+  );
+};
+
+const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
+  if (!verdict) return null;
+  const breakdown = verdict.score_breakdown || [];
+  return (
+    <div className="agents-copy-block">
+      <p>
+        <strong>{slotName}:</strong> {verdict.pass ? 'pass' : 'needs review'} — score {verdict.score}
+        {verdict.hard_gate_failed ? ' (hard gate failed)' : ''}
+      </p>
+      {breakdown.length > 0 ? (
+        <ul className="agents-hook-list">
+          {breakdown.map((entry) => (
+            <li key={entry.axis}>
+              <strong>{entry.axis}:</strong>{' '}
+              {entry.score !== undefined ? `${entry.score}/100 — ` : `${entry.status} — `}
+              {entry.detail}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        (verdict.reasons || []).length > 0 && (
+          <p className="agents-collection-meta">{verdict.reasons.join('; ')}</p>
+        )
+      )}
+    </div>
+  );
+};
+
+/** Side-by-side results from comparing the run's locked prompt across
+ * additional image models (compare-models endpoint) — same input, so
+ * differences reflect the model, not the prompt. */
+const ModelComparisonPanel = ({ comparison, loading }) => {
+  if (!loading && !comparison) return null;
+  const entries = Object.entries(comparison || {});
+  return (
+    <div className="agents-copy-block">
+      <h3>Model comparison</h3>
+      {loading && <p className="agents-muted-inline">Generating comparison variants…</p>}
+      {entries.map(([modelId, result]) => (
+        <div key={modelId} className="agents-copy-block">
+          <p>
+            <strong>{modelId}</strong>
+            {result.error
+              ? ` — failed: ${result.error}`
+              : ` — score ${result.quality_score} (${result.pass ? 'pass' : 'needs review'})`}
+          </p>
+          {!result.error && collectHttpImageUrls(result.banner_urls).length > 0 && (
+            <div className="agents-banner-grid">
+              {collectHttpImageUrls(result.banner_urls).map((imageUrl) => (
+                <a
+                  key={imageUrl}
+                  href={imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="agents-banner-cell"
+                >
+                  <img src={imageUrl} alt={`${modelId} comparison`} loading="lazy" />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Surfaces the Strategist, Copywriter, Director, and Evaluator outputs that
+ * already flow through the API response but weren't previously rendered. */
+const AgentOutputsPanel = ({ contentBrief, copyPack, visualSpec, decisionLogs }) => {
+  const routes = contentBrief && !contentBrief.stop
+    ? Object.entries(contentBrief).filter(([key]) => key === 'route_a' || key === 'route_b')
+    : [];
+  const copyVariants = copyPack?.variants || {};
+  const recommendedVariant = copyPack?.recommended_variant;
+  const director = decisionLogs?.director;
+  const typography = visualSpec?.typography;
+  const evaluator = decisionLogs?.evaluator;
+  const costs = decisionLogs?.costs || {};
+  const costEntries = Object.entries(costs);
+  const totalCost = costEntries.reduce((sum, [, entry]) => sum + (entry.cost_usd || 0), 0);
+
+  const hasAny = routes.length || Object.keys(copyVariants).length || visualSpec || evaluator;
+  if (!hasAny) return null;
+
+  return (
+    <details className="agents-copy-block agents-agent-outputs">
+      <summary>Full agent outputs (Strategist · Copywriter · Director · Evaluator)</summary>
+
+      {costEntries.length > 0 && (
+        <div className="agents-copy-block">
+          <h3>Cost per agent</h3>
+          <p>
+            <strong>Total: ${totalCost.toFixed(4)}</strong>{' '}
+            <span className="agents-collection-meta">
+              (text-agent costs are token counts × OpenRouter's published rates; image
+              generation cost isn't included here yet)
+            </span>
+          </p>
+          <ul className="agents-hook-list">
+            {costEntries.map(([agentLabel, entry]) => (
+              <li key={agentLabel}>
+                <strong>{agentLabel}:</strong> ${(entry.cost_usd || 0).toFixed(4)} — {entry.model}
+                {entry.input_tokens !== undefined
+                  ? ` (${entry.input_tokens} in / ${entry.output_tokens} out tokens)`
+                  : entry.calls !== undefined
+                    ? ` (${entry.calls} call${entry.calls === 1 ? '' : 's'})`
+                    : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {routes.length > 0 && (
+        <div className="agents-copy-block">
+          <h3>Strategist — routes</h3>
+          {routes.map(([key, route]) => (
+            <RouteBlock key={key} routeKey={key.replace('route_', '').toUpperCase()} route={route} />
+          ))}
+        </div>
+      )}
+
+      {(Object.keys(copyVariants).length > 0 || copyPack?.claims) && (
+        <div className="agents-copy-block">
+          <h3>Copywriter — copy pack</h3>
+          {Object.entries(copyVariants).map(([key, variant]) => (
+            <CopyVariantBlock
+              key={key}
+              variantKey={key}
+              variant={variant}
+              isRecommended={key === recommendedVariant}
+            />
+          ))}
+          {copyPack?.alt_text && (
+            <p className="agents-collection-meta">Alt text: {copyPack.alt_text}</p>
+          )}
+          {Array.isArray(copyPack?.claims) && copyPack.claims.length > 0 && (
+            <ul className="agents-hook-list">
+              {copyPack.claims.map((claim) => (
+                <li key={claim.text}>{claim.text}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {(visualSpec || director) && (
+        <div className="agents-copy-block">
+          <h3>Director — scene</h3>
+          {visualSpec?.concept && <p><strong>Concept:</strong> {visualSpec.concept}</p>}
+          {visualSpec?.mood && <p className="agents-collection-meta">Mood: {visualSpec.mood}</p>}
+          {visualSpec?.pose && <p className="agents-collection-meta">Pose: {visualSpec.pose}</p>}
+          {visualSpec?.casting && (
+            <p className="agents-collection-meta">Casting: {visualSpec.casting}</p>
+          )}
+          {visualSpec?.color_notes && (
+            <p className="agents-collection-meta">Colors: {visualSpec.color_notes}</p>
+          )}
+          {typography && (
+            <p className="agents-collection-meta">
+              Text placement: {typography.title_position || 'auto'}
+              {typography.contrast_notes ? ` — ${typography.contrast_notes}` : ''}
+            </p>
+          )}
+          {director?.scene && <p className="agents-collection-meta">Scene: {director.scene}</p>}
+          {director?.product_fidelity && (
+            <p className="agents-collection-meta">Product fidelity: {director.product_fidelity}</p>
+          )}
+          {director?.legibility && (
+            <p className="agents-collection-meta">Legibility: {director.legibility}</p>
+          )}
+        </div>
+      )}
+
+      {evaluator && (
+        <div className="agents-copy-block">
+          <h3>Evaluator — quality gate</h3>
+          <p>
+            <strong>Composite score: {evaluator.composite_score}</strong> —{' '}
+            {evaluator.pass ? 'pass' : 'needs review'}
+          </p>
+          {(evaluator.variants || []).map((variant) => (
+            <div key={variant.variant_index}>
+              <p className="agents-collection-meta">Variant {variant.variant_index}</p>
+              {Object.entries(variant.slots || {}).map(([slotName, verdict]) => (
+                <EvaluatorSlotBreakdown key={slotName} slotName={slotName} verdict={verdict} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </details>
+  );
 };
 
 export const CreativePodPage = () => {
   const [goals, setGoals] = useState([]);
   const [platforms, setPlatforms] = useState([]);
   const [imageModels, setImageModels] = useState([]);
+  const [textModels, setTextModels] = useState([]);
+  const [textModelFilter, setTextModelFilter] = useState('');
   const [textPlacements, setTextPlacements] = useState([]);
   const [schemaReady, setSchemaReady] = useState(true);
   const [briefText, setBriefText] = useState('');
@@ -60,10 +295,14 @@ export const CreativePodPage = () => {
   const [variantCount, setVariantCount] = useState(2);
   const [textRenderMode, setTextRenderMode] = useState('burned_in');
   const [imageModel, setImageModel] = useState('');
+  const [textModel, setTextModel] = useState('');
   const [titlePosition, setTitlePosition] = useState('');
   const [customWidth, setCustomWidth] = useState('');
   const [customHeight, setCustomHeight] = useState('');
   const [notifyEmails, setNotifyEmails] = useState('');
+  const [compareModelIds, setCompareModelIds] = useState([]);
+  const [modelComparison, setModelComparison] = useState(null);
+  const [comparingModels, setComparingModels] = useState(false);
   const [productImageFile, setProductImageFile] = useState(null);
   const [lifestyleImageFiles, setLifestyleImageFiles] = useState([]);
   const [regenerateHint, setRegenerateHint] = useState('');
@@ -78,15 +317,18 @@ export const CreativePodPage = () => {
 
   const loadCatalog = async () => {
     try {
-      const [goalsResponse, platformsResponse, modelsResponse, placementsResponse] = await Promise.all([
-        agentsApi.listCreativePodGoals(),
-        agentsApi.listCreativePodPlatforms(),
-        agentsApi.listCreativePodModels(),
-        agentsApi.listCreativePodTextPlacements(),
-      ]);
+      const [goalsResponse, platformsResponse, modelsResponse, textModelsResponse, placementsResponse] =
+        await Promise.all([
+          agentsApi.listCreativePodGoals(),
+          agentsApi.listCreativePodPlatforms(),
+          agentsApi.listCreativePodModels(),
+          agentsApi.listCreativePodTextModels(),
+          agentsApi.listCreativePodTextPlacements(),
+        ]);
       setGoals(goalsResponse.goals || []);
       setPlatforms(platformsResponse.platforms || []);
       setImageModels(modelsResponse.models || []);
+      setTextModels(textModelsResponse.models || []);
       setTextPlacements(placementsResponse.positions || []);
       setSchemaReady(goalsResponse.schema_ready !== false);
       if (!goalType && (goalsResponse.goals || []).length) {
@@ -143,18 +385,41 @@ export const CreativePodPage = () => {
         textRenderMode,
         imageModel: imageModel || undefined,
         titlePosition: titlePosition || undefined,
+        textModel: textModel || undefined,
         notifyEmails: parseCommaSeparatedEmails(notifyEmails),
       });
       const normalized = normalizeCreativePodRunForDisplay(response);
       setActiveRun(normalized);
+      setModelComparison(null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
       await loadRecentRuns();
+      if (compareModelIds.length > 0 && normalized?.runId) {
+        await runModelComparison(normalized.runId, compareModelIds);
+      }
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const runModelComparison = async (runId, models) => {
+    setComparingModels(true);
+    try {
+      const response = await agentsApi.compareCreativePodModels(runId, models);
+      setModelComparison(response.models || {});
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setComparingModels(false);
+    }
+  };
+
+  const toggleCompareModel = (value) => {
+    setCompareModelIds((prev) =>
+      prev.includes(value) ? prev.filter((id) => id !== value) : [...prev, value]
+    );
   };
 
   const viewRunDetails = async (runId) => {
@@ -164,6 +429,7 @@ export const CreativePodPage = () => {
       const runRow = await agentsApi.getCreativePodRun(runId);
       const normalized = normalizeCreativePodRunForDisplay(runRow);
       setActiveRun(normalized);
+      setModelComparison(normalized?.decisionLogs?.model_comparison?.models || null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
     } catch (error) {
@@ -329,6 +595,60 @@ export const CreativePodPage = () => {
             </label>
           </div>
 
+          <div>
+            <FieldLabel label="Compare additional image models (optional)" info={FIELD_HELP.compareModels} />
+            <div className="agents-check-group agents-compare-models-group">
+              {imageModels
+                .filter((option) => option.value !== imageModel)
+                .map((option) => (
+                  <label key={option.value}>
+                    <input
+                      type="checkbox"
+                      checked={compareModelIds.includes(option.value)}
+                      onChange={() => toggleCompareModel(option.value)}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              {!imageModels.length && (
+                <span className="agents-collection-meta">No models loaded yet.</span>
+              )}
+            </div>
+            {compareModelIds.length > 0 && (
+              <span className="agents-collection-meta">
+                {compareModelIds.length} model{compareModelIds.length === 1 ? '' : 's'} will be
+                compared after this run finishes.
+              </span>
+            )}
+          </div>
+
+          <label>
+            <FieldLabel label="Text model (Strategist/Copywriter/Director)" info={FIELD_HELP.textModel} />
+            <input
+              value={textModelFilter}
+              onChange={(event) => setTextModelFilter(event.target.value)}
+              placeholder={`Search ${textModels.length || ''} models…`}
+              className="agents-model-filter"
+            />
+            <select value={textModel} onChange={(event) => setTextModel(event.target.value)}>
+              <option value="">Auto (default)</option>
+              {textModels
+                .filter((option) => {
+                  const needle = textModelFilter.trim().toLowerCase();
+                  if (!needle) return true;
+                  return (
+                    option.value.toLowerCase().includes(needle) ||
+                    (option.label || '').toLowerCase().includes(needle)
+                  );
+                })
+                .map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+            </select>
+          </label>
+
           <div className="agents-form-row">
             <label>
               <FieldLabel label="Custom width (px)" info={FIELD_HELP.customWidth} />
@@ -410,6 +730,9 @@ export const CreativePodPage = () => {
         {isSubmitting && (
           <p className="agents-muted-inline">
             Creative Pod runs strategist → copy → director → image gen. Keep this tab open.
+            {compareModelIds.length > 0
+              ? ` Then compares against ${compareModelIds.length} additional model${compareModelIds.length === 1 ? '' : 's'}.`
+              : ''}
           </p>
         )}
       </section>
@@ -437,6 +760,15 @@ export const CreativePodPage = () => {
               {activeRun.inImageCta && <p><strong>CTA:</strong> {activeRun.inImageCta}</p>}
             </div>
           )}
+
+          <AgentOutputsPanel
+            contentBrief={activeRun.contentBrief}
+            copyPack={activeRun.copyPack}
+            visualSpec={activeRun.visualSpec}
+            decisionLogs={activeRun.decisionLogs}
+          />
+
+          <ModelComparisonPanel comparison={modelComparison} loading={comparingModels} />
 
           {variantCards.length > 0 ? (
             variantCards.map((variantCard) => (

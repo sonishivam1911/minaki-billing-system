@@ -9050,6 +9050,28 @@
   margin: 0 0 0.75rem;
 }
 
+.agents-hook-list {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  color: #5c5347;
+}
+
+.agents-hook-list li {
+  margin-bottom: 0.3rem;
+}
+
+.agents-agent-outputs > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem;
+}
+
+.agents-agent-outputs .agents-copy-block:first-of-type {
+  margin-top: 1rem;
+}
+
 .agents-lead {
   font-size: 1.05rem;
   margin-bottom: 1rem;
