@@ -79,6 +79,8 @@ export function normalizeCreativePodRunForDisplay(apiRun) {
     status: apiRun.status || 'unknown',
     errorMessage: apiRun.error || apiRun.error_message,
     briefText: apiRun.brief_text,
+    goalDetail: apiRun.goal_detail,
+    notifyEmails: Array.isArray(apiRun.notify_emails) ? apiRun.notify_emails : [],
     goalType: intake.goal_type || apiRun.goal_type,
     platform: intake.platform,
     platformLabel: intake.platform_label,

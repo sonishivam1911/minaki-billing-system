@@ -179,14 +179,15 @@ const AgentOutputsPanel = ({ contentBrief, copyPack, visualSpec, decisionLogs })
           <p>
             <strong>Total: ${totalCost.toFixed(4)}</strong>{' '}
             <span className="agents-collection-meta">
-              (text-agent costs are token counts × OpenRouter's published rates; image
-              generation cost isn't included here yet)
+              (text-agent/evaluator costs are token counts × OpenRouter's published rates;
+              image generation cost is OpenRouter's own reported spend per call)
             </span>
           </p>
           <ul className="agents-hook-list">
             {costEntries.map(([agentLabel, entry]) => (
               <li key={agentLabel}>
-                <strong>{agentLabel}:</strong> ${(entry.cost_usd || 0).toFixed(4)} — {entry.model}
+                <strong>{agentLabel}:</strong> ${(entry.cost_usd || 0).toFixed(4)}
+                {entry.model ? ` — ${entry.model}` : ''}
                 {entry.input_tokens !== undefined
                   ? ` (${entry.input_tokens} in / ${entry.output_tokens} out tokens)`
                   : entry.calls !== undefined
@@ -303,6 +304,8 @@ export const CreativePodPage = () => {
   const [compareModelIds, setCompareModelIds] = useState([]);
   const [modelComparison, setModelComparison] = useState(null);
   const [comparingModels, setComparingModels] = useState(false);
+  const [prefilledFromRunId, setPrefilledFromRunId] = useState(null);
+  const [prefilledReferenceImages, setPrefilledReferenceImages] = useState(null);
   const [productImageFile, setProductImageFile] = useState(null);
   const [lifestyleImageFiles, setLifestyleImageFiles] = useState([]);
   const [regenerateHint, setRegenerateHint] = useState('');
@@ -366,7 +369,11 @@ export const CreativePodPage = () => {
       return;
     }
     if (!productImageFile) {
-      setErrorMessage('Upload a product reference image');
+      setErrorMessage(
+        prefilledFromRunId
+          ? `Upload a product reference image — file inputs can't be prefilled, so re-upload the image from run #${prefilledFromRunId} (or a new one) to continue`
+          : 'Upload a product reference image'
+      );
       return;
     }
     setIsSubmitting(true);
@@ -391,6 +398,8 @@ export const CreativePodPage = () => {
       const normalized = normalizeCreativePodRunForDisplay(response);
       setActiveRun(normalized);
       setModelComparison(null);
+      setPrefilledFromRunId(null);
+      setPrefilledReferenceImages(null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
       await loadRecentRuns();
@@ -432,6 +441,44 @@ export const CreativePodPage = () => {
       setModelComparison(normalized?.decisionLogs?.model_comparison?.models || null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const prefillFormFromRun = (run) => {
+    if (!run) return;
+    setBriefText(run.briefText || '');
+    setGoalType(run.goalType || '');
+    setGoalDetail(run.goalDetail || '');
+    setPlatform(run.platform || 'website');
+    setVariantCount(run.variantCount || 1);
+    setTextRenderMode(run.textRenderMode || 'burned_in');
+    setImageModel(run.intake?.image_model || '');
+    setTextModel(run.intake?.text_model || '');
+    setTitlePosition(run.intake?.title_position || '');
+    setCustomWidth(run.intake?.width ? String(run.intake.width) : '');
+    setCustomHeight(run.intake?.height ? String(run.intake.height) : '');
+    setNotifyEmails((run.notifyEmails || []).join(', '));
+    setCompareModelIds([]);
+    setProductImageFile(null);
+    setLifestyleImageFiles([]);
+    setPrefilledFromRunId(run.runId || null);
+    setPrefilledReferenceImages({
+      productImageUrl: run.intake?.product_image_url || '',
+      lifestyleImageUrls: run.intake?.lifestyle_reference_urls || [],
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const prefillFormFromRunId = async (runId) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const runRow = await agentsApi.getCreativePodRun(runId);
+      prefillFormFromRun(normalizeCreativePodRunForDisplay(runRow));
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -492,6 +539,32 @@ export const CreativePodPage = () => {
 
       <section className="agents-card">
         <h2 className="agents-section-title">New banner run</h2>
+        {prefilledFromRunId && (
+          <div className="agents-alert agents-prefill-banner">
+            <p>
+              Prefilled from Run #{prefilledFromRunId} — all fields below are editable.
+              File inputs can&apos;t be prefilled by the browser, so you must upload the
+              product image (and lifestyle images, if any) again to submit.
+            </p>
+            {prefilledReferenceImages?.productImageUrl && (
+              <div className="agents-banner-grid">
+                <a
+                  href={prefilledReferenceImages.productImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="agents-banner-cell"
+                >
+                  <img src={prefilledReferenceImages.productImageUrl} alt="Previous product reference" loading="lazy" />
+                </a>
+                {(prefilledReferenceImages.lifestyleImageUrls || []).map((url) => (
+                  <a key={url} href={url} target="_blank" rel="noreferrer" className="agents-banner-cell">
+                    <img src={url} alt="Previous lifestyle reference" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="agents-form-stack">
           <label>
             <FieldLabel label="Brief" info={FIELD_HELP.brief} />
@@ -739,9 +812,18 @@ export const CreativePodPage = () => {
 
       {activeRun && (
         <section className="agents-card">
-          <h2 className="agents-section-title">
-            Run #{activeRun.runId} — {activeRun.status}
-          </h2>
+          <div className="agents-actions-row compact agents-run-header-actions">
+            <h2 className="agents-section-title">
+              Run #{activeRun.runId} — {activeRun.status}
+            </h2>
+            <button
+              type="button"
+              className="agents-btn secondary"
+              onClick={() => prefillFormFromRun(activeRun)}
+            >
+              Prefill form to rerun with changes
+            </button>
+          </div>
           {activeRun.errorMessage && (
             <p className="agents-status-err">{activeRun.errorMessage}</p>
           )}
@@ -936,6 +1018,14 @@ export const CreativePodPage = () => {
                         onClick={() => viewRunDetails(runRow.id)}
                       >
                         View
+                      </button>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="agents-link-btn"
+                        onClick={() => prefillFormFromRunId(runRow.id)}
+                      >
+                        Rerun
                       </button>
                     </td>
                   </tr>

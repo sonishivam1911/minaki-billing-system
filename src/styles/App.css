@@ -8711,6 +8711,16 @@
   margin-top: 0.75rem;
 }
 
+.agents-run-header-actions {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0;
+}
+
+.agents-run-header-actions .agents-section-title {
+  margin: 0;
+}
+
 .agents-muted-inline {
   font-size: 0.85rem;
   color: #888;
