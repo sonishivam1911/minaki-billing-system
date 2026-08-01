@@ -252,6 +252,8 @@ export const agentsApi = {
 
   listCreativePodModels: () => agentFetch('/api/agent/creative-pod/models'),
 
+  listCreativePodTextModels: () => agentFetch('/api/agent/creative-pod/text-models'),
+
   listCreativePodTextPlacements: () => agentFetch('/api/agent/creative-pod/text-placements'),
 
   listCreativePodRuns: (params = {}) => {
@@ -277,6 +279,7 @@ export const agentsApi = {
     textRenderMode = 'burned_in',
     imageModel,
     titlePosition,
+    textModel,
     notifyEmails = [],
   }) => {
     const form = new FormData();
@@ -291,6 +294,7 @@ export const agentsApi = {
     if (height) form.append('height', String(height));
     if (imageModel) form.append('image_model', imageModel);
     if (titlePosition) form.append('title_position', titlePosition);
+    if (textModel) form.append('text_model', textModel);
     if (notifyEmails?.length) {
       form.append('notify_emails', notifyEmails.join(','));
     }
@@ -305,6 +309,13 @@ export const agentsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+    }),
+
+  compareCreativePodModels: (runId, models = []) =>
+    agentFetch(`/api/agent/creative-pod/runs/${runId}/compare-models`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ models }),
     }),
 
   listMetaCampaigns: (params = {}) => {
