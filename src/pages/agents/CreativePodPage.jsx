@@ -29,6 +29,10 @@ const FIELD_HELP = {
     'How many distinct image looks to generate. Each variant gets a different pose/camera/wardrobe delta and casting look from the lane pool.',
   textRenderMode:
     'Burned-in paints Title/Subtitle/CTA into the image (preferred). Overlay keeps text separate for legacy HTML overlays.',
+  imageModel:
+    'Which image model renders the banner. Leave on Auto for the best default (Seedream 4.5). Faster models trade off fidelity.',
+  titlePosition:
+    'Where to reserve clean empty space for text (added afterward, not burned into the image). Leave on Auto to let the Director pick per aspect.',
   customWidth:
     'Optional pixel width. Leave blank to use the platform preset. Pair with height when you need a custom crop.',
   customHeight:
@@ -46,6 +50,8 @@ const FIELD_HELP = {
 export const CreativePodPage = () => {
   const [goals, setGoals] = useState([]);
   const [platforms, setPlatforms] = useState([]);
+  const [imageModels, setImageModels] = useState([]);
+  const [textPlacements, setTextPlacements] = useState([]);
   const [schemaReady, setSchemaReady] = useState(true);
   const [briefText, setBriefText] = useState('');
   const [goalType, setGoalType] = useState('');
@@ -53,12 +59,16 @@ export const CreativePodPage = () => {
   const [platform, setPlatform] = useState('website');
   const [variantCount, setVariantCount] = useState(2);
   const [textRenderMode, setTextRenderMode] = useState('burned_in');
+  const [imageModel, setImageModel] = useState('');
+  const [titlePosition, setTitlePosition] = useState('');
   const [customWidth, setCustomWidth] = useState('');
   const [customHeight, setCustomHeight] = useState('');
   const [notifyEmails, setNotifyEmails] = useState('');
   const [productImageFile, setProductImageFile] = useState(null);
   const [lifestyleImageFiles, setLifestyleImageFiles] = useState([]);
   const [regenerateHint, setRegenerateHint] = useState('');
+  const [regenerateImageModel, setRegenerateImageModel] = useState('');
+  const [regenerateTitlePosition, setRegenerateTitlePosition] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [activeRun, setActiveRun] = useState(null);
@@ -68,12 +78,16 @@ export const CreativePodPage = () => {
 
   const loadCatalog = async () => {
     try {
-      const [goalsResponse, platformsResponse] = await Promise.all([
+      const [goalsResponse, platformsResponse, modelsResponse, placementsResponse] = await Promise.all([
         agentsApi.listCreativePodGoals(),
         agentsApi.listCreativePodPlatforms(),
+        agentsApi.listCreativePodModels(),
+        agentsApi.listCreativePodTextPlacements(),
       ]);
       setGoals(goalsResponse.goals || []);
       setPlatforms(platformsResponse.platforms || []);
+      setImageModels(modelsResponse.models || []);
+      setTextPlacements(placementsResponse.positions || []);
       setSchemaReady(goalsResponse.schema_ready !== false);
       if (!goalType && (goalsResponse.goals || []).length) {
         setGoalType(goalsResponse.goals[0].goal_type);
@@ -127,9 +141,14 @@ export const CreativePodPage = () => {
         height: customHeight ? Number(customHeight) : undefined,
         variantCount,
         textRenderMode,
+        imageModel: imageModel || undefined,
+        titlePosition: titlePosition || undefined,
         notifyEmails: parseCommaSeparatedEmails(notifyEmails),
       });
-      setActiveRun(normalizeCreativePodRunForDisplay(response));
+      const normalized = normalizeCreativePodRunForDisplay(response);
+      setActiveRun(normalized);
+      setRegenerateImageModel(normalized?.intake?.image_model || '');
+      setRegenerateTitlePosition(normalized?.intake?.title_position || '');
       await loadRecentRuns();
     } catch (error) {
       setErrorMessage(error.message);
@@ -143,7 +162,10 @@ export const CreativePodPage = () => {
     setErrorMessage(null);
     try {
       const runRow = await agentsApi.getCreativePodRun(runId);
-      setActiveRun(normalizeCreativePodRunForDisplay(runRow));
+      const normalized = normalizeCreativePodRunForDisplay(runRow);
+      setActiveRun(normalized);
+      setRegenerateImageModel(normalized?.intake?.image_model || '');
+      setRegenerateTitlePosition(normalized?.intake?.title_position || '');
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -159,6 +181,8 @@ export const CreativePodPage = () => {
       const response = await agentsApi.regenerateCreativePodRun(activeRun.runId, {
         hint: regenerateHint,
         notify_emails: parseCommaSeparatedEmails(notifyEmails),
+        image_model: regenerateImageModel || undefined,
+        title_position: regenerateTitlePosition || undefined,
       });
       setActiveRun(normalizeCreativePodRunForDisplay(response));
       setRegenerateHint('');
@@ -272,6 +296,31 @@ export const CreativePodPage = () => {
                 onChange={(event) => setTextRenderMode(event.target.value)}
               >
                 {TEXT_RENDER_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="agents-form-row">
+            <label>
+              <FieldLabel label="Image model" info={FIELD_HELP.imageModel} />
+              <select value={imageModel} onChange={(event) => setImageModel(event.target.value)}>
+                <option value="">Auto (Seedream 4.5)</option>
+                {imageModels.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <FieldLabel label="Text-safe space" info={FIELD_HELP.titlePosition} />
+              <select value={titlePosition} onChange={(event) => setTitlePosition(event.target.value)}>
+                <option value="">Auto (Director picks)</option>
+                {textPlacements.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -470,6 +519,36 @@ export const CreativePodPage = () => {
                 placeholder="e.g. darker background, sharper product, shorter headline"
               />
             </label>
+            <div className="agents-form-row">
+              <label>
+                <FieldLabel label="Image model" info={FIELD_HELP.imageModel} />
+                <select
+                  value={regenerateImageModel}
+                  onChange={(event) => setRegenerateImageModel(event.target.value)}
+                >
+                  <option value="">Auto (Seedream 4.5)</option>
+                  {imageModels.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <FieldLabel label="Text-safe space" info={FIELD_HELP.titlePosition} />
+                <select
+                  value={regenerateTitlePosition}
+                  onChange={(event) => setRegenerateTitlePosition(event.target.value)}
+                >
+                  <option value="">Auto (Director picks)</option>
+                  {textPlacements.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="agents-actions-row compact">
               <button
                 type="button"
