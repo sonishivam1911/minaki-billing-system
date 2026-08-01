@@ -250,6 +250,10 @@ export const agentsApi = {
 
   listCreativePodPlatforms: () => agentFetch('/api/agent/creative-pod/platforms'),
 
+  listCreativePodModels: () => agentFetch('/api/agent/creative-pod/models'),
+
+  listCreativePodTextPlacements: () => agentFetch('/api/agent/creative-pod/text-placements'),
+
   listCreativePodRuns: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -271,6 +275,8 @@ export const agentsApi = {
     height,
     variantCount = 1,
     textRenderMode = 'burned_in',
+    imageModel,
+    titlePosition,
     notifyEmails = [],
   }) => {
     const form = new FormData();
@@ -283,6 +289,8 @@ export const agentsApi = {
     if (platform) form.append('platform', platform);
     if (width) form.append('width', String(width));
     if (height) form.append('height', String(height));
+    if (imageModel) form.append('image_model', imageModel);
+    if (titlePosition) form.append('title_position', titlePosition);
     if (notifyEmails?.length) {
       form.append('notify_emails', notifyEmails.join(','));
     }
