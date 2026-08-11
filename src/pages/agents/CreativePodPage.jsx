@@ -41,6 +41,8 @@ const FIELD_HELP = {
     'Optional pixel height. Leave blank to use the platform preset. Pair with width when you need a custom crop.',
   productImage:
     'Required SKU photo. Ref 1 is product ground truth — metal, stones, and silhouette must match this image in every banner.',
+  productDescription:
+    "Optional plain-text description of the product's structure (from the Shopify listing works well) — e.g. \"rigid open-cuff bangle, single CZ stone, split-wire silhouette, NOT a ring, NOT a chain-link bracelet.\" A second, unambiguous signal alongside the photo, so the image model is less likely to hallucinate construction it can't clearly see.",
   lifestyleImages:
     'Optional mood photos (model, setting, lighting). Used for vibe only — they do not replace the product SKU.',
   notifyEmails:
@@ -307,6 +309,8 @@ export const CreativePodPage = () => {
   const [prefilledFromRunId, setPrefilledFromRunId] = useState(null);
   const [prefilledReferenceImages, setPrefilledReferenceImages] = useState(null);
   const [productImageFile, setProductImageFile] = useState(null);
+  const [productDescription, setProductDescription] = useState('');
+  const [regenerateProductDescription, setRegenerateProductDescription] = useState('');
   const [lifestyleImageFiles, setLifestyleImageFiles] = useState([]);
   const [regenerateHint, setRegenerateHint] = useState('');
   const [regenerateImageModel, setRegenerateImageModel] = useState('');
@@ -393,6 +397,7 @@ export const CreativePodPage = () => {
         imageModel: imageModel || undefined,
         titlePosition: titlePosition || undefined,
         textModel: textModel || undefined,
+        productDescription: productDescription.trim() || undefined,
         notifyEmails: parseCommaSeparatedEmails(notifyEmails),
       });
       const normalized = normalizeCreativePodRunForDisplay(response);
@@ -402,6 +407,7 @@ export const CreativePodPage = () => {
       setPrefilledReferenceImages(null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
+      setRegenerateProductDescription(normalized?.intake?.product_description || '');
       await loadRecentRuns();
       if (compareModelIds.length > 0 && normalized?.runId) {
         await runModelComparison(normalized.runId, compareModelIds);
@@ -441,6 +447,7 @@ export const CreativePodPage = () => {
       setModelComparison(normalized?.decisionLogs?.model_comparison?.models || null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
+      setRegenerateProductDescription(normalized?.intake?.product_description || '');
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -461,6 +468,7 @@ export const CreativePodPage = () => {
     setTitlePosition(run.intake?.title_position || '');
     setCustomWidth(run.intake?.width ? String(run.intake.width) : '');
     setCustomHeight(run.intake?.height ? String(run.intake.height) : '');
+    setProductDescription(run.intake?.product_description || '');
     setNotifyEmails((run.notifyEmails || []).join(', '));
     setCompareModelIds([]);
     setProductImageFile(null);
@@ -496,6 +504,10 @@ export const CreativePodPage = () => {
         notify_emails: parseCommaSeparatedEmails(notifyEmails),
         image_model: regenerateImageModel || undefined,
         title_position: regenerateTitlePosition || undefined,
+        product_description:
+          regenerateProductDescription.trim() !== (activeRun?.intake?.product_description || '')
+            ? regenerateProductDescription.trim()
+            : undefined,
       });
       setActiveRun(normalizeCreativePodRunForDisplay(response));
       setRegenerateHint('');
@@ -761,6 +773,19 @@ export const CreativePodPage = () => {
 
           <label>
             <FieldLabel
+              label="Product description (optional)"
+              info={FIELD_HELP.productDescription}
+            />
+            <textarea
+              value={productDescription}
+              onChange={(event) => setProductDescription(event.target.value)}
+              placeholder="e.g. rigid open-cuff bangle, single CZ stone, split-wire silhouette — NOT a ring, NOT a chain-link bracelet"
+              rows={2}
+            />
+          </label>
+
+          <label>
+            <FieldLabel
               label="Lifestyle reference images (optional)"
               info={FIELD_HELP.lifestyleImages}
             />
@@ -931,6 +956,18 @@ export const CreativePodPage = () => {
                 value={regenerateHint}
                 onChange={(event) => setRegenerateHint(event.target.value)}
                 placeholder="e.g. darker background, sharper product, shorter headline"
+              />
+            </label>
+            <label>
+              <FieldLabel
+                label="Product description (optional)"
+                info={FIELD_HELP.productDescription}
+              />
+              <textarea
+                value={regenerateProductDescription}
+                onChange={(event) => setRegenerateProductDescription(event.target.value)}
+                placeholder="e.g. rigid open-cuff bangle, single CZ stone, split-wire silhouette — NOT a ring, NOT a chain-link bracelet"
+                rows={2}
               />
             </label>
             <div className="agents-form-row">

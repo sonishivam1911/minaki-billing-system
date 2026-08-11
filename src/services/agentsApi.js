@@ -280,6 +280,7 @@ export const agentsApi = {
     imageModel,
     titlePosition,
     textModel,
+    productDescription,
     notifyEmails = [],
   }) => {
     const form = new FormData();
@@ -295,6 +296,7 @@ export const agentsApi = {
     if (imageModel) form.append('image_model', imageModel);
     if (titlePosition) form.append('title_position', titlePosition);
     if (textModel) form.append('text_model', textModel);
+    if (productDescription) form.append('product_description', productDescription);
     if (notifyEmails?.length) {
       form.append('notify_emails', notifyEmails.join(','));
     }
@@ -304,6 +306,8 @@ export const agentsApi = {
     return agentFetch('/api/agent/creative-pod/runs', { method: 'POST', body: form });
   },
 
+  // body may include: hint, notify_emails, image_model, title_position,
+  // product_description (override; omit to keep the run's stored one)
   regenerateCreativePodRun: (runId, body = {}) =>
     agentFetch(`/api/agent/creative-pod/runs/${runId}/regenerate`, {
       method: 'POST',
