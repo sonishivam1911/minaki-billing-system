@@ -30,7 +30,9 @@ const FIELD_HELP = {
   textRenderMode:
     'Burned-in paints Title/Subtitle/CTA into the image (preferred). Overlay keeps text separate for legacy HTML overlays.',
   imageModel:
-    'Which image model renders the banner. Leave on Auto for the best default (Seedream 4.5). Faster models trade off fidelity.',
+    'Which image model renders the banner. Leave on Auto for the best default. Faster models trade off fidelity.',
+  imageModelMulti:
+    'Which image model(s) render the banner. Leave none checked for Auto (best default). Check one to pick it explicitly. Check several to generate+evaluate all of them on the same locked copy/scene in this one run — the first checked becomes the primary result, the rest are stored as comparisons. Each additional model costs one extra generation + evaluator call.',
   textModel:
     'Which text model runs the Strategist, Copywriter, and Director agents (one shared pick for all three). Leave on Auto for the default. Type to search — this list covers every general chat model OpenRouter offers.',
   titlePosition:
@@ -49,8 +51,6 @@ const FIELD_HELP = {
     'Comma-separated addresses that get a completion email with banner links when the run finishes (or fails).',
   regenerateHint:
     'Tell the agent what to fix on regenerate — e.g. darker background, shorter headline, sharper product, different pose.',
-  compareModels:
-    'Optional: also generate the same locked copy/scene through these additional image models for a side-by-side comparison, right after this run finishes. Costs one extra generation + evaluator call per model checked. Never changes the primary result above.',
 };
 
 const ROUTE_LABELS = { A: 'Route A', B: 'Route B' };
@@ -287,6 +287,7 @@ export const CreativePodPage = () => {
   const [goals, setGoals] = useState([]);
   const [platforms, setPlatforms] = useState([]);
   const [imageModels, setImageModels] = useState([]);
+  const [defaultImageModel, setDefaultImageModel] = useState('');
   const [textModels, setTextModels] = useState([]);
   const [textModelFilter, setTextModelFilter] = useState('');
   const [textPlacements, setTextPlacements] = useState([]);
@@ -297,13 +298,17 @@ export const CreativePodPage = () => {
   const [platform, setPlatform] = useState('website');
   const [variantCount, setVariantCount] = useState(2);
   const [textRenderMode, setTextRenderMode] = useState('burned_in');
-  const [imageModel, setImageModel] = useState('');
+  // Multi-select: first checked model is the primary generation (feeds
+  // banner_urls/models_used/evaluator as before), any additional checked
+  // models are generated+evaluated as comparisons on the SAME locked
+  // visual_spec, in the same "Generate banners" click — no separate
+  // compare step required. Empty selection = Auto (backend default).
+  const [selectedImageModels, setSelectedImageModels] = useState([]);
   const [textModel, setTextModel] = useState('');
   const [titlePosition, setTitlePosition] = useState('');
   const [customWidth, setCustomWidth] = useState('');
   const [customHeight, setCustomHeight] = useState('');
   const [notifyEmails, setNotifyEmails] = useState('');
-  const [compareModelIds, setCompareModelIds] = useState([]);
   const [modelComparison, setModelComparison] = useState(null);
   const [comparingModels, setComparingModels] = useState(false);
   const [prefilledFromRunId, setPrefilledFromRunId] = useState(null);
@@ -335,6 +340,7 @@ export const CreativePodPage = () => {
       setGoals(goalsResponse.goals || []);
       setPlatforms(platformsResponse.platforms || []);
       setImageModels(modelsResponse.models || []);
+      setDefaultImageModel(modelsResponse.default || '');
       setTextModels(textModelsResponse.models || []);
       setTextPlacements(placementsResponse.positions || []);
       setSchemaReady(goalsResponse.schema_ready !== false);
@@ -382,6 +388,9 @@ export const CreativePodPage = () => {
     }
     setIsSubmitting(true);
     setErrorMessage(null);
+    // First checked model is the primary run; the rest are compared against
+    // its locked visual_spec right after, in this same submit.
+    const [primaryImageModel, ...comparisonImageModels] = selectedImageModels;
     try {
       const response = await agentsApi.createCreativePodRun({
         briefText: briefText.trim(),
@@ -394,7 +403,7 @@ export const CreativePodPage = () => {
         height: customHeight ? Number(customHeight) : undefined,
         variantCount,
         textRenderMode,
-        imageModel: imageModel || undefined,
+        imageModel: primaryImageModel || undefined,
         titlePosition: titlePosition || undefined,
         textModel: textModel || undefined,
         productDescription: productDescription.trim() || undefined,
@@ -409,8 +418,8 @@ export const CreativePodPage = () => {
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
       setRegenerateProductDescription(normalized?.intake?.product_description || '');
       await loadRecentRuns();
-      if (compareModelIds.length > 0 && normalized?.runId) {
-        await runModelComparison(normalized.runId, compareModelIds);
+      if (comparisonImageModels.length > 0 && normalized?.runId) {
+        await runModelComparison(normalized.runId, comparisonImageModels);
       }
     } catch (error) {
       setErrorMessage(error.message);
@@ -431,8 +440,8 @@ export const CreativePodPage = () => {
     }
   };
 
-  const toggleCompareModel = (value) => {
-    setCompareModelIds((prev) =>
+  const toggleImageModelSelection = (value) => {
+    setSelectedImageModels((prev) =>
       prev.includes(value) ? prev.filter((id) => id !== value) : [...prev, value]
     );
   };
@@ -463,14 +472,13 @@ export const CreativePodPage = () => {
     setPlatform(run.platform || 'website');
     setVariantCount(run.variantCount || 1);
     setTextRenderMode(run.textRenderMode || 'burned_in');
-    setImageModel(run.intake?.image_model || '');
+    setSelectedImageModels(run.intake?.image_model ? [run.intake.image_model] : []);
     setTextModel(run.intake?.text_model || '');
     setTitlePosition(run.intake?.title_position || '');
     setCustomWidth(run.intake?.width ? String(run.intake.width) : '');
     setCustomHeight(run.intake?.height ? String(run.intake.height) : '');
     setProductDescription(run.intake?.product_description || '');
     setNotifyEmails((run.notifyEmails || []).join(', '));
-    setCompareModelIds([]);
     setProductImageFile(null);
     setLifestyleImageFiles([]);
     setPrefilledFromRunId(run.runId || null);
@@ -657,17 +665,6 @@ export const CreativePodPage = () => {
 
           <div className="agents-form-row">
             <label>
-              <FieldLabel label="Image model" info={FIELD_HELP.imageModel} />
-              <select value={imageModel} onChange={(event) => setImageModel(event.target.value)}>
-                <option value="">Auto (Seedream 4.5)</option>
-                {imageModels.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
               <FieldLabel label="Text-safe space" info={FIELD_HELP.titlePosition} />
               <select value={titlePosition} onChange={(event) => setTitlePosition(event.target.value)}>
                 <option value="">Auto (Director picks)</option>
@@ -681,28 +678,33 @@ export const CreativePodPage = () => {
           </div>
 
           <div>
-            <FieldLabel label="Compare additional image models (optional)" info={FIELD_HELP.compareModels} />
+            <FieldLabel label="Image model(s)" info={FIELD_HELP.imageModelMulti} />
             <div className="agents-check-group agents-compare-models-group">
-              {imageModels
-                .filter((option) => option.value !== imageModel)
-                .map((option) => (
-                  <label key={option.value}>
-                    <input
-                      type="checkbox"
-                      checked={compareModelIds.includes(option.value)}
-                      onChange={() => toggleCompareModel(option.value)}
-                    />
-                    {option.label}
-                  </label>
-                ))}
+              {imageModels.map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="checkbox"
+                    checked={selectedImageModels.includes(option.value)}
+                    onChange={() => toggleImageModelSelection(option.value)}
+                  />
+                  {option.label}
+                </label>
+              ))}
               {!imageModels.length && (
                 <span className="agents-collection-meta">No models loaded yet.</span>
               )}
             </div>
-            {compareModelIds.length > 0 && (
+            {selectedImageModels.length === 0 && (
               <span className="agents-collection-meta">
-                {compareModelIds.length} model{compareModelIds.length === 1 ? '' : 's'} will be
-                compared after this run finishes.
+                None checked = Auto ({imageModels.find((m) => m.value === defaultImageModel)?.label || defaultImageModel || 'default'}).
+              </span>
+            )}
+            {selectedImageModels.length === 1 && (
+              <span className="agents-collection-meta">Single model — this run's primary result.</span>
+            )}
+            {selectedImageModels.length > 1 && (
+              <span className="agents-collection-meta">
+                First checked ({imageModels.find((m) => m.value === selectedImageModels[0])?.label || selectedImageModels[0]}) is the primary result. The other {selectedImageModels.length - 1} will be generated and evaluated as comparisons, stored on this same run, right after.
               </span>
             )}
           </div>
@@ -828,8 +830,8 @@ export const CreativePodPage = () => {
         {isSubmitting && (
           <p className="agents-muted-inline">
             Creative Pod runs strategist → copy → director → image gen. Keep this tab open.
-            {compareModelIds.length > 0
-              ? ` Then compares against ${compareModelIds.length} additional model${compareModelIds.length === 1 ? '' : 's'}.`
+            {selectedImageModels.length > 1
+              ? ` Then compares against ${selectedImageModels.length - 1} additional model${selectedImageModels.length - 1 === 1 ? '' : 's'}.`
               : ''}
           </p>
         )}
