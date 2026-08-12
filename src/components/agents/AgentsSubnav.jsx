@@ -5,7 +5,7 @@ const LINKS = [
   { to: '/agents/writer', label: 'Product Writer' },
   { to: '/agents/keywords', label: 'Keywords' },
   { to: '/agents/naming-teams', label: 'Naming Teams' },
-  { to: '/agents/collections', label: 'Collections' },
+  { to: '/agents/collections', label: 'Collection Builder' },
   { to: '/agents/campaign-creative', label: 'Campaign Creative' },
   { to: '/agents/creative-pod', label: 'Banner Generation' },
   { to: '/agents/marketing', label: 'Meta Marketing' },
