@@ -189,10 +189,12 @@ export const agentsApi = {
     return agentFetch(`/api/agent/collection-page/shopify-collections${query ? `?${query}` : ''}`);
   },
 
-  listCollectionBuilderProducts: ({ collectionHandle, collectionGid } = {}) => {
+  listCollectionBuilderProducts: ({ collectionHandle, collectionGid, limit, after } = {}) => {
     const q = new URLSearchParams();
     if (collectionHandle) q.set('collection_handle', collectionHandle);
     if (collectionGid) q.set('collection_gid', collectionGid);
+    if (limit) q.set('limit', limit);
+    if (after) q.set('after', after);
     return agentFetch(`/api/agent/collection-builder/products?${q}`);
   },
 
