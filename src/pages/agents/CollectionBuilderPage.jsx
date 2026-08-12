@@ -252,23 +252,36 @@ export const CollectionBuilderPage = () => {
             <LoadingSpinner message="Loading products…" />
           ) : products.length ? (
             <div className="agents-banner-grid">
-              {products.map((product) => (
-                <button
-                  type="button"
-                  key={product.product_id}
-                  className={`agents-banner-cell agents-product-pick${
-                    selectedProductId === product.product_id ? ' active' : ''
-                  }`}
-                  onClick={() => setSelectedProductId(product.product_id)}
-                >
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.title} loading="lazy" />
-                  ) : (
-                    <span className="agents-muted">No image</span>
-                  )}
-                  <span className="agents-collection-meta">{product.title}</span>
-                </button>
-              ))}
+              {products.map((product) => {
+                const isSelected = selectedProductId === product.product_id;
+                return (
+                  <button
+                    type="button"
+                    key={product.product_id}
+                    className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
+                    onClick={() => setSelectedProductId(product.product_id)}
+                    style={
+                      isSelected
+                        ? {
+                            borderColor: '#8a6d3b',
+                            borderWidth: '2px',
+                            boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
+                          }
+                        : undefined
+                    }
+                  >
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.title} loading="lazy" />
+                    ) : (
+                      <span className="agents-muted">No image</span>
+                    )}
+                    <span className="agents-collection-meta">
+                      {isSelected ? '✓ ' : ''}
+                      {product.title}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <p className="agents-muted">No products found in this collection.</p>
