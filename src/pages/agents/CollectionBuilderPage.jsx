@@ -158,32 +158,7 @@ export const CollectionBuilderPage = () => {
 
   const selectedProduct = products.find((p) => p.product_id === selectedProductId) || null;
 
-  const generateSeo = async () => {
-    setSeoSubmitting(true);
-    setErrorMessage(null);
-    try {
-      const response = await agentsApi.generateCollectionPage({
-        collection_handle: collectionHandle || undefined,
-        collection_gid: collectionGid || undefined,
-        active_filters: {},
-        skip_image_generation: true,
-        skip_image_judge: true,
-        // Collection Builder is a deliberate, manual, one-collection-at-a-time
-        // action — every click should produce fresh copy, not the backend's
-        // fingerprint-cached result from a previous run (confirmed live:
-        // without this, edits to the classifier/collection never showed up,
-        // it kept serving the same stale cached copy indefinitely).
-        force_regenerate: true,
-      });
-      setSeoResult(normalizeCollectionRunForDisplay(response));
-    } catch (error) {
-      setErrorMessage(error.message);
-    } finally {
-      setSeoSubmitting(false);
-    }
-  };
-
-  const generateBanner = async () => {
+  const generateAll = async () => {
     if (!selectedProduct) {
       setErrorMessage('Pick a hero product first');
       return;
@@ -192,10 +167,15 @@ export const CollectionBuilderPage = () => {
       setErrorMessage('Describe the collection positioning / logic first');
       return;
     }
+    setSeoSubmitting(true);
     setBannerSubmitting(true);
     setErrorMessage(null);
     try {
-      const response = await agentsApi.createCollectionBuilderBanner({
+      // One click, one backend call: collection copy/SEO and the Creative
+      // Pod banner run back to back server-side (POST .../collection-builder
+      // /generate), instead of two separate round trips the operator used to
+      // have to trigger one after the other.
+      const response = await agentsApi.generateCollectionBuilderAll({
         collection_gid: collectionGid,
         collection_title: collectionTitle,
         collection_handle: collectionHandle || undefined,
@@ -205,11 +185,13 @@ export const CollectionBuilderPage = () => {
         collection_logic_text: collectionLogicText.trim(),
         variant_count: 1,
       });
-      setBannerRun(normalizeCreativePodRunForDisplay(response));
+      setSeoResult(normalizeCollectionRunForDisplay(response.copy));
+      setBannerRun(normalizeCreativePodRunForDisplay(response.banner));
       setApplyResult(null);
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
+      setSeoSubmitting(false);
       setBannerSubmitting(false);
     }
   };
@@ -358,23 +340,31 @@ export const CollectionBuilderPage = () => {
         </section>
       )}
 
-      {collectionHandle && (
+      {selectedProduct && collectionLogicText.trim() && (
         <section className="agents-card">
-          <h2 className="agents-section-title">4. Collection copy / SEO</h2>
+          <h2 className="agents-section-title">4. Generate copy + banner</h2>
           <p className="agents-collection-meta">
-            Generates SEO title/description and collection body copy only — no images. Writes
-            straight to the collection (same as the old Collection Pages generator).
+            One click, one cycle: collection SEO/copy (no images) and the Creative Pod banner
+            (goal: Collection page traffic (MOFU) · platform: website · image model:
+            google/gemini-3-pro-image · text model: anthropic/claude-opus-5) run together.
           </p>
           <div className="agents-actions-row">
             <button
               type="button"
-              className="agents-btn secondary"
-              onClick={generateSeo}
-              disabled={seoSubmitting}
+              className="agents-btn primary"
+              onClick={generateAll}
+              disabled={seoSubmitting || bannerSubmitting}
             >
-              {seoSubmitting ? 'Generating copy…' : 'Generate copy/SEO'}
+              {seoSubmitting || bannerSubmitting ? 'Generating copy + banner…' : 'Generate copy + banner'}
             </button>
           </div>
+          {bannerSubmitting && (
+            <p className="agents-muted-inline">
+              Runs copy/SEO, then strategist → copy → director → image gen → evaluator. Keep this
+              tab open.
+            </p>
+          )}
+
           {seoResult && (
             <>
               {seoResult.errorMessage && (
@@ -404,31 +394,6 @@ export const CollectionBuilderPage = () => {
                 </div>
               )}
             </>
-          )}
-        </section>
-      )}
-
-      {selectedProduct && collectionLogicText.trim() && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">5. Banner</h2>
-          <p className="agents-collection-meta">
-            goal: Collection page traffic (MOFU) · platform: website · image model:
-            google/gemini-3-pro-image · text model: anthropic/claude-opus-5
-          </p>
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={generateBanner}
-              disabled={bannerSubmitting}
-            >
-              {bannerSubmitting ? 'Generating banner…' : 'Generate banner'}
-            </button>
-          </div>
-          {bannerSubmitting && (
-            <p className="agents-muted-inline">
-              Runs strategist → copy → director → image gen → evaluator. Keep this tab open.
-            </p>
           )}
 
           {bannerRun && (
@@ -498,7 +463,7 @@ export const CollectionBuilderPage = () => {
 
       {bannerRun && bannerImageUrls.length > 0 && (
         <section className="agents-card">
-          <h2 className="agents-section-title">6. Apply to collection</h2>
+          <h2 className="agents-section-title">5. Apply to collection</h2>
           <p className="agents-collection-meta">
             Writes the desktop/mobile banner URLs to this collection's Shopify metafields
             (namespace <code>minaki.collection_page</code>, same keys the old Collection Pages
