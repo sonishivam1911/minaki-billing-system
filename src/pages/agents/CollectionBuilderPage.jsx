@@ -5,6 +5,46 @@ import { LoadingSpinner, ErrorMessage } from '../../components';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
 import { ensureStringArray, normalizeCollectionRunForDisplay } from './collectionPageRun';
 
+const RULE_COLUMN_LABELS = {
+  TAG: 'Tag',
+  TITLE: 'Title',
+  TYPE: 'Product type',
+  VENDOR: 'Vendor',
+  PRICE: 'Price',
+  VARIANT_INVENTORY: 'Inventory',
+  PRODUCT_METAFIELD_DEFINITION: 'Metafield',
+  PRODUCT_TAXONOMY_NODE_ID: 'Category',
+  IS_PRICE_REDUCED: 'On sale',
+  VARIANT_TITLE: 'Variant title',
+  WEIGHT: 'Weight',
+};
+
+const RULE_RELATION_LABELS = {
+  EQUALS: 'is',
+  NOT_EQUALS: 'is not',
+  GREATER_THAN: 'is greater than',
+  LESS_THAN: 'is less than',
+  STARTS_WITH: 'starts with',
+  ENDS_WITH: 'ends with',
+  CONTAINS: 'contains',
+  NOT_CONTAINS: 'does not contain',
+};
+
+/** Same logic Shopify itself uses to auto-populate a smart collection — the
+ * rule_set already IS the collection's positioning, so prefill from it
+ * instead of asking the operator to redescribe it from scratch. Manual
+ * (non-rule-based) collections have no rule_set; leave blank for those. */
+const formatCollectionRuleSet = (ruleSet) => {
+  if (!ruleSet || !Array.isArray(ruleSet.rules) || !ruleSet.rules.length) return '';
+  const joiner = ruleSet.appliedDisjunctively ? ' OR ' : ' AND ';
+  const parts = ruleSet.rules.map((rule) => {
+    const column = RULE_COLUMN_LABELS[rule.column] || rule.column;
+    const relation = RULE_RELATION_LABELS[rule.relation] || rule.relation;
+    return `${column} ${relation} "${rule.condition}"`;
+  });
+  return `Automated collection rule — products are auto-added when ${parts.join(joiner)}.`;
+};
+
 const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
   if (!verdict) return null;
   const breakdown = verdict.score_breakdown || [];
@@ -99,6 +139,7 @@ export const CollectionBuilderPage = () => {
     setCollectionHandle(handle);
     setCollectionGid(picked?.id || '');
     setCollectionTitle(picked?.title || handle);
+    setCollectionLogicText(formatCollectionRuleSet(picked?.rule_set));
 
     setProductsLoading(true);
     setErrorMessage(null);
@@ -252,23 +293,36 @@ export const CollectionBuilderPage = () => {
             <LoadingSpinner message="Loading products…" />
           ) : products.length ? (
             <div className="agents-banner-grid">
-              {products.map((product) => (
-                <button
-                  type="button"
-                  key={product.product_id}
-                  className={`agents-banner-cell agents-product-pick${
-                    selectedProductId === product.product_id ? ' active' : ''
-                  }`}
-                  onClick={() => setSelectedProductId(product.product_id)}
-                >
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.title} loading="lazy" />
-                  ) : (
-                    <span className="agents-muted">No image</span>
-                  )}
-                  <span className="agents-collection-meta">{product.title}</span>
-                </button>
-              ))}
+              {products.map((product) => {
+                const isSelected = selectedProductId === product.product_id;
+                return (
+                  <button
+                    type="button"
+                    key={product.product_id}
+                    className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
+                    onClick={() => setSelectedProductId(product.product_id)}
+                    style={
+                      isSelected
+                        ? {
+                            borderColor: '#8a6d3b',
+                            borderWidth: '2px',
+                            boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
+                          }
+                        : undefined
+                    }
+                  >
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.title} loading="lazy" />
+                    ) : (
+                      <span className="agents-muted">No image</span>
+                    )}
+                    <span className="agents-collection-meta">
+                      {isSelected ? '✓ ' : ''}
+                      {product.title}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <p className="agents-muted">No products found in this collection.</p>
@@ -282,6 +336,11 @@ export const CollectionBuilderPage = () => {
           <div className="agents-form-stack">
             <label>
               What is this collection about, and why does the hero product represent it?
+              {collectionLogicText && (
+                <span className="agents-collection-meta">
+                  Prefilled from this collection's automated Shopify rule — edit freely.
+                </span>
+              )}
               <textarea
                 value={collectionLogicText}
                 onChange={(event) => setCollectionLogicText(event.target.value)}
