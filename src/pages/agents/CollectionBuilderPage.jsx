@@ -6,6 +6,57 @@ import { useAuth } from '../../context/AuthContext';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
 import { ensureStringArray, normalizeCollectionRunForDisplay } from './collectionPageRun';
 
+// Every agent pod that persists runs — one place to log + price all of them,
+// not just Collection Builder's own two pipelines. Product Writer, Keywords,
+// and Naming Teams have no run-history endpoint at all (stateless / CRUD
+// tables, not generation runs), so there's nothing to list for them.
+const LOG_PIPELINES = [
+  {
+    key: 'copy',
+    label: 'Copy / SEO runs',
+    list: (params) => agentsApi.listCollectionRuns(params),
+    get: (id) => agentsApi.getCollectionRun(id),
+    normalize: normalizeCollectionRunForDisplay,
+    rowLabel: (row) =>
+      `${row.collection_handle || row.collection_gid || 'collection'}${
+        row.error_message ? ` — error: ${row.error_message}` : ''
+      }`,
+    costsOf: (raw) => raw?.models_used?._costs,
+  },
+  {
+    key: 'banner',
+    label: 'Banner runs',
+    list: (params) => agentsApi.listCreativePodRuns(params),
+    get: (id) => agentsApi.getCreativePodRun(id),
+    normalize: normalizeCreativePodRunForDisplay,
+    rowLabel: (row) =>
+      `${row.goal_type || 'banner'}${row.error_message ? ` — error: ${row.error_message}` : ''}`,
+    costsOf: (raw) => raw?.decision_logs?.costs,
+  },
+  {
+    key: 'campaign',
+    label: 'Campaign Creative runs',
+    list: (params) => agentsApi.listCampaignRuns(params),
+    get: (id) => agentsApi.getCampaignRun(id),
+    normalize: (raw) => raw,
+    rowLabel: (row) =>
+      `${row.brand_kit_id || 'campaign'}${row.error_message ? ` — error: ${row.error_message}` : ''}`,
+    costsOf: () => null,
+  },
+  {
+    key: 'meta',
+    label: 'Meta Marketing runs',
+    list: (params) => agentsApi.listMetaPortfolioRuns(params),
+    get: (id) => agentsApi.getMetaPortfolioRun(id),
+    normalize: (raw) => raw,
+    rowLabel: (row) =>
+      `${row.since || ''}${row.until ? ` to ${row.until}` : ''}${
+        row.error_message ? ` — error: ${row.error_message}` : ''
+      }`,
+    costsOf: () => null,
+  },
+];
+
 const RULE_COLUMN_LABELS = {
   TAG: 'Tag',
   TITLE: 'Title',
@@ -87,8 +138,12 @@ export const CollectionBuilderPage = () => {
   const [collectionGid, setCollectionGid] = useState('');
   const [collectionTitle, setCollectionTitle] = useState('');
 
+  const PRODUCTS_PAGE_SIZE = 24;
+
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [productsLoadingMore, setProductsLoadingMore] = useState(false);
+  const [productsPageInfo, setProductsPageInfo] = useState({ has_next_page: false, end_cursor: null });
   const [selectedProductId, setSelectedProductId] = useState('');
 
   const [collectionLogicText, setCollectionLogicText] = useState('');
@@ -108,7 +163,7 @@ export const CollectionBuilderPage = () => {
   // Logs: full run history across both pipelines (collection copy/SEO runs
   // via collection_page_pod, banner runs via Creative Pod) so operators can
   // see the entire output of any past run, not just the current session.
-  const [logsKind, setLogsKind] = useState('copy'); // 'copy' | 'banner'
+  const [logsKind, setLogsKind] = useState('copy'); // one of LOG_PIPELINES[].key
   const [logsItems, setLogsItems] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState(null);
@@ -143,6 +198,7 @@ export const CollectionBuilderPage = () => {
 
   const resetDownstreamState = () => {
     setProducts([]);
+    setProductsPageInfo({ has_next_page: false, end_cursor: null });
     setSelectedProductId('');
     setCollectionLogicText('');
     setSeoResult(null);
@@ -173,12 +229,34 @@ export const CollectionBuilderPage = () => {
       const response = await agentsApi.listCollectionBuilderProducts({
         collectionHandle: handle,
         collectionGid: picked?.id,
+        limit: PRODUCTS_PAGE_SIZE,
       });
       setProducts(response.products || []);
+      setProductsPageInfo(response.page_info || { has_next_page: false, end_cursor: null });
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
       setProductsLoading(false);
+    }
+  };
+
+  const loadMoreProducts = async () => {
+    if (!productsPageInfo.has_next_page || productsLoadingMore) return;
+    setProductsLoadingMore(true);
+    setErrorMessage(null);
+    try {
+      const response = await agentsApi.listCollectionBuilderProducts({
+        collectionHandle: collectionHandle || undefined,
+        collectionGid: collectionGid || undefined,
+        limit: PRODUCTS_PAGE_SIZE,
+        after: productsPageInfo.end_cursor,
+      });
+      setProducts((prev) => [...prev, ...(response.products || [])]);
+      setProductsPageInfo(response.page_info || { has_next_page: false, end_cursor: null });
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setProductsLoadingMore(false);
     }
   };
 
@@ -272,10 +350,8 @@ export const CollectionBuilderPage = () => {
     setExpandedRunKey('');
     setExpandedDetail(null);
     try {
-      const response =
-        kind === 'copy'
-          ? await agentsApi.listCollectionRuns({ limit: 30 })
-          : await agentsApi.listCreativePodRuns({ limit: 30 });
+      const pipeline = LOG_PIPELINES.find((p) => p.key === kind);
+      const response = await pipeline.list({ limit: 30 });
       setLogsItems(response.items || []);
     } catch (error) {
       setLogsError(error.message);
@@ -302,15 +378,9 @@ export const CollectionBuilderPage = () => {
     setExpandedDetail(null);
     setExpandedLoading(true);
     try {
-      const response =
-        kind === 'copy'
-          ? await agentsApi.getCollectionRun(runId)
-          : await agentsApi.getCreativePodRun(runId);
-      setExpandedDetail(
-        kind === 'copy'
-          ? normalizeCollectionRunForDisplay(response)
-          : normalizeCreativePodRunForDisplay(response)
-      );
+      const pipeline = LOG_PIPELINES.find((p) => p.key === kind);
+      const response = await pipeline.get(runId);
+      setExpandedDetail(pipeline.normalize(response));
     } catch (error) {
       setLogsError(error.message);
     } finally {
@@ -322,49 +392,31 @@ export const CollectionBuilderPage = () => {
     setPricingLoading(true);
     setPricingError(null);
     try {
-      const [copyRunsResp, bannerRunsResp] = await Promise.all([
-        agentsApi.listCollectionRuns({ limit: 20 }),
-        agentsApi.listCreativePodRuns({ limit: 20 }),
-      ]);
-      const copyDetails = await Promise.all(
-        (copyRunsResp.items || []).map((row) => agentsApi.getCollectionRun(row.id).catch(() => null))
-      );
-      const bannerDetails = await Promise.all(
-        (bannerRunsResp.items || []).map((row) =>
-          agentsApi.getCreativePodRun(row.run_id ?? row.id).catch(() => null)
-        )
-      );
-
       const rows = [];
-      copyDetails.filter(Boolean).forEach((run) => {
-        const costs = run.models_used?._costs || {};
-        Object.entries(costs).forEach(([agentLabel, entry]) => {
-          rows.push({
-            runId: run.run_id ?? run.id,
-            kind: 'copy',
-            agent: agentLabel,
-            model: entry.model,
-            inputTokens: entry.input_tokens,
-            outputTokens: entry.output_tokens,
-            costUsd: entry.cost_usd,
+      for (const pipeline of LOG_PIPELINES) {
+        const listResp = await pipeline.list({ limit: 20 }).catch(() => ({ items: [] }));
+        const details = await Promise.all(
+          (listResp.items || []).map((row) =>
+            pipeline.get(row.run_id ?? row.id).catch(() => null)
+          )
+        );
+        details.filter(Boolean).forEach((run) => {
+          const costs = pipeline.costsOf(run) || {};
+          Object.entries(costs).forEach(([agentLabel, entry]) => {
+            rows.push({
+              runId: run.run_id ?? run.id,
+              kind: pipeline.key,
+              pipelineLabel: pipeline.label,
+              agent: agentLabel,
+              model: entry.model,
+              inputTokens: entry.input_tokens,
+              outputTokens: entry.output_tokens,
+              costUsd: entry.cost_usd,
+              calls: entry.calls,
+            });
           });
         });
-      });
-      bannerDetails.filter(Boolean).forEach((run) => {
-        const costs = run.decision_logs?.costs || {};
-        Object.entries(costs).forEach(([agentLabel, entry]) => {
-          rows.push({
-            runId: run.run_id ?? run.id,
-            kind: 'banner',
-            agent: agentLabel,
-            model: entry.model,
-            inputTokens: entry.input_tokens,
-            outputTokens: entry.output_tokens,
-            costUsd: entry.cost_usd,
-            calls: entry.calls,
-          });
-        });
-      });
+      }
       setPricingRows(rows);
     } catch (error) {
       setPricingError(error.message);
@@ -449,41 +501,59 @@ export const CollectionBuilderPage = () => {
       {collectionHandle && (
         <section className="agents-card">
           <h2 className="agents-section-title">2. Hero product</h2>
+          <p className="agents-collection-meta">Newest products first, 24 at a time.</p>
           {productsLoading ? (
             <LoadingSpinner message="Loading products…" />
           ) : products.length ? (
-            <div className="agents-banner-grid">
-              {products.map((product) => {
-                const isSelected = selectedProductId === product.product_id;
-                return (
+            <>
+              <div
+                className="agents-banner-grid"
+                style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}
+              >
+                {products.map((product) => {
+                  const isSelected = selectedProductId === product.product_id;
+                  return (
+                    <button
+                      type="button"
+                      key={product.product_id}
+                      className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
+                      onClick={() => setSelectedProductId(product.product_id)}
+                      style={
+                        isSelected
+                          ? {
+                              borderColor: '#8a6d3b',
+                              borderWidth: '2px',
+                              boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
+                            }
+                          : undefined
+                      }
+                    >
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.title} loading="lazy" />
+                      ) : (
+                        <span className="agents-muted">No image</span>
+                      )}
+                      <span className="agents-collection-meta">
+                        {isSelected ? '✓ ' : ''}
+                        {product.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {productsPageInfo.has_next_page && (
+                <div className="agents-actions-row" style={{ marginTop: '0.75rem' }}>
                   <button
                     type="button"
-                    key={product.product_id}
-                    className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
-                    onClick={() => setSelectedProductId(product.product_id)}
-                    style={
-                      isSelected
-                        ? {
-                            borderColor: '#8a6d3b',
-                            borderWidth: '2px',
-                            boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
-                          }
-                        : undefined
-                    }
+                    className="agents-btn secondary"
+                    onClick={loadMoreProducts}
+                    disabled={productsLoadingMore}
                   >
-                    {product.image_url ? (
-                      <img src={product.image_url} alt={product.title} loading="lazy" />
-                    ) : (
-                      <span className="agents-muted">No image</span>
-                    )}
-                    <span className="agents-collection-meta">
-                      {isSelected ? '✓ ' : ''}
-                      {product.title}
-                    </span>
+                    {productsLoadingMore ? 'Loading more…' : 'Load more products'}
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           ) : (
             <p className="agents-muted">No products found in this collection.</p>
           )}
@@ -667,26 +737,22 @@ export const CollectionBuilderPage = () => {
         <section className="agents-card">
           <h2 className="agents-section-title">Run logs</h2>
           <p className="agents-collection-meta">
-            Full history of every collection copy/SEO run and every Creative Pod banner run, with
-            complete output per run — not just the latest one from this session.
+            Full history of every run across every agent pod that stores one, with complete
+            output per run — not just the latest one from this session. (Product Writer, Keywords,
+            and Naming Teams don't persist runs, so they have nothing to show here.)
           </p>
           <div className="agents-actions-row compact">
-            <button
-              type="button"
-              className={`agents-btn ${logsKind === 'copy' ? 'primary' : 'secondary'}`}
-              onClick={() => loadLogs('copy')}
-              disabled={logsLoading}
-            >
-              Copy / SEO runs
-            </button>
-            <button
-              type="button"
-              className={`agents-btn ${logsKind === 'banner' ? 'primary' : 'secondary'}`}
-              onClick={() => loadLogs('banner')}
-              disabled={logsLoading}
-            >
-              Banner runs
-            </button>
+            {LOG_PIPELINES.map((pipeline) => (
+              <button
+                key={pipeline.key}
+                type="button"
+                className={`agents-btn ${logsKind === pipeline.key ? 'primary' : 'secondary'}`}
+                onClick={() => loadLogs(pipeline.key)}
+                disabled={logsLoading}
+              >
+                {pipeline.label}
+              </button>
+            ))}
           </div>
 
           {logsError && <p className="agents-status-err">{logsError}</p>}
@@ -708,11 +774,9 @@ export const CollectionBuilderPage = () => {
                       onClick={() => toggleExpandRun(runId, logsKind)}
                       style={{ width: '100%', textAlign: 'left' }}
                     >
-                      {isExpanded ? '▾' : '▸'} #{runId} — {row.status || 'unknown'}
-                      {row.collection_handle ? ` — ${row.collection_handle}` : ''}
-                      {row.goal_detail ? ` — ${row.goal_detail}` : ''}
+                      {isExpanded ? '▾' : '▸'} #{runId} — {row.status || 'unknown'} —{' '}
+                      {LOG_PIPELINES.find((p) => p.key === logsKind).rowLabel(row)}
                       {row.created_at ? ` — ${row.created_at}` : ''}
-                      {row.error_message ? ` — error: ${row.error_message}` : ''}
                     </button>
 
                     {isExpanded && (
@@ -721,7 +785,7 @@ export const CollectionBuilderPage = () => {
                           <LoadingSpinner message="Loading full run output…" />
                         ) : expandedDetail ? (
                           <>
-                            {logsKind === 'copy' ? (
+                            {logsKind === 'copy' && (
                               <>
                                 {expandedDetail.wireframe && (
                                   <p>
@@ -743,7 +807,8 @@ export const CollectionBuilderPage = () => {
                                   )
                                 )}
                               </>
-                            ) : (
+                            )}
+                            {logsKind === 'banner' && (
                               <>
                                 {collectHttpImageUrls(expandedDetail.bannerUrls).length > 0 && (
                                   <div className="agents-banner-grid">
@@ -780,6 +845,13 @@ export const CollectionBuilderPage = () => {
                                   maxHeight: '480px',
                                   overflow: 'auto',
                                   fontSize: '0.75rem',
+                                  fontFamily:
+                                    'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                                  background: 'rgba(0,0,0,0.03)',
+                                  border: '1px solid rgba(0,0,0,0.08)',
+                                  borderRadius: '6px',
+                                  padding: '0.75rem',
+                                  marginTop: '0.5rem',
                                 }}
                               >
                                 {JSON.stringify(expandedDetail, null, 2)}
@@ -843,7 +915,7 @@ export const CollectionBuilderPage = () => {
                     {pricingRows.map((row, index) => (
                       <tr key={`${row.kind}-${row.runId}-${row.agent}-${index}`}>
                         <td>#{row.runId}</td>
-                        <td>{row.kind === 'copy' ? 'Collection copy' : 'Banner'}</td>
+                        <td>{row.pipelineLabel}</td>
                         <td>{row.agent}</td>
                         <td>{row.model || '—'}</td>
                         <td>{row.inputTokens ?? '—'}</td>
