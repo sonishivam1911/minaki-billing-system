@@ -87,8 +87,12 @@ export const CollectionBuilderPage = () => {
   const [collectionGid, setCollectionGid] = useState('');
   const [collectionTitle, setCollectionTitle] = useState('');
 
+  const PRODUCTS_PAGE_SIZE = 24;
+
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [productsLoadingMore, setProductsLoadingMore] = useState(false);
+  const [productsPageInfo, setProductsPageInfo] = useState({ has_next_page: false, end_cursor: null });
   const [selectedProductId, setSelectedProductId] = useState('');
 
   const [collectionLogicText, setCollectionLogicText] = useState('');
@@ -143,6 +147,7 @@ export const CollectionBuilderPage = () => {
 
   const resetDownstreamState = () => {
     setProducts([]);
+    setProductsPageInfo({ has_next_page: false, end_cursor: null });
     setSelectedProductId('');
     setCollectionLogicText('');
     setSeoResult(null);
@@ -173,12 +178,34 @@ export const CollectionBuilderPage = () => {
       const response = await agentsApi.listCollectionBuilderProducts({
         collectionHandle: handle,
         collectionGid: picked?.id,
+        limit: PRODUCTS_PAGE_SIZE,
       });
       setProducts(response.products || []);
+      setProductsPageInfo(response.page_info || { has_next_page: false, end_cursor: null });
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
       setProductsLoading(false);
+    }
+  };
+
+  const loadMoreProducts = async () => {
+    if (!productsPageInfo.has_next_page || productsLoadingMore) return;
+    setProductsLoadingMore(true);
+    setErrorMessage(null);
+    try {
+      const response = await agentsApi.listCollectionBuilderProducts({
+        collectionHandle: collectionHandle || undefined,
+        collectionGid: collectionGid || undefined,
+        limit: PRODUCTS_PAGE_SIZE,
+        after: productsPageInfo.end_cursor,
+      });
+      setProducts((prev) => [...prev, ...(response.products || [])]);
+      setProductsPageInfo(response.page_info || { has_next_page: false, end_cursor: null });
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setProductsLoadingMore(false);
     }
   };
 
@@ -449,41 +476,59 @@ export const CollectionBuilderPage = () => {
       {collectionHandle && (
         <section className="agents-card">
           <h2 className="agents-section-title">2. Hero product</h2>
+          <p className="agents-collection-meta">Newest products first, 24 at a time.</p>
           {productsLoading ? (
             <LoadingSpinner message="Loading products…" />
           ) : products.length ? (
-            <div className="agents-banner-grid">
-              {products.map((product) => {
-                const isSelected = selectedProductId === product.product_id;
-                return (
+            <>
+              <div
+                className="agents-banner-grid"
+                style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}
+              >
+                {products.map((product) => {
+                  const isSelected = selectedProductId === product.product_id;
+                  return (
+                    <button
+                      type="button"
+                      key={product.product_id}
+                      className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
+                      onClick={() => setSelectedProductId(product.product_id)}
+                      style={
+                        isSelected
+                          ? {
+                              borderColor: '#8a6d3b',
+                              borderWidth: '2px',
+                              boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
+                            }
+                          : undefined
+                      }
+                    >
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.title} loading="lazy" />
+                      ) : (
+                        <span className="agents-muted">No image</span>
+                      )}
+                      <span className="agents-collection-meta">
+                        {isSelected ? '✓ ' : ''}
+                        {product.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {productsPageInfo.has_next_page && (
+                <div className="agents-actions-row" style={{ marginTop: '0.75rem' }}>
                   <button
                     type="button"
-                    key={product.product_id}
-                    className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
-                    onClick={() => setSelectedProductId(product.product_id)}
-                    style={
-                      isSelected
-                        ? {
-                            borderColor: '#8a6d3b',
-                            borderWidth: '2px',
-                            boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
-                          }
-                        : undefined
-                    }
+                    className="agents-btn secondary"
+                    onClick={loadMoreProducts}
+                    disabled={productsLoadingMore}
                   >
-                    {product.image_url ? (
-                      <img src={product.image_url} alt={product.title} loading="lazy" />
-                    ) : (
-                      <span className="agents-muted">No image</span>
-                    )}
-                    <span className="agents-collection-meta">
-                      {isSelected ? '✓ ' : ''}
-                      {product.title}
-                    </span>
+                    {productsLoadingMore ? 'Loading more…' : 'Load more products'}
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              )}
+            </>
           ) : (
             <p className="agents-muted">No products found in this collection.</p>
           )}
