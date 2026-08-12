@@ -168,6 +168,12 @@ export const CollectionBuilderPage = () => {
         active_filters: {},
         skip_image_generation: true,
         skip_image_judge: true,
+        // Collection Builder is a deliberate, manual, one-collection-at-a-time
+        // action — every click should produce fresh copy, not the backend's
+        // fingerprint-cached result from a previous run (confirmed live:
+        // without this, edits to the classifier/collection never showed up,
+        // it kept serving the same stale cached copy indefinitely).
+        force_regenerate: true,
       });
       setSeoResult(normalizeCollectionRunForDisplay(response));
     } catch (error) {
