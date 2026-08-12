@@ -205,13 +205,6 @@ export const agentsApi = {
       body: JSON.stringify(body),
     }),
 
-  generateCollectionBuilderAll: (body) =>
-    agentFetch('/api/agent/collection-builder/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-
   applyCollectionBuilderBanner: (body) =>
     agentFetch('/api/agent/collection-builder/apply', {
       method: 'POST',
