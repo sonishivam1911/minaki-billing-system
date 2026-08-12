@@ -845,6 +845,13 @@ export const CollectionBuilderPage = () => {
                                   maxHeight: '480px',
                                   overflow: 'auto',
                                   fontSize: '0.75rem',
+                                  fontFamily:
+                                    'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                                  background: 'rgba(0,0,0,0.03)',
+                                  border: '1px solid rgba(0,0,0,0.08)',
+                                  borderRadius: '6px',
+                                  padding: '0.75rem',
+                                  marginTop: '0.5rem',
                                 }}
                               >
                                 {JSON.stringify(expandedDetail, null, 2)}
