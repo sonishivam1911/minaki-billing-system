@@ -5,6 +5,46 @@ import { LoadingSpinner, ErrorMessage } from '../../components';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
 import { ensureStringArray, normalizeCollectionRunForDisplay } from './collectionPageRun';
 
+const RULE_COLUMN_LABELS = {
+  TAG: 'Tag',
+  TITLE: 'Title',
+  TYPE: 'Product type',
+  VENDOR: 'Vendor',
+  PRICE: 'Price',
+  VARIANT_INVENTORY: 'Inventory',
+  PRODUCT_METAFIELD_DEFINITION: 'Metafield',
+  PRODUCT_TAXONOMY_NODE_ID: 'Category',
+  IS_PRICE_REDUCED: 'On sale',
+  VARIANT_TITLE: 'Variant title',
+  WEIGHT: 'Weight',
+};
+
+const RULE_RELATION_LABELS = {
+  EQUALS: 'is',
+  NOT_EQUALS: 'is not',
+  GREATER_THAN: 'is greater than',
+  LESS_THAN: 'is less than',
+  STARTS_WITH: 'starts with',
+  ENDS_WITH: 'ends with',
+  CONTAINS: 'contains',
+  NOT_CONTAINS: 'does not contain',
+};
+
+/** Same logic Shopify itself uses to auto-populate a smart collection — the
+ * rule_set already IS the collection's positioning, so prefill from it
+ * instead of asking the operator to redescribe it from scratch. Manual
+ * (non-rule-based) collections have no rule_set; leave blank for those. */
+const formatCollectionRuleSet = (ruleSet) => {
+  if (!ruleSet || !Array.isArray(ruleSet.rules) || !ruleSet.rules.length) return '';
+  const joiner = ruleSet.appliedDisjunctively ? ' OR ' : ' AND ';
+  const parts = ruleSet.rules.map((rule) => {
+    const column = RULE_COLUMN_LABELS[rule.column] || rule.column;
+    const relation = RULE_RELATION_LABELS[rule.relation] || rule.relation;
+    return `${column} ${relation} "${rule.condition}"`;
+  });
+  return `Automated collection rule — products are auto-added when ${parts.join(joiner)}.`;
+};
+
 const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
   if (!verdict) return null;
   const breakdown = verdict.score_breakdown || [];
@@ -99,6 +139,7 @@ export const CollectionBuilderPage = () => {
     setCollectionHandle(handle);
     setCollectionGid(picked?.id || '');
     setCollectionTitle(picked?.title || handle);
+    setCollectionLogicText(formatCollectionRuleSet(picked?.rule_set));
 
     setProductsLoading(true);
     setErrorMessage(null);
@@ -295,6 +336,11 @@ export const CollectionBuilderPage = () => {
           <div className="agents-form-stack">
             <label>
               What is this collection about, and why does the hero product represent it?
+              {collectionLogicText && (
+                <span className="agents-collection-meta">
+                  Prefilled from this collection's automated Shopify rule — edit freely.
+                </span>
+              )}
               <textarea
                 value={collectionLogicText}
                 onChange={(event) => setCollectionLogicText(event.target.value)}
