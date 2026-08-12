@@ -189,6 +189,27 @@ export const agentsApi = {
     return agentFetch(`/api/agent/collection-page/shopify-collections${query ? `?${query}` : ''}`);
   },
 
+  listCollectionBuilderProducts: ({ collectionHandle, collectionGid } = {}) => {
+    const q = new URLSearchParams();
+    if (collectionHandle) q.set('collection_handle', collectionHandle);
+    if (collectionGid) q.set('collection_gid', collectionGid);
+    return agentFetch(`/api/agent/collection-builder/products?${q}`);
+  },
+
+  createCollectionBuilderBanner: (body) =>
+    agentFetch('/api/agent/collection-builder/banner', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  applyCollectionBuilderBanner: (body) =>
+    agentFetch('/api/agent/collection-builder/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
   listCampaignBrandKits: () => agentFetch('/api/agent/campaign-creative/brand-kits'),
 
   createCampaignRun: (body) =>
