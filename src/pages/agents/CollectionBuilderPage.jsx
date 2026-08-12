@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { LoadingSpinner, ErrorMessage } from '../../components';
+import { useAuth } from '../../context/AuthContext';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
 import { ensureStringArray, normalizeCollectionRunForDisplay } from './collectionPageRun';
 
@@ -74,6 +75,11 @@ const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
 };
 
 export const CollectionBuilderPage = () => {
+  const { isManager } = useAuth();
+  const canViewPricing = isManager();
+
+  const [activeTab, setActiveTab] = useState('builder');
+
   const [shopifyCollections, setShopifyCollections] = useState([]);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
   const [pickerValue, setPickerValue] = useState('');
@@ -98,6 +104,26 @@ export const CollectionBuilderPage = () => {
   const [applySubmitting, setApplySubmitting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Logs: full run history across both pipelines (collection copy/SEO runs
+  // via collection_page_pod, banner runs via Creative Pod) so operators can
+  // see the entire output of any past run, not just the current session.
+  const [logsKind, setLogsKind] = useState('copy'); // 'copy' | 'banner'
+  const [logsItems, setLogsItems] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState(null);
+  const [expandedRunKey, setExpandedRunKey] = useState('');
+  const [expandedDetail, setExpandedDetail] = useState(null);
+  const [expandedLoading, setExpandedLoading] = useState(false);
+
+  // Pricing: admin/manager only, both client-gated (this tab) and
+  // server-gated (the API strips cost data from the response body entirely
+  // for any other role — see utils/agent_user.py:strip_pricing_if_unauthorized
+  // in the backend). A non-manager never receives cost numbers over the
+  // wire, regardless of what the UI shows.
+  const [pricingLoading, setPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState(null);
+  const [pricingRows, setPricingRows] = useState([]);
 
   const loadShopifyCollections = async () => {
     setCollectionsLoading(true);
@@ -239,6 +265,123 @@ export const CollectionBuilderPage = () => {
   const seoWireframeKeywords = ensureStringArray(seoWireframe?.keywords);
   const seoCopyParagraphs = ensureStringArray(seoCopyPackage?.paragraphs);
 
+  const loadLogs = async (kind) => {
+    setLogsKind(kind);
+    setLogsLoading(true);
+    setLogsError(null);
+    setExpandedRunKey('');
+    setExpandedDetail(null);
+    try {
+      const response =
+        kind === 'copy'
+          ? await agentsApi.listCollectionRuns({ limit: 30 })
+          : await agentsApi.listCreativePodRuns({ limit: 30 });
+      setLogsItems(response.items || []);
+    } catch (error) {
+      setLogsError(error.message);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      loadLogs(logsKind);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const toggleExpandRun = async (runId, kind) => {
+    const key = `${kind}:${runId}`;
+    if (expandedRunKey === key) {
+      setExpandedRunKey('');
+      setExpandedDetail(null);
+      return;
+    }
+    setExpandedRunKey(key);
+    setExpandedDetail(null);
+    setExpandedLoading(true);
+    try {
+      const response =
+        kind === 'copy'
+          ? await agentsApi.getCollectionRun(runId)
+          : await agentsApi.getCreativePodRun(runId);
+      setExpandedDetail(
+        kind === 'copy'
+          ? normalizeCollectionRunForDisplay(response)
+          : normalizeCreativePodRunForDisplay(response)
+      );
+    } catch (error) {
+      setLogsError(error.message);
+    } finally {
+      setExpandedLoading(false);
+    }
+  };
+
+  const loadPricing = async () => {
+    setPricingLoading(true);
+    setPricingError(null);
+    try {
+      const [copyRunsResp, bannerRunsResp] = await Promise.all([
+        agentsApi.listCollectionRuns({ limit: 20 }),
+        agentsApi.listCreativePodRuns({ limit: 20 }),
+      ]);
+      const copyDetails = await Promise.all(
+        (copyRunsResp.items || []).map((row) => agentsApi.getCollectionRun(row.id).catch(() => null))
+      );
+      const bannerDetails = await Promise.all(
+        (bannerRunsResp.items || []).map((row) =>
+          agentsApi.getCreativePodRun(row.run_id ?? row.id).catch(() => null)
+        )
+      );
+
+      const rows = [];
+      copyDetails.filter(Boolean).forEach((run) => {
+        const costs = run.models_used?._costs || {};
+        Object.entries(costs).forEach(([agentLabel, entry]) => {
+          rows.push({
+            runId: run.run_id ?? run.id,
+            kind: 'copy',
+            agent: agentLabel,
+            model: entry.model,
+            inputTokens: entry.input_tokens,
+            outputTokens: entry.output_tokens,
+            costUsd: entry.cost_usd,
+          });
+        });
+      });
+      bannerDetails.filter(Boolean).forEach((run) => {
+        const costs = run.decision_logs?.costs || {};
+        Object.entries(costs).forEach(([agentLabel, entry]) => {
+          rows.push({
+            runId: run.run_id ?? run.id,
+            kind: 'banner',
+            agent: agentLabel,
+            model: entry.model,
+            inputTokens: entry.input_tokens,
+            outputTokens: entry.output_tokens,
+            costUsd: entry.cost_usd,
+            calls: entry.calls,
+          });
+        });
+      });
+      setPricingRows(rows);
+    } catch (error) {
+      setPricingError(error.message);
+    } finally {
+      setPricingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'pricing' && canViewPricing) {
+      loadPricing();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const pricingTotalUsd = pricingRows.reduce((sum, row) => sum + (Number(row.costUsd) || 0), 0);
+
   return (
     <div className="screen-container agents-page">
       <div className="screen-header">
@@ -251,8 +394,37 @@ export const CollectionBuilderPage = () => {
         </div>
       </div>
       <AgentsSubnav />
+
+      <div className="agents-actions-row compact" style={{ marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={`agents-btn ${activeTab === 'builder' ? 'primary' : 'secondary'}`}
+          onClick={() => setActiveTab('builder')}
+        >
+          Builder
+        </button>
+        <button
+          type="button"
+          className={`agents-btn ${activeTab === 'logs' ? 'primary' : 'secondary'}`}
+          onClick={() => setActiveTab('logs')}
+        >
+          Logs
+        </button>
+        {canViewPricing && (
+          <button
+            type="button"
+            className={`agents-btn ${activeTab === 'pricing' ? 'primary' : 'secondary'}`}
+            onClick={() => setActiveTab('pricing')}
+          >
+            Pricing
+          </button>
+        )}
+      </div>
+
       {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />}
 
+      {activeTab === 'builder' && (
+      <>
       <section className="agents-card">
         <h2 className="agents-section-title">1. Collection</h2>
         <div className="agents-form-stack">
@@ -485,6 +657,204 @@ export const CollectionBuilderPage = () => {
                 ? `Applied: ${applyResult.written_metafields.join(', ')}`
                 : `Failed: ${JSON.stringify(applyResult.userErrors)}`}
             </p>
+          )}
+        </section>
+      )}
+      </>
+      )}
+
+      {activeTab === 'logs' && (
+        <section className="agents-card">
+          <h2 className="agents-section-title">Run logs</h2>
+          <p className="agents-collection-meta">
+            Full history of every collection copy/SEO run and every Creative Pod banner run, with
+            complete output per run — not just the latest one from this session.
+          </p>
+          <div className="agents-actions-row compact">
+            <button
+              type="button"
+              className={`agents-btn ${logsKind === 'copy' ? 'primary' : 'secondary'}`}
+              onClick={() => loadLogs('copy')}
+              disabled={logsLoading}
+            >
+              Copy / SEO runs
+            </button>
+            <button
+              type="button"
+              className={`agents-btn ${logsKind === 'banner' ? 'primary' : 'secondary'}`}
+              onClick={() => loadLogs('banner')}
+              disabled={logsLoading}
+            >
+              Banner runs
+            </button>
+          </div>
+
+          {logsError && <p className="agents-status-err">{logsError}</p>}
+          {logsLoading ? (
+            <LoadingSpinner message="Loading runs…" />
+          ) : logsItems.length === 0 ? (
+            <p className="agents-muted">No runs found.</p>
+          ) : (
+            <div className="agents-form-stack">
+              {logsItems.map((row) => {
+                const runId = row.run_id ?? row.id;
+                const key = `${logsKind}:${runId}`;
+                const isExpanded = expandedRunKey === key;
+                return (
+                  <div key={key} className="agents-copy-block">
+                    <button
+                      type="button"
+                      className="agents-btn secondary"
+                      onClick={() => toggleExpandRun(runId, logsKind)}
+                      style={{ width: '100%', textAlign: 'left' }}
+                    >
+                      {isExpanded ? '▾' : '▸'} #{runId} — {row.status || 'unknown'}
+                      {row.collection_handle ? ` — ${row.collection_handle}` : ''}
+                      {row.goal_detail ? ` — ${row.goal_detail}` : ''}
+                      {row.created_at ? ` — ${row.created_at}` : ''}
+                      {row.error_message ? ` — error: ${row.error_message}` : ''}
+                    </button>
+
+                    {isExpanded && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        {expandedLoading ? (
+                          <LoadingSpinner message="Loading full run output…" />
+                        ) : expandedDetail ? (
+                          <>
+                            {logsKind === 'copy' ? (
+                              <>
+                                {expandedDetail.wireframe && (
+                                  <p>
+                                    <strong>SEO title:</strong>{' '}
+                                    {expandedDetail.wireframe.seo_title || '—'}
+                                    <br />
+                                    <strong>SEO description:</strong>{' '}
+                                    {expandedDetail.wireframe.seo_description || '—'}
+                                  </p>
+                                )}
+                                {expandedDetail.copyPackage?.short_description && (
+                                  <p className="agents-lead">
+                                    {expandedDetail.copyPackage.short_description}
+                                  </p>
+                                )}
+                                {ensureStringArray(expandedDetail.copyPackage?.paragraphs).map(
+                                  (paragraph, index) => (
+                                    <p key={index}>{paragraph}</p>
+                                  )
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {collectHttpImageUrls(expandedDetail.bannerUrls).length > 0 && (
+                                  <div className="agents-banner-grid">
+                                    {collectHttpImageUrls(expandedDetail.bannerUrls).map((url) => (
+                                      <a
+                                        key={url}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="agents-banner-cell"
+                                      >
+                                        <img src={url} alt="Logged banner" loading="lazy" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                {expandedDetail.decisionLogs?.evaluator && (
+                                  <div style={{ marginTop: '0.5rem' }}>
+                                    <strong>
+                                      Evaluator score:{' '}
+                                      {expandedDetail.decisionLogs.evaluator.composite_score}
+                                    </strong>{' '}
+                                    — {expandedDetail.decisionLogs.evaluator.pass ? 'pass' : 'needs review'}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            <details style={{ marginTop: '0.75rem' }}>
+                              <summary className="agents-muted-inline">Entire raw output (JSON)</summary>
+                              <pre
+                                style={{
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  maxHeight: '480px',
+                                  overflow: 'auto',
+                                  fontSize: '0.75rem',
+                                }}
+                              >
+                                {JSON.stringify(expandedDetail, null, 2)}
+                              </pre>
+                            </details>
+                          </>
+                        ) : (
+                          <p className="agents-muted">No detail loaded.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'pricing' && canViewPricing && (
+        <section className="agents-card">
+          <h2 className="agents-section-title">Pricing</h2>
+          <p className="agents-collection-meta">
+            Estimated spend per agent call across recent runs (admin/manager only — the API omits
+            this data entirely for other roles, this isn't just a hidden tab).
+          </p>
+          <div className="agents-actions-row">
+            <button
+              type="button"
+              className="agents-btn secondary"
+              onClick={loadPricing}
+              disabled={pricingLoading}
+            >
+              {pricingLoading ? 'Loading…' : 'Refresh'}
+            </button>
+          </div>
+          {pricingError && <p className="agents-status-err">{pricingError}</p>}
+          {pricingLoading ? (
+            <LoadingSpinner message="Loading pricing across recent runs…" />
+          ) : pricingRows.length === 0 ? (
+            <p className="agents-muted">No cost data recorded on recent runs yet.</p>
+          ) : (
+            <>
+              <p>
+                <strong>Total (last {pricingRows.length} agent calls shown): ${pricingTotalUsd.toFixed(4)}</strong>
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="agents-table">
+                  <thead>
+                    <tr>
+                      <th>Run</th>
+                      <th>Pipeline</th>
+                      <th>Agent</th>
+                      <th>Model</th>
+                      <th>Input tokens</th>
+                      <th>Output tokens</th>
+                      <th>Cost (USD)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pricingRows.map((row, index) => (
+                      <tr key={`${row.kind}-${row.runId}-${row.agent}-${index}`}>
+                        <td>#{row.runId}</td>
+                        <td>{row.kind === 'copy' ? 'Collection copy' : 'Banner'}</td>
+                        <td>{row.agent}</td>
+                        <td>{row.model || '—'}</td>
+                        <td>{row.inputTokens ?? '—'}</td>
+                        <td>{row.outputTokens ?? '—'}</td>
+                        <td>${Number(row.costUsd || 0).toFixed(4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       )}
