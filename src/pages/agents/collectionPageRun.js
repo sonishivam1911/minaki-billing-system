@@ -41,5 +41,11 @@ export function normalizeCollectionRunForDisplay(apiRun) {
     bannerUrls: apiRun.banner_urls || apiRun.banner_urls_json,
     bannerQualityStatus: apiRun.banner_qc_status,
     shopifyMetafieldWrite: apiRun.shopify_metafield_write_result,
+    modelsUsed: apiRun.models_used,
+    status: apiRun.status,
+    collectionHandle: apiRun.collection_handle,
+    collectionGid: apiRun.collection_gid,
+    createdAt: apiRun.created_at,
+    finishedAt: apiRun.finished_at,
   };
 }
