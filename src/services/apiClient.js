@@ -4,7 +4,7 @@
  * Handles auth, error handling, and response formatting
  */
 
-import { auth } from '../config/firebase';
+import { supabase } from '../config/supabase';
 
 // API Base URL - update this to your backend URL
 let VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -19,16 +19,16 @@ const API_BASE_URL = VITE_API_URL || '/billing_system/api';
 console.log('🌐 API_BASE_URL (apiClient):', API_BASE_URL);
 
 /**
- * Get Firebase ID token for authenticated requests
- * @returns {Promise<string|null>} - Firebase ID token or null if not authenticated
+ * Get Supabase access token for authenticated requests
+ * @returns {Promise<string|null>}
  */
 const getAuthToken = async () => {
   try {
-    const user = auth.currentUser;
-    if (!user) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.access_token) {
       return null;
     }
-    return await user.getIdToken();
+    return data.session.access_token;
   } catch (error) {
     console.error('Failed to get auth token:', error);
     return null;

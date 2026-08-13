@@ -9,8 +9,8 @@
     "@mui/icons-material": "^5.14.19",
     "@mui/material": "^5.14.20",
     "@mui/x-date-pickers": "^6.18.0",
+    "@supabase/supabase-js": "^2.112.3",
     "date-fns": "^2.30.0",
-    "firebase": "^12.7.0",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.31",
@@ -33,9 +33,7 @@
     "dev:all": "./start-dev.sh",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "start": "vite preview --host 0.0.0.0 --port 3000",
-    "deploy": "npm run build && firebase deploy --only hosting",
-    "deploy:hosting": "firebase deploy --only hosting"
+    "start": "vite preview --host 0.0.0.0 --port 3000"
   },
   "eslintConfig": {
     "extends": [

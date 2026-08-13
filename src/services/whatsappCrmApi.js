@@ -1,6 +1,6 @@
 /**
  * WhatsApp CRM API - conversations, messages, profile, send.
- * Uses apiRequest to include Firebase auth token (required by backend).
+ * Uses apiRequest to include Supabase access token (required by backend).
  */
 import { apiRequest } from './apiClient';
 

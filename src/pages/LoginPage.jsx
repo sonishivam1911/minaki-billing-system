@@ -135,6 +135,9 @@ export const LoginPage = () => {
         </form>
 
         <div className="login-footer">
+          <p>
+            <a href="/reset-password">Forgot password?</a>
+          </p>
           <p>© 2024 Minaki Billing System. All rights reserved.</p>
         </div>
       </div>
