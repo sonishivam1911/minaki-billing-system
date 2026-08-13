@@ -46,7 +46,7 @@ const getAuthToken = async () => {
  * @throws {Error} - If response is not ok
  */
 export const apiRequest = async (method, path, data = null, options = {}) => {
-  const { params = {}, headers = {}, skipAuth = false } = options;
+  const { params = {}, headers = {}, skipAuth = false, timeoutMs } = options;
 
   // Build full URL
   let url = `${API_BASE_URL}${path}`;
@@ -76,6 +76,10 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
     method,
     headers: defaultHeaders,
   };
+
+  if (timeoutMs) {
+    fetchOptions.signal = AbortSignal.timeout(timeoutMs);
+  }
 
   // Add body for methods that support it
   if (data && ['POST', 'PATCH', 'PUT'].includes(method)) {
@@ -112,20 +116,6 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
       } catch (parseError) {
         // If response isn't JSON, use status text
         console.warn('Could not parse error response as JSON');
-      }
-
-      // Handle 401 Unauthorized - redirect to login
-      // BUT: Don't redirect if we're on admin pages (they handle their own access control)
-      if (response.status === 401) {
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        const isAdminPage = currentPath.includes('/user-management') || currentPath.includes('/permissions');
-        
-        // Only redirect if not on admin pages (admin pages will show their own error)
-        if (!isAdminPage && typeof window !== 'undefined') {
-          if (currentPath !== '/login') {
-            window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
-          }
-        }
       }
 
       const error = new Error(errorMessage);

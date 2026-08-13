@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { apiRequest } from '../services/apiClient';
+import { AUTH_USERINFO_TIMEOUT_MS } from './authConstants';
 
 const AuthContext = createContext(null);
 
@@ -31,21 +32,28 @@ export const AuthProvider = ({ children }) => {
   const fetchUserInfo = async (firebaseUser) => {
     try {
       const token = await firebaseUser.getIdToken();
-      
-      // Fetch user info from backend
+
       const userData = await apiRequest('GET', '/auth/me', null, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        timeoutMs: AUTH_USERINFO_TIMEOUT_MS,
       });
 
       setUserInfo(userData);
       setPermissions(userData.permissions || []);
       setError(null);
+      return true;
     } catch (err) {
       console.error('Failed to fetch user info:', err);
+      setUserInfo(null);
+      setPermissions([]);
       setError(err.message);
-      // Don't clear user on error - might be temporary network issue
+      if (err.status === 401) {
+        await firebaseSignOut(auth);
+        setUser(null);
+      }
+      return false;
     }
   };
 
@@ -60,9 +68,13 @@ export const AuthProvider = ({ children }) => {
       // Sign in with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
-
-      // Fetch user info from backend
-      await fetchUserInfo(firebaseUser);
+      const loadedUserInfo = await fetchUserInfo(firebaseUser);
+      if (!loadedUserInfo) {
+        return {
+          success: false,
+          error: 'Signed in, but the billing API could not load your account. Try again in a moment.',
+        };
+      }
 
       return { success: true, user: firebaseUser };
     } catch (err) {
@@ -159,16 +171,18 @@ export const AuthProvider = ({ children }) => {
   // Listen to auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        // Fetch user info from backend
-        await fetchUserInfo(firebaseUser);
-      } else {
-        setUser(null);
-        setUserInfo(null);
-        setPermissions([]);
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          await fetchUserInfo(firebaseUser);
+        } else {
+          setUser(null);
+          setUserInfo(null);
+          setPermissions([]);
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -187,7 +201,7 @@ export const AuthProvider = ({ children }) => {
     hasRole,
     isAdmin,
     isManager,
-    isAuthenticated: !!user
+    isAuthenticated: !!user && !!userInfo
   };
 
   return (
