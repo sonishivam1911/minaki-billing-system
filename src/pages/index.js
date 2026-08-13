@@ -7,6 +7,7 @@ export { CustomersPage } from './CustomersPage';
 export { InvoicesPage } from './InvoicesPage';
 export { ProductDetailPage } from './ProductDetailPage';
 export { LoginPage } from './LoginPage';
+export { ResetPasswordPage } from './ResetPasswordPage';
 export { default as StoreLocatorPage } from './StoreLocatorPage';
 export { default as StoreManagementPage } from './StoreManagementPage';
 export { default as StorageTypeDetailPage } from './StorageTypeDetailPage';

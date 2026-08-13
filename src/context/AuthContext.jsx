@@ -1,41 +1,27 @@
 /**
- * AuthContext
- * Manages authentication state and provides auth functions
+ * AuthContext — Supabase GoTrue session + billing /auth/me permissions.
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signOut as firebaseSignOut,
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { supabase } from '../config/supabase';
 import { apiRequest } from '../services/apiClient';
 import { AUTH_USERINFO_TIMEOUT_MS } from './authConstants';
 
 const AuthContext = createContext(null);
 
-/**
- * AuthProvider Component
- * Provides authentication context to the entire app
- */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [userInfo, setUserInfo] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  /**
-   * Fetch user info and permissions from backend
-   */
-  const fetchUserInfo = async (firebaseUser) => {
+  const fetchUserInfo = async (accessToken) => {
     try {
-      const token = await firebaseUser.getIdToken();
-
       const userData = await apiRequest('GET', '/auth/me', null, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${accessToken}`,
         },
         timeoutMs: AUTH_USERINFO_TIMEOUT_MS,
       });
@@ -50,42 +36,54 @@ export const AuthProvider = ({ children }) => {
       setPermissions([]);
       setError(err.message);
       if (err.status === 401) {
-        await firebaseSignOut(auth);
+        await supabase.auth.signOut();
         setUser(null);
+        setSession(null);
       }
       return false;
     }
   };
 
-  /**
-   * Login with email and password
-   */
   const login = async (email, password) => {
     try {
       setLoading(true);
       setError(null);
 
-      // Sign in with Firebase
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      const loadedUserInfo = await fetchUserInfo(firebaseUser);
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        const errorMessage =
+          signInError.message === 'Invalid login credentials'
+            ? 'Invalid email or password'
+            : signInError.message || 'Login failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        const errorMessage = 'Login succeeded but no session was returned';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+
+      setSession(data.session);
+      setUser(data.user);
+      const loadedUserInfo = await fetchUserInfo(accessToken);
       if (!loadedUserInfo) {
         return {
           success: false,
-          error: 'Signed in, but the billing API could not load your account. Try again in a moment.',
+          error:
+            'Signed in, but the billing API could not load your account. Try again in a moment.',
         };
       }
 
-      return { success: true, user: firebaseUser };
+      return { success: true, user: data.user };
     } catch (err) {
-      const errorMessage = err.code === 'auth/invalid-credential' 
-        ? 'Invalid email or password'
-        : err.code === 'auth/user-not-found'
-        ? 'User not found'
-        : err.code === 'auth/wrong-password'
-        ? 'Incorrect password'
-        : err.message || 'Login failed';
-      
+      const errorMessage = err.message || 'Login failed';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -93,14 +91,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Logout
-   */
   const logout = async () => {
     try {
       setLoading(true);
-      await firebaseSignOut(auth);
+      await supabase.auth.signOut();
       setUser(null);
+      setSession(null);
       setUserInfo(null);
       setPermissions([]);
       setError(null);
@@ -112,23 +108,32 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Get current Firebase ID token
-   */
   const getIdToken = async (forceRefresh = false) => {
-    if (!user) {
+    if (forceRefresh) {
+      const { data, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        throw refreshError;
+      }
+      if (data.session?.access_token) {
+        setSession(data.session);
+        setUser(data.session.user);
+        return data.session.access_token;
+      }
+    }
+    if (session?.access_token) {
+      return session.access_token;
+    }
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
       throw new Error('User not authenticated');
     }
-    return await user.getIdToken(forceRefresh);
+    return data.session.access_token;
   };
 
-  /**
-   * Check if user has permission for a module
-   */
   const hasPermission = (moduleKey, action = 'read') => {
     if (!permissions || permissions.length === 0) return false;
-    
-    const modulePermission = permissions.find(p => p.module_key === moduleKey);
+
+    const modulePermission = permissions.find((p) => p.module_key === moduleKey);
     if (!modulePermission) return false;
 
     switch (action) {
@@ -143,53 +148,57 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Check if user has a specific role
-   * Case-insensitive comparison to handle any case variations
-   */
   const hasRole = (role) => {
     if (!userInfo?.role) return false;
-    // Compare lowercase to handle case variations
     return userInfo.role.toLowerCase() === role.toLowerCase();
   };
 
-  /**
-   * Check if user is admin
-   * Role should be 'admin' (lowercase) in database
-   */
-  const isAdmin = () => {
-    return hasRole('admin');
-  };
+  const isAdmin = () => hasRole('admin');
 
-  /**
-   * Check if user is manager
-   */
-  const isManager = () => {
-    return hasRole('manager') || isAdmin();
-  };
+  const isManager = () => hasRole('manager') || isAdmin();
 
-  // Listen to auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let mounted = true;
+
+    const applySession = async (nextSession) => {
+      if (!mounted) return;
       try {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-          await fetchUserInfo(firebaseUser);
+        if (nextSession?.access_token) {
+          setSession(nextSession);
+          setUser(nextSession.user ?? null);
+          await fetchUserInfo(nextSession.access_token);
         } else {
+          setSession(null);
           setUser(null);
           setUserInfo(null);
           setPermissions([]);
         }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      applySession(data.session);
     });
 
-    return () => unsubscribe();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      applySession(nextSession);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = {
     user,
+    session,
     userInfo,
     permissions,
     loading,
@@ -201,20 +210,12 @@ export const AuthProvider = ({ children }) => {
     hasRole,
     isAdmin,
     isManager,
-    isAuthenticated: !!user && !!userInfo
+    isAuthenticated: !!user && !!userInfo && !!session,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-/**
- * useAuth Hook
- * Access authentication context
- */
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -224,4 +225,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

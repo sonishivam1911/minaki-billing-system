@@ -17,10 +17,9 @@ const AGENT_API_BASE = getAgentApiBase();
 
 async function getAgentAuthToken() {
   try {
-    const { auth } = await import('../config/firebase');
-    const currentUser = auth.currentUser;
-    if (!currentUser) return null;
-    return await currentUser.getIdToken();
+    const { supabase } = await import('../config/supabase');
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
   } catch {
     return null;
   }
