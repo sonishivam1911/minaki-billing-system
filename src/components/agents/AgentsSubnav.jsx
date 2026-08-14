@@ -1,7 +1,17 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Tabs,
+  Tab,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 
-const LINKS = [
+export const AGENT_NAV_LINKS = [
   { to: '/agents/writer', label: 'Product Writer' },
   { to: '/agents/product-reviewer', label: 'Product Reviewer' },
   { to: '/agents/keywords', label: 'Keywords' },
@@ -14,17 +24,45 @@ const LINKS = [
 
 export const AgentsSubnav = () => {
   const location = useLocation();
-  return (
-    <nav className="agents-subnav">
-      {LINKS.map(({ to, label }) => (
-        <Link
-          key={to}
-          to={to}
-          className={location.pathname === to ? 'active' : ''}
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const currentPath = AGENT_NAV_LINKS.some((link) => link.to === location.pathname)
+    ? location.pathname
+    : AGENT_NAV_LINKS[0].to;
+
+  if (isMobile) {
+    return (
+      <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+        <InputLabel id="agents-nav-label">Agent</InputLabel>
+        <Select
+          labelId="agents-nav-label"
+          label="Agent"
+          value={currentPath}
+          onChange={(event) => navigate(event.target.value)}
         >
-          {label}
-        </Link>
+          {AGENT_NAV_LINKS.map((link) => (
+            <MenuItem key={link.to} value={link.to}>
+              {link.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    );
+  }
+
+  return (
+    <Tabs
+      value={currentPath}
+      onChange={(_event, value) => navigate(value)}
+      variant="scrollable"
+      scrollButtons="auto"
+      allowScrollButtonsMobile
+      sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+    >
+      {AGENT_NAV_LINKS.map((link) => (
+        <Tab key={link.to} value={link.to} label={link.label} />
       ))}
-    </nav>
+    </Tabs>
   );
 };

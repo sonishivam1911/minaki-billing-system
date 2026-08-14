@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import {
   approvalStatusClass,
@@ -203,6 +205,7 @@ export const CampaignCreativePage = () => {
         </div>
       </div>
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.campaign} />
       {errorMessage && (
         <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />
       )}

@@ -37,16 +37,17 @@ export async function agentFetch(path, options = {}) {
     ...options,
     headers,
   });
-  if (!response.ok) {
-    let detail = response.statusText;
-    try {
-      const body = await response.json();
-      detail = body.detail || body.message || JSON.stringify(body);
-    } catch {
-      /* ignore */
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const body = await response.json();
+        const raw = body.detail || body.message || body;
+        detail = typeof raw === 'string' ? raw : JSON.stringify(raw);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detail);
     }
-    throw new Error(detail);
-  }
   return response.json();
 }
 
@@ -98,16 +99,15 @@ export const agentsApi = {
     return agentFetch(`/api/agent/product-reviewer/research/products/queue?${q}`);
   },
 
-  listProductReviews: (productId) =>
-    agentFetch(
-      `/api/agent/product-reviewer/research/products/${encodeURIComponent(productId)}/reviews`
-    ),
+  listProductReviews: (productId) => {
+    const q = new URLSearchParams({ product_id: String(productId || '') });
+    return agentFetch(`/api/agent/product-reviewer/research/product-reviews?${q}`);
+  },
 
-  getProductReviewerWriteContext: (productId) =>
-    agentFetch(
-      `/api/agent/product-reviewer/research/products/${encodeURIComponent(productId)}/write-context`
-    ),
-
+  getProductReviewerWriteContext: (productId) => {
+    const q = new URLSearchParams({ product_id: String(productId || '') });
+    return agentFetch(`/api/agent/product-reviewer/research/product-write-context?${q}`);
+  },
   generateProductReviews: (body) =>
     agentFetch('/api/agent/product-reviewer/research/generate', {
       method: 'POST',
@@ -218,6 +218,11 @@ export const agentsApi = {
     });
     const query = q.toString();
     return agentFetch(`/api/agent/collection-page/shopify-collections${query ? `?${query}` : ''}`);
+  },
+
+  getShopifyCollectionByHandle: (handle) => {
+    const q = new URLSearchParams({ handle: String(handle || '') });
+    return agentFetch(`/api/agent/collection-page/shopify-collections/by-handle?${q}`);
   },
 
   listCollectionBuilderProducts: ({ collectionHandle, collectionGid, limit, after } = {}) => {

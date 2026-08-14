@@ -8,6 +8,9 @@ import {
 } from '../../components/agents/UpdateMaskCheckboxes';
 import { WriterResultsTable } from '../../components/agents/WriterResultsTable';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { ShopifyProductPicker } from '../../components/agents/ShopifyProductPicker';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
@@ -141,24 +144,18 @@ export const ProductWriterPage = () => {
       </div>
 
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.writer} />
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
-      <div className="agents-tabs">
-        <button
-          type="button"
-          className={`agents-tab ${inputMode === 'csv' ? 'active' : ''}`}
-          onClick={() => setInputMode('csv')}
-        >
-          Upload CSV
-        </button>
-        <button
-          type="button"
-          className={`agents-tab ${inputMode === 'shopify' ? 'active' : ''}`}
-          onClick={() => setInputMode('shopify')}
-        >
-          Pick from Shopify
-        </button>
-      </div>
+      <AgentsModeSelect
+        label="Input"
+        value={inputMode}
+        onChange={setInputMode}
+        options={[
+          { value: 'csv', label: 'Upload CSV' },
+          { value: 'shopify', label: 'Pick from Shopify' },
+        ]}
+      />
 
       {inputMode === 'shopify' ? (
         <section className="agents-card">
