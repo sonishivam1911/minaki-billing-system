@@ -9,6 +9,8 @@ import {
 import { WriterResultsTable } from '../../components/agents/WriterResultsTable';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { ShopifyProductPicker } from '../../components/agents/ShopifyProductPicker';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
@@ -142,6 +144,7 @@ export const ProductWriterPage = () => {
       </div>
 
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.writer} />
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
       <AgentsModeSelect

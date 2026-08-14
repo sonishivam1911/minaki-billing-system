@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Autocomplete, TextField } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
@@ -134,12 +137,15 @@ export const CollectionBuilderPage = () => {
 
   const [shopifyCollections, setShopifyCollections] = useState([]);
   const [collectionsLoading, setCollectionsLoading] = useState(true);
+  const [collectionSearch, setCollectionSearch] = useState('');
   const [pickerValue, setPickerValue] = useState('');
   const [collectionHandle, setCollectionHandle] = useState('');
   const [collectionGid, setCollectionGid] = useState('');
   const [collectionTitle, setCollectionTitle] = useState('');
 
   const PRODUCTS_PAGE_SIZE = 24;
+  const COLLECTION_PAGE_SIZE = 30;
+  const COLLECTION_SEARCH_DEBOUNCE_MS = 300;
 
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -181,10 +187,13 @@ export const CollectionBuilderPage = () => {
   const [pricingError, setPricingError] = useState(null);
   const [pricingRows, setPricingRows] = useState([]);
 
-  const loadShopifyCollections = async () => {
+  const loadShopifyCollections = async (search = '') => {
     setCollectionsLoading(true);
     try {
-      const response = await agentsApi.listShopifyCollections({ first: 250 });
+      const response = await agentsApi.listShopifyCollections({
+        first: COLLECTION_PAGE_SIZE,
+        q: search || undefined,
+      });
       setShopifyCollections(response.collections || []);
     } catch (error) {
       setErrorMessage(error.message);
@@ -194,8 +203,12 @@ export const CollectionBuilderPage = () => {
   };
 
   useEffect(() => {
-    loadShopifyCollections();
-  }, []);
+    const delay = collectionSearch ? COLLECTION_SEARCH_DEBOUNCE_MS : 0;
+    const timer = setTimeout(() => {
+      loadShopifyCollections(collectionSearch.trim());
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [collectionSearch]);
 
   const resetDownstreamState = () => {
     setProducts([]);
@@ -208,17 +221,17 @@ export const CollectionBuilderPage = () => {
     setApplyResult(null);
   };
 
-  const selectCollection = async (value) => {
-    setPickerValue(value);
+  const selectCollection = async (picked) => {
+    const handle = picked?.handle || '';
+    setPickerValue(handle);
     resetDownstreamState();
-    if (!value) {
+    if (!handle) {
       setCollectionHandle('');
       setCollectionGid('');
       setCollectionTitle('');
+      setCollectionLogicText('');
       return;
     }
-    const picked = shopifyCollections.find((row) => row.handle === value);
-    const handle = picked?.handle || value;
     setCollectionHandle(handle);
     setCollectionGid(picked?.id || '');
     setCollectionTitle(picked?.title || handle);
@@ -227,13 +240,24 @@ export const CollectionBuilderPage = () => {
     setProductsLoading(true);
     setErrorMessage(null);
     try {
-      const response = await agentsApi.listCollectionBuilderProducts({
-        collectionHandle: handle,
-        collectionGid: picked?.id,
-        limit: PRODUCTS_PAGE_SIZE,
-      });
-      setProducts(response.products || []);
-      setProductsPageInfo(response.page_info || { has_next_page: false, end_cursor: null });
+      const [productsResponse, detailResponse] = await Promise.all([
+        agentsApi.listCollectionBuilderProducts({
+          collectionHandle: handle,
+          collectionGid: picked?.id,
+          limit: PRODUCTS_PAGE_SIZE,
+        }),
+        picked?.rule_set
+          ? Promise.resolve({ collection: picked })
+          : agentsApi.getShopifyCollectionByHandle(handle).catch(() => ({ collection: picked })),
+      ]);
+      setProducts(productsResponse.products || []);
+      setProductsPageInfo(
+        productsResponse.page_info || { has_next_page: false, end_cursor: null }
+      );
+      const detailed = detailResponse?.collection || picked;
+      if (detailed?.id) setCollectionGid(detailed.id);
+      if (detailed?.title) setCollectionTitle(detailed.title);
+      setCollectionLogicText(formatCollectionRuleSet(detailed?.rule_set));
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -469,6 +493,7 @@ export const CollectionBuilderPage = () => {
         </div>
       </div>
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.collections} />
 
       <AgentsModeSelect
         label="Section"
@@ -490,18 +515,26 @@ export const CollectionBuilderPage = () => {
         <div className="agents-form-stack">
           <label>
             Shopify collection
-            {collectionsLoading ? (
-              <LoadingSpinner message="Loading collections from Shopify…" />
-            ) : (
-              <select value={pickerValue} onChange={(event) => selectCollection(event.target.value)}>
-                <option value="">Select a collection…</option>
-                {shopifyCollections.map((row) => (
-                  <option key={row.id || row.handle} value={row.handle}>
-                    {row.title} — {row.handle}
-                  </option>
-                ))}
-              </select>
-            )}
+            <Autocomplete
+              options={shopifyCollections}
+              loading={collectionsLoading}
+              value={shopifyCollections.find((row) => row.handle === pickerValue) || null}
+              getOptionLabel={(row) =>
+                row?.title ? `${row.title} — ${row.handle}` : row?.handle || ''
+              }
+              isOptionEqualToValue={(option, value) => option.handle === value.handle}
+              onInputChange={(_event, value, reason) => {
+                if (reason === 'input') setCollectionSearch(value);
+              }}
+              onChange={(_event, row) => selectCollection(row)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  placeholder="Type a collection name…"
+                />
+              )}
+            />
           </label>
         </div>
       </section>

@@ -220,6 +220,11 @@ export const agentsApi = {
     return agentFetch(`/api/agent/collection-page/shopify-collections${query ? `?${query}` : ''}`);
   },
 
+  getShopifyCollectionByHandle: (handle) => {
+    const q = new URLSearchParams({ handle: String(handle || '') });
+    return agentFetch(`/api/agent/collection-page/shopify-collections/by-handle?${q}`);
+  },
+
   listCollectionBuilderProducts: ({ collectionHandle, collectionGid, limit, after } = {}) => {
     const q = new URLSearchParams();
     if (collectionHandle) q.set('collection_handle', collectionHandle);

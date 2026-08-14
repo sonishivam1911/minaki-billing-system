@@ -14,6 +14,8 @@ import {
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 
 const CUSTOMER_STORAGE_KEY = 'minaki.productReviewer.customerId';
 const DEFAULT_REVIEW_COUNT = 12;
@@ -183,6 +185,7 @@ export const ProductReviewerPage = () => {
   return (
     <Box className="screen-container agents-page" sx={{ pb: 4 }}>
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.reviewer} />
       <Typography variant="h5" sx={{ mb: 0.5 }}>
         Product Reviewer
       </Typography>

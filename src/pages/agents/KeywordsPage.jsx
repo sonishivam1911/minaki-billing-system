@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
 const KEYWORDS_PAGE_SIZE = 40;
@@ -144,6 +146,7 @@ export const KeywordsPage = () => {
         </div>
       </div>
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.keywords} />
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
       <section className="agents-card">

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
 import { FieldLabel } from '../../components/agents/FieldInfoTip';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import {
@@ -543,6 +545,7 @@ export const CreativePodPage = () => {
         </div>
       </div>
       <AgentsSubnav />
+      <AgentsHowTo {...AGENT_HOW_TO.banners} />
       {errorMessage && (
         <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />
       )}
