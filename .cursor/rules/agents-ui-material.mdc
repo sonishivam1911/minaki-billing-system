@@ -1,0 +1,23 @@
+---
+description: Agents UI must use Material UI, mobile dropdowns, and paginated tables.
+globs: src/pages/agents/**,src/components/agents/**
+alwaysApply: true
+---
+
+# Agents UI (Material UI + mobile)
+
+Billing Agents screens live in `src/pages/agents/` and `src/components/agents/`.
+
+## Must
+
+- Use **Material UI** (`@mui/material`) for layout, tables, buttons, inputs, nav. Do not add new raw HTML tables or `agents-tabs` button rows.
+- **Mobile first (≤767px):** agent section nav and in-page tabs are a **dropdown (`Select`)**, not a wrapping tab strip.
+- Desktop may use `Tabs` / `ToggleButtonGroup` with `variant="scrollable"`.
+- Tables use MUI `Table` + `TablePagination`. Page sizes: **10, 15, 20, 25, 30** (default 10, max 30).
+- Primary actions stay visible on a phone (full-width buttons, no horizontal overflow).
+- Match existing billing MUI (reports, HR): `Paper`, `Stack`, `TextField`, `Button`, `Alert`.
+
+## Do not
+
+- Ship a new Agents page with the old `.agents-tab` / `.agents-subnav` link strip on mobile.
+- Load or paint unbounded Shopify product lists in the UI.
