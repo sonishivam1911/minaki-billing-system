@@ -10,7 +10,7 @@ import { WriterResultsTable } from '../../components/agents/WriterResultsTable';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
-import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { ShopifyProductPicker } from '../../components/agents/ShopifyProductPicker';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 

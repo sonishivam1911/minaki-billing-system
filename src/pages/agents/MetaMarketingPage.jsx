@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
-import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import { ReportTable } from '../../components/reports/ReportTable';
 import { useAuth } from '../../context/AuthContext';
