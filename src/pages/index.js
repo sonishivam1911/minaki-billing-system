@@ -33,4 +33,4 @@ export { CustomProductsPage } from './CustomProductsPage';
 export { WhatsAppCrmPage } from './WhatsAppCrmPage';
 // HR Management (recent UI: Dashboard + Weekly Schedule)
 export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';
-export { ProductWriterPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './agents';
+export { ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './agents';
