@@ -2561,6 +2561,15 @@ export const reportsApi = {
   },
 
   /**
+   * Run a catalog report (Zakya invoice / sales-order builders).
+   * GET /billing_system/api/reports/run/{reportId}
+   */
+  runBuiltReport: async (reportId, params = {}) => {
+    const cleanParams = buildQueryParamsForReports(params);
+    return await apiRequest('GET', `/reports/run/${reportId}`, null, { params: cleanParams });
+  },
+
+  /**
    * Get sales reports (legacy - kept for backward compatibility)
    * GET /api/reports/sales
    */

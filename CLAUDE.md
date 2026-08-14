@@ -9,3 +9,7 @@ Never pull a huge Shopify catalog in one request. Use cursor pagination (`first`
 ## Agents UI
 
 Use **Material UI**. On mobile, Agents nav and in-page tabs are **dropdowns**, not wrapping tab strips. See `.cursor/rules/agents-ui-material.mdc`.
+
+## Billing UI builder
+
+Every **new** screen is a `BillingScreen` class. Widgets come from `BillingUiBuilder` (`src/ui/`). Do not add a one-off table or filter. Existing pages migrate slowly. See `.cursor/rules/billing-ui-builder.mdc`.

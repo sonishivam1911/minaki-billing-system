@@ -24,6 +24,7 @@ export { StockMovementReportPage } from './reports/StockMovementReportPage';
 export { FinancialReportPage } from './reports/FinancialReportPage';
 export { LocationReportPage } from './reports/LocationReportPage';
 export { MetaMarketingReportPage } from './reports/MetaMarketingReportPage';
+export { BuiltReportPage } from './reports/BuiltReportPage';
 // Legacy export for backward compatibility
 export { default as ShelfDetailPage } from './StorageTypeDetailPage';
 // Walk-in and Custom Order Pages
