@@ -15,6 +15,7 @@ import { FinancialReportPage } from './pages/reports/FinancialReportPage';
 import { LocationReportPage } from './pages/reports/LocationReportPage';
 import { ShopifyCommerceReportPage } from './pages/reports/ShopifyCommerceReportPage';
 import { MetaMarketingReportPage } from './pages/reports/MetaMarketingReportPage';
+import { BuiltReportPage } from './pages/reports/BuiltReportPage';
 import { useCart } from './context/CartContext';
 import { useAuth } from './context/AuthContext';
 import './styles/App.css';
@@ -322,6 +323,14 @@ function App() {
                       <ShopifyCommerceReportPage />
                     </ProtectedRoute>
                   } 
+                />
+                <Route
+                  path="/reports/zakya/:reportId"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <BuiltReportPage />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/reports/meta-marketing"

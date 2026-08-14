@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
-import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
 const EMPTY_TEAM_FORM = {

@@ -33,6 +33,46 @@ export const ReportsPage = () => {
 
   const reports = [
     {
+      id: 'zakya-invoice-register',
+      title: 'Zakya Invoice Register',
+      description: 'One row per Zakya invoice: date, customer, branch, status, total, balance',
+      icon: FileText,
+      path: '/reports/zakya/zakya-invoice-register',
+      color: '#2e7d32',
+    },
+    {
+      id: 'zakya-invoice-monthly',
+      title: 'Zakya Invoice Revenue by Month',
+      description: 'Invoice count and rupees grouped by month, filterable by branch and status',
+      icon: TrendingUp,
+      path: '/reports/zakya/zakya-invoice-monthly',
+      color: '#0288d1',
+    },
+    {
+      id: 'zakya-invoice-product-sales',
+      title: 'Zakya Product Sales',
+      description: 'SKU sales from invoice lines: quantity, rupees, invoice count',
+      icon: ShoppingCart,
+      path: '/reports/zakya/zakya-invoice-product-sales',
+      color: '#ed6c02',
+    },
+    {
+      id: 'zakya-sales-order-register',
+      title: 'Zakya Sales Order Register',
+      description: 'Order book (not retail invoices): channel, invoiced/paid status, total',
+      icon: Package,
+      path: '/reports/zakya/zakya-sales-order-register',
+      color: '#9c27b0',
+    },
+    {
+      id: 'zakya-sales-order-product-sales',
+      title: 'Zakya Products on Sales Orders',
+      description: 'SKU quantities on sales orders (order book, not invoiced sales)',
+      icon: Package,
+      path: '/reports/zakya/zakya-sales-order-product-sales',
+      color: '#6a1b9a',
+    },
+    {
       id: 'inventory',
       title: 'Inventory Report',
       description: 'Track current stock levels, product locations, and inventory movements',

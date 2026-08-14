@@ -15,7 +15,7 @@ import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
-import { AGENT_HOW_TO } from '../../components/agents/agentsHowTo';
+import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 
 const CUSTOMER_STORAGE_KEY = 'minaki.productReviewer.customerId';
 const DEFAULT_REVIEW_COUNT = 12;

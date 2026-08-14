@@ -1,0 +1,33 @@
+---
+description: Entire billing UI uses one builder class; each screen is a class that reuses those components.
+alwaysApply: true
+---
+
+# Billing UI builder (OOP, whole codebase)
+
+This applies to **every** billing screen (reports, Agents, POS, HR, inventory) — not reports only. Move there slowly: **new screens follow this now**; do not rewrite old pages in one pass.
+
+## Must
+
+- **One builder:** `BillingUiBuilder` in `src/ui/`. Tables, filters, cards, charts, export, skeleton, pagination, alerts, page chrome come from the builder. Do not import MUI `Table` / raw `<table>` in a new page.
+- **Each screen is a class** extending `BillingScreen`. The React file is a thin host (`BillingScreenHost`) that renders that class.
+- Use **Material UI** via the builder. Reuse existing components (`ReportTable`, `ReportFilters`, `AgentsPagedTable`, …) by hanging them off the builder — do not copy-paste a second table.
+- New widgets go **into the builder** (or a component the builder already wraps). Screens only compose.
+
+```javascript
+// BAD — new page forks its own table
+export const InvoicePage = () => <table><tbody>...</tbody></table>;
+
+// GOOD — screen class + shared builder
+export class InvoiceRegisterScreen extends BillingScreen {
+  id = 'zakya-invoice-register';
+  title = 'Invoice Register';
+  filterKeys() { return ['date_range', 'branch_name', 'invoice_status']; }
+  columns() { return [{ key: 'invoice_number', label: 'Invoice #' }]; }
+}
+```
+
+## Do not
+
+- Add a one-off layout/table/filter for a single screen when the builder already has it.
+- Mix Shopify funnel metrics onto a Zakya invoice screen (one question per screen).

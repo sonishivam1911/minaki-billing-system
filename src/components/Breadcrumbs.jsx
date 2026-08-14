@@ -123,6 +123,31 @@ export const Breadcrumbs = () => {
       icon: TrendingUp,
       parent: '/reports'
     },
+    '/reports/zakya/zakya-invoice-register': {
+      title: 'Zakya Invoice Register',
+      icon: FileText,
+      parent: '/reports'
+    },
+    '/reports/zakya/zakya-invoice-monthly': {
+      title: 'Zakya Invoice Revenue by Month',
+      icon: TrendingUp,
+      parent: '/reports'
+    },
+    '/reports/zakya/zakya-invoice-product-sales': {
+      title: 'Zakya Product Sales',
+      icon: ShoppingCart,
+      parent: '/reports'
+    },
+    '/reports/zakya/zakya-sales-order-register': {
+      title: 'Zakya Sales Order Register',
+      icon: FileText,
+      parent: '/reports'
+    },
+    '/reports/zakya/zakya-sales-order-product-sales': {
+      title: 'Zakya Products on Sales Orders',
+      icon: Package,
+      parent: '/reports'
+    },
     '/reports/meta-marketing': {
       title: 'Meta Marketing Report',
       icon: TrendingUp,
