@@ -90,6 +90,38 @@ export const agentsApi = {
     return agentFetch(`/api/agent/shopify/products/search?${q}`);
   },
 
+  listProductReviewerQueue: (params = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== '') q.set(key, value);
+    });
+    return agentFetch(`/api/agent/product-reviewer/research/products/queue?${q}`);
+  },
+
+  listProductReviews: (productId) =>
+    agentFetch(
+      `/api/agent/product-reviewer/research/products/${encodeURIComponent(productId)}/reviews`
+    ),
+
+  getProductReviewerWriteContext: (productId) =>
+    agentFetch(
+      `/api/agent/product-reviewer/research/products/${encodeURIComponent(productId)}/write-context`
+    ),
+
+  generateProductReviews: (body) =>
+    agentFetch('/api/agent/product-reviewer/research/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  publishProductReviews: (body) =>
+    agentFetch('/api/agent/product-reviewer/research/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
   startEnrichment: async (body) =>
     agentFetch('/api/agent/product-enrichment-sync', {
       method: 'POST',

@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './pages';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -364,6 +364,14 @@ function App() {
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <ProductWriterPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/agents/product-reviewer"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <ProductReviewerPage />
                     </ProtectedRoute>
                   }
                 />

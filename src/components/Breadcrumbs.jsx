@@ -133,6 +133,11 @@ export const Breadcrumbs = () => {
       icon: PenLine,
       parent: null
     },
+    '/agents/product-reviewer': {
+      title: 'Product Reviewer',
+      icon: Sparkles,
+      parent: null
+    },
     '/agents/keywords': {
       title: 'Keywords',
       icon: Tags,

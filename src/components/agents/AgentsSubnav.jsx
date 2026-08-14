@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 const LINKS = [
   { to: '/agents/writer', label: 'Product Writer' },
+  { to: '/agents/product-reviewer', label: 'Product Reviewer' },
   { to: '/agents/keywords', label: 'Keywords' },
   { to: '/agents/naming-teams', label: 'Naming Teams' },
   { to: '/agents/collections', label: 'Collection Builder' },

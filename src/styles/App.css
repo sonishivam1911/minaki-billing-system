@@ -8650,6 +8650,10 @@
   margin-bottom: 1.75rem;
 }
 
+.agents-table tr.agents-row-active td {
+  background: #f0e6d6;
+}
+
 .agents-form-stack {
   display: flex;
   flex-direction: column;
