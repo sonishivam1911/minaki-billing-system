@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
@@ -469,31 +470,16 @@ export const CollectionBuilderPage = () => {
       </div>
       <AgentsSubnav />
 
-      <div className="agents-actions-row compact" style={{ marginBottom: '1rem' }}>
-        <button
-          type="button"
-          className={`agents-btn ${activeTab === 'builder' ? 'primary' : 'secondary'}`}
-          onClick={() => setActiveTab('builder')}
-        >
-          Builder
-        </button>
-        <button
-          type="button"
-          className={`agents-btn ${activeTab === 'logs' ? 'primary' : 'secondary'}`}
-          onClick={() => setActiveTab('logs')}
-        >
-          Logs
-        </button>
-        {canViewPricing && (
-          <button
-            type="button"
-            className={`agents-btn ${activeTab === 'pricing' ? 'primary' : 'secondary'}`}
-            onClick={() => setActiveTab('pricing')}
-          >
-            Pricing
-          </button>
-        )}
-      </div>
+      <AgentsModeSelect
+        label="Section"
+        value={activeTab}
+        onChange={setActiveTab}
+        options={[
+          { value: 'builder', label: 'Builder' },
+          { value: 'logs', label: 'Logs' },
+          ...(canViewPricing ? [{ value: 'pricing', label: 'Pricing' }] : []),
+        ]}
+      />
 
       {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />}
 

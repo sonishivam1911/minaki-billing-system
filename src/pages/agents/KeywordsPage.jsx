@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
+import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
 const KEYWORDS_PAGE_SIZE = 40;
@@ -178,27 +179,18 @@ export const KeywordsPage = () => {
       </section>
 
       <section className="agents-card">
-        <div className="agents-tabs">
-          <button
-            type="button"
-            className={`agents-tab ${tab === 'discover' ? 'active' : ''}`}
-            onClick={() => setTab('discover')}
-          >
-            DataForSEO results
-          </button>
-          <button
-            type="button"
-            className={`agents-tab ${tab === 'bank' ? 'active' : ''}`}
-            onClick={() => setTab('bank')}
-          >
-            All in warehouse
-          </button>
-          {tab === 'similar' && (
-            <button type="button" className="agents-tab active">
-              Similar to {similarFor?.keyword}
-            </button>
-          )}
-        </div>
+        <AgentsModeSelect
+          label="Keyword view"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'discover', label: 'DataForSEO results' },
+            { value: 'bank', label: 'All in warehouse' },
+            ...(tab === 'similar'
+              ? [{ value: 'similar', label: `Similar to ${similarFor?.keyword || 'keyword'}` }]
+              : []),
+          ]}
+        />
 
         <div className="agents-search-row">
           <input

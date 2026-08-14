@@ -1,0 +1,24 @@
+---
+description: Always paginate Shopify Admin catalog reads. Never dump the full catalog in one request.
+alwaysApply: true
+---
+
+# Shopify catalog pagination
+
+Any Shopify Admin pull of products, publications, metafields, metaobjects, or orders **must use cursor pagination** (`first` + `after` / `pageInfo.endCursor`). Do not fetch the catalog in one shot.
+
+## Rules
+
+- GraphQL: page size 25–100 (default **50**). Loop on `hasNextPage`.
+- REST: use `page_info` / `limit`. Never unbounded `GET /products.json`.
+- Billing/Agents UI lists: **10 / 15 / 20 / 25 / 30** rows per page (max 30). Do not render hundreds of rows.
+- Prefer returning a page + cursor/total to the UI. If a job must scan the whole catalog, still page the Shopify calls; never one giant query.
+
+```python
+# BAD
+products(first: 2500, query: "status:active")
+
+# GOOD
+products(first: 50, after: $after, query: "status:active")
+# then while pageInfo.hasNextPage: after = pageInfo.endCursor
+```
