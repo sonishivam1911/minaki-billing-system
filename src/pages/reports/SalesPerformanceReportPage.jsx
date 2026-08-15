@@ -35,8 +35,14 @@ export const SalesPerformanceReportPage = () => {
 
   useEffect(() => {
     const params = buildQueryParams();
-    if (params.start_date && params.end_date && params.group_by) {
-      fetchSalesPerformanceReport(params);
+    // Always send a group_by (API defaults to day, but older saved filters may omit it)
+    if (!params.group_by) {
+      params.group_by = 'day';
+    }
+    if (params.start_date && params.end_date) {
+      fetchSalesPerformanceReport(params).catch(() => {
+        // Error state is set inside the hook; avoid unhandled rejection blanking the page.
+      });
     }
   }, [filters, buildQueryParams, fetchSalesPerformanceReport]);
 
@@ -44,42 +50,47 @@ export const SalesPerformanceReportPage = () => {
     updateFilters(newFilters);
   };
 
+  const toNumber = (value) => {
+    const parsed = typeof value === 'number' ? value : parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const summaryCards = summary ? [
     {
       title: 'Total Sales',
-      value: summary.total_sales || 0,
+      value: toNumber(summary.total_sales),
       format: 'currency',
       color: 'success',
       icon: DollarSign,
     },
     {
       title: 'Total Transactions',
-      value: summary.total_transactions || 0,
+      value: toNumber(summary.total_transactions),
       format: 'number',
       color: 'primary',
       icon: TrendingUp,
     },
     {
       title: 'Average Transaction Value',
-      value: summary.average_transaction_value || 0,
+      value: toNumber(summary.average_transaction_value),
       format: 'currency',
       color: 'info',
       icon: TrendingUp,
     },
     {
       title: 'Growth Percentage',
-      value: summary.growth_percentage || 0,
+      value: toNumber(summary.growth_percentage),
       format: 'percentage',
-      color: summary.growth_percentage >= 0 ? 'success' : 'error',
+      color: toNumber(summary.growth_percentage) >= 0 ? 'success' : 'error',
       icon: Percent,
     },
   ] : [];
 
-  const chartData = data.map((item) => ({
+  const chartData = (Array.isArray(data) ? data : []).map((item) => ({
     period: item.period,
-    sales: item.sales || 0,
-    transactions: item.transactions || 0,
-    previous_period_sales: item.previous_period_sales || 0,
+    sales: toNumber(item.sales),
+    transactions: toNumber(item.transactions),
+    previous_period_sales: toNumber(item.previous_period_sales),
   }));
 
   const columns = [

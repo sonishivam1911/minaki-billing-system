@@ -27,16 +27,17 @@ export const ReportSummaryCards = ({ cards = [] }) => {
   };
 
   const formatValue = (value, format) => {
+    const numericValue = typeof value === 'number' ? value : parseFloat(value);
     if (format === 'currency') {
-      return formatRupees(value);
+      return formatRupees(Number.isFinite(numericValue) ? numericValue : 0);
     }
     if (format === 'number') {
-      return value.toLocaleString();
+      return (Number.isFinite(numericValue) ? numericValue : 0).toLocaleString('en-IN');
     }
     if (format === 'percentage') {
-      return `${value.toFixed(2)}%`;
+      return `${(Number.isFinite(numericValue) ? numericValue : 0).toFixed(2)}%`;
     }
-    return value;
+    return value == null ? '—' : String(value);
   };
 
   return (

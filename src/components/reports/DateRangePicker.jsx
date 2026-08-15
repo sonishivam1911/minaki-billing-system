@@ -13,15 +13,27 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, parseISO, isValid } from 'date-fns';
+
+const toDateOrNull = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  if (typeof value === 'string') {
+    const parsedIso = /^\d{4}-\d{2}-\d{2}/.test(value) ? parseISO(value.slice(0, 10)) : new Date(value);
+    return isValid(parsedIso) ? parsedIso : null;
+  }
+  return null;
+};
 
 /**
  * DateRangePicker Component
  * Provides date range selection with presets and custom range
  * 
  * @param {Object} props
- * @param {Date|null} props.startDate - Start date
- * @param {Date|null} props.endDate - End date
+ * @param {Date|string|null} props.startDate - Start date
+ * @param {Date|string|null} props.endDate - End date
  * @param {Function} props.onStartDateChange - Callback when start date changes
  * @param {Function} props.onEndDateChange - Callback when end date changes
  * @param {Function} props.onRangeChange - Callback when both dates change (for presets)
@@ -36,6 +48,8 @@ export const DateRangePicker = ({
   required = false,
 }) => {
   const [presetMenuAnchor, setPresetMenuAnchor] = useState(null);
+  const resolvedStartDate = toDateOrNull(startDate);
+  const resolvedEndDate = toDateOrNull(endDate);
 
   const handlePresetClick = (event) => {
     setPresetMenuAnchor(event.currentTarget);
@@ -178,7 +192,7 @@ export const DateRangePicker = ({
           <Grid item xs={12} sm={6}>
             <DatePicker
               label="Start Date"
-              value={startDate}
+              value={resolvedStartDate}
               onChange={(newValue) => {
                 if (onStartDateChange) onStartDateChange(newValue);
               }}
@@ -199,11 +213,11 @@ export const DateRangePicker = ({
           <Grid item xs={12} sm={6}>
             <DatePicker
               label="End Date"
-              value={endDate}
+              value={resolvedEndDate}
               onChange={(newValue) => {
                 if (onEndDateChange) onEndDateChange(newValue);
               }}
-              minDate={startDate || undefined}
+              minDate={resolvedStartDate || undefined}
               slotProps={{
                 textField: {
                   fullWidth: true,
@@ -220,9 +234,9 @@ export const DateRangePicker = ({
           </Grid>
         </Grid>
 
-        {startDate && endDate && (
+        {resolvedStartDate && resolvedEndDate && (
           <Typography variant="caption" sx={{ color: '#6b7280', mt: 1, display: 'block' }}>
-            Selected: {format(startDate, 'MMM dd, yyyy')} - {format(endDate, 'MMM dd, yyyy')}
+            Selected: {format(resolvedStartDate, 'MMM dd, yyyy')} - {format(resolvedEndDate, 'MMM dd, yyyy')}
           </Typography>
         )}
       </Box>
