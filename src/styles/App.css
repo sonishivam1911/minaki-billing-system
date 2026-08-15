@@ -3703,8 +3703,8 @@
   }
 }
 
-/* Filters Section */
-.filters-section {
+/* Filters Section — page toolbars only (NOT product/demistified filter panels) */
+.page-filters-bar {
   margin-bottom: 2rem;
   display: flex;
   gap: 1rem;
@@ -3718,7 +3718,7 @@
 }
 
 @media (max-width: 768px) {
-  .filters-section {
+  .page-filters-bar {
     margin-bottom: 1.5rem;
   }
   

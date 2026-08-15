@@ -270,127 +270,128 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
           {/* Category Filter */}
           <div className="filters-section">
             <h3 className="filters-section-title">Product Category</h3>
-            <div className="filter-field">
-              <label className="filter-label">Category</label>
-              <select
-                className="filter-select"
-                value={pendingFilters.category || ''}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-              >
-                <option value="">All Categories</option>
-                {categoryOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            <div className="filters-grid">
+              <div className="filter-field">
+                <label className="filter-label">Category</label>
+                <select
+                  className="filter-select"
+                  value={pendingFilters.category || ''}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                >
+                  <option value="">All Categories</option>
+                  {categoryOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Diamond 4C's Filters */}
           <div className="filters-section">
             <h3 className="filters-section-title">Diamond 4C's</h3>
-            
-            {/* Carat (Size) Filter */}
-            <div className="filter-field">
-              <label className="filter-label">Carat (Size)</label>
-              <select
-                className="filter-select"
-                value={
-                  pendingFilters.diamondSize
-                    ? diamondSizeRanges.find(
-                        r => r.min === pendingFilters.diamondSize.min && r.max === pendingFilters.diamondSize.max
-                      )?.value || ''
-                    : ''
-                }
-                onChange={(e) => handleDiamondSizeChange(e.target.value)}
-              >
-                <option value="">All Sizes</option>
-                {diamondSizeRanges.map(range => (
-                  <option key={range.value} value={range.value}>
-                    {range.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="filters-grid">
+              <div className="filter-field">
+                <label className="filter-label">Carat (Size)</label>
+                <select
+                  className="filter-select"
+                  value={
+                    pendingFilters.diamondSize
+                      ? diamondSizeRanges.find(
+                          r => r.min === pendingFilters.diamondSize.min && r.max === pendingFilters.diamondSize.max
+                        )?.value || ''
+                      : ''
+                  }
+                  onChange={(e) => handleDiamondSizeChange(e.target.value)}
+                >
+                  <option value="">All Sizes</option>
+                  {diamondSizeRanges.map(range => (
+                    <option key={range.value} value={range.value}>
+                      {range.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Cut Filter */}
-            <div className="filter-field">
-              <label className="filter-label">Cut (Shape)</label>
-              <select
-                className="filter-select"
-                value={pendingFilters.diamondCut || ''}
-                onChange={(e) => handleDiamondCutChange(e.target.value)}
-              >
-                <option value="">All Cuts</option>
-                {cutOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="filter-field">
+                <label className="filter-label">Cut (Shape)</label>
+                <select
+                  className="filter-select"
+                  value={pendingFilters.diamondCut || ''}
+                  onChange={(e) => handleDiamondCutChange(e.target.value)}
+                >
+                  <option value="">All Cuts</option>
+                  {cutOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Color Filter */}
-            <div className="filter-field">
-              <label className="filter-label">Color</label>
-              <select
-                className="filter-select"
-                value={pendingFilters.diamondColor || ''}
-                onChange={(e) => handleDiamondColorChange(e.target.value)}
-              >
-                <option value="">All Colors</option>
-                {colorOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="filter-field">
+                <label className="filter-label">Color</label>
+                <select
+                  className="filter-select"
+                  value={pendingFilters.diamondColor || ''}
+                  onChange={(e) => handleDiamondColorChange(e.target.value)}
+                >
+                  <option value="">All Colors</option>
+                  {colorOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Clarity Filter */}
-            <div className="filter-field">
-              <label className="filter-label">Clarity</label>
-              <select
-                className="filter-select"
-                value={pendingFilters.diamondClarity || ''}
-                onChange={(e) => handleDiamondClarityChange(e.target.value)}
-              >
-                <option value="">All Clarity Grades</option>
-                {clarityOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="filter-field">
+                <label className="filter-label">Clarity</label>
+                <select
+                  className="filter-select"
+                  value={pendingFilters.diamondClarity || ''}
+                  onChange={(e) => handleDiamondClarityChange(e.target.value)}
+                >
+                  <option value="">All Clarity Grades</option>
+                  {clarityOptions.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           {/* Price Filter */}
           <div className="filters-section">
             <h3 className="filters-section-title">Price Range</h3>
-            <div className="filter-field range-field">
-              <label className="filter-label">Price (₹)</label>
-              <div className="range-inputs">
-                <input
-                  type="number"
-                  className="filter-input"
-                  placeholder={`Min (₹${priceRange.min.toLocaleString()})`}
-                  min={priceRange.min}
-                  max={priceRange.max}
-                  value={pendingFilters.price?.min || ''}
-                  onChange={(e) => handlePriceChange('min', e.target.value)}
-                />
-                <span className="range-separator">to</span>
-                <input
-                  type="number"
-                  className="filter-input"
-                  placeholder={`Max (₹${priceRange.max.toLocaleString()})`}
-                  min={priceRange.min}
-                  max={priceRange.max}
-                  value={pendingFilters.price?.max || ''}
-                  onChange={(e) => handlePriceChange('max', e.target.value)}
-                />
+            <div className="filters-grid">
+              <div className="filter-field range-field">
+                <label className="filter-label">Price (₹)</label>
+                <div className="range-inputs">
+                  <input
+                    type="number"
+                    className="filter-input"
+                    placeholder={`Min (₹${priceRange.min.toLocaleString()})`}
+                    min={priceRange.min}
+                    max={priceRange.max}
+                    value={pendingFilters.price?.min || ''}
+                    onChange={(e) => handlePriceChange('min', e.target.value)}
+                  />
+                  <span className="range-separator">to</span>
+                  <input
+                    type="number"
+                    className="filter-input"
+                    placeholder={`Max (₹${priceRange.max.toLocaleString()})`}
+                    min={priceRange.min}
+                    max={priceRange.max}
+                    value={pendingFilters.price?.max || ''}
+                    onChange={(e) => handlePriceChange('max', e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -398,24 +399,26 @@ export const ProductFilters = ({ filters = {}, onFiltersChange, products = [] })
           {/* Location Filter */}
           <div className="filters-section">
             <h3 className="filters-section-title">Location</h3>
-            <div className="filter-field">
-              <label className="filter-label">Store/Location</label>
-              {loading ? (
-                <div className="filter-loading">Loading locations...</div>
-              ) : (
-                <select
-                  className="filter-select"
-                  value={pendingFilters.location || ''}
-                  onChange={(e) => handleLocationChange(e.target.value)}
-                >
-                  <option value="">All Locations</option>
-                  {stores.map(store => (
-                    <option key={store.id || store.location_id} value={store.id || store.location_id}>
-                      {store.location_name || store.name || `Store ${store.id}`}
-                    </option>
-                  ))}
-                </select>
-              )}
+            <div className="filters-grid">
+              <div className="filter-field">
+                <label className="filter-label">Store/Location</label>
+                {loading ? (
+                  <div className="filter-loading">Loading locations...</div>
+                ) : (
+                  <select
+                    className="filter-select"
+                    value={pendingFilters.location || ''}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                  >
+                    <option value="">All Locations</option>
+                    {stores.map(store => (
+                      <option key={store.id || store.location_id} value={store.id || store.location_id}>
+                        {store.location_name || store.name || `Store ${store.id}`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
           </div>
 
