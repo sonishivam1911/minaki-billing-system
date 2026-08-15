@@ -2570,6 +2570,14 @@ export const reportsApi = {
   },
 
   /**
+   * Distinct Zakya product attribute values for report filter dropdowns.
+   * GET /billing_system/api/reports/zakya-product-filter-options
+   */
+  getZakyaProductFilterOptions: async () => {
+    return await apiRequest('GET', '/reports/zakya-product-filter-options');
+  },
+
+  /**
    * Get sales reports (legacy - kept for backward compatibility)
    * GET /api/reports/sales
    */

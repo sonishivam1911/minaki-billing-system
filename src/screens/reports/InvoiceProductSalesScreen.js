@@ -4,6 +4,7 @@ import {
   REPORT_ID_INVOICE_PRODUCT_SALES,
   ZAKYA_BRANCH_OPTIONS,
   ZAKYA_INVOICE_STATUS_OPTIONS,
+  ZAKYA_PRODUCT_ATTRIBUTE_FILTER_FIELDS,
 } from './zakyaReportOptions';
 
 export class InvoiceProductSalesScreen extends BillingScreen {
@@ -32,6 +33,7 @@ export class InvoiceProductSalesScreen extends BillingScreen {
       },
       { key: 'sku', type: 'text', label: 'SKU' },
       { key: 'product_name', type: 'text', label: 'Product name' },
+      ...ZAKYA_PRODUCT_ATTRIBUTE_FILTER_FIELDS,
     ];
   }
 
@@ -39,6 +41,8 @@ export class InvoiceProductSalesScreen extends BillingScreen {
     return [
       { key: 'sku', label: 'SKU', sortable: true },
       { key: 'item_name', label: 'Product', sortable: true },
+      { key: 'category_name', label: 'Category', sortable: true },
+      { key: 'group_name', label: 'Group', sortable: true },
       { key: 'quantity_sold', label: 'Qty sold', sortable: true, format: 'number' },
       { key: 'average_rate', label: 'Avg rate', sortable: true, format: 'currency' },
       { key: 'sum_amount', label: 'Amount', sortable: true, format: 'currency' },
