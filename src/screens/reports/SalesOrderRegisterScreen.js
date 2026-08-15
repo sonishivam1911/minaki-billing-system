@@ -11,13 +11,14 @@ export class SalesOrderRegisterScreen extends BillingScreen {
     super({
       id: REPORT_ID_SALES_ORDER_REGISTER,
       title: 'Zakya Sales Order Register',
-      description: 'One row per Zakya sales order. This is the order book, not retail invoices.',
+      description: 'One row per Zakya sales order. Filter by date, customer, branch, and status.',
     });
   }
 
   filterFields() {
     return [
       { key: 'date_range', type: 'date_range', label: 'Date range' },
+      { key: 'customer_name', type: 'text', label: 'Customer name' },
       {
         key: 'branch_name',
         type: 'select',
@@ -38,6 +39,8 @@ export class SalesOrderRegisterScreen extends BillingScreen {
       { key: 'salesorder_number', label: 'Sales order #', sortable: true },
       { key: 'date', label: 'Date', sortable: true },
       { key: 'customer_name', label: 'Customer', sortable: true },
+      { key: 'customer_email', label: 'Email', sortable: true },
+      { key: 'customer_phone', label: 'Phone', sortable: true },
       { key: 'branch_name', label: 'Branch', sortable: true },
       { key: 'sales_channel', label: 'Channel', sortable: true },
       { key: 'status', label: 'Status', sortable: true },

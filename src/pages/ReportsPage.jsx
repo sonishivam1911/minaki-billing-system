@@ -35,7 +35,7 @@ export const ReportsPage = () => {
     {
       id: 'zakya-invoice-register',
       title: 'Zakya Invoice Register',
-      description: 'One row per Zakya invoice: date, customer, branch, status, total, balance',
+      description: 'One row per Zakya invoice: date, customer, email, phone, branch, status, total, balance',
       icon: FileText,
       path: '/reports/zakya/zakya-invoice-register',
       color: '#2e7d32',
@@ -59,7 +59,7 @@ export const ReportsPage = () => {
     {
       id: 'zakya-sales-order-register',
       title: 'Zakya Sales Order Register',
-      description: 'Order book (not retail invoices): channel, invoiced/paid status, total',
+      description: 'Order book (not retail invoices): customer, email/phone, channel, invoiced/paid status, total',
       icon: Package,
       path: '/reports/zakya/zakya-sales-order-register',
       color: '#9c27b0',

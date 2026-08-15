@@ -11,13 +11,14 @@ export class InvoiceRegisterScreen extends BillingScreen {
     super({
       id: REPORT_ID_INVOICE_REGISTER,
       title: 'Zakya Invoice Register',
-      description: 'One row per Zakya invoice. Filter by date, branch, and status.',
+      description: 'One row per Zakya invoice. Filter by date, customer, branch, and status.',
     });
   }
 
   filterFields() {
     return [
       { key: 'date_range', type: 'date_range', label: 'Date range' },
+      { key: 'customer_name', type: 'text', label: 'Customer name' },
       {
         key: 'branch_name',
         type: 'select',
@@ -38,6 +39,8 @@ export class InvoiceRegisterScreen extends BillingScreen {
       { key: 'invoice_number', label: 'Invoice #', sortable: true },
       { key: 'date', label: 'Date', sortable: true },
       { key: 'customer_name', label: 'Customer', sortable: true },
+      { key: 'customer_email', label: 'Email', sortable: true },
+      { key: 'customer_phone', label: 'Phone', sortable: true },
       { key: 'branch_name', label: 'Branch', sortable: true },
       { key: 'status', label: 'Status', sortable: true },
       { key: 'total', label: 'Total', sortable: true, format: 'currency' },
