@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { productFiltersApi } from '../services/api';
-
+import '../styles/ProductFilters.css';
 /**
  * DemistifiedFilters Component
  * Provides filtering options for demistified products.
