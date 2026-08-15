@@ -224,7 +224,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Category</InputLabel>
           <Select
@@ -250,7 +250,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Location</InputLabel>
           <Select
@@ -447,7 +447,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Payment Method</InputLabel>
           <Select
@@ -473,7 +473,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Invoice Status</InputLabel>
           <Select
@@ -499,7 +499,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Stock Status</InputLabel>
           <Select
@@ -529,7 +529,7 @@ export const ReportFilters = ({
     return (
       <>
         {showSku && (
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               size="small"
@@ -541,7 +541,7 @@ export const ReportFilters = ({
           </Grid>
         )}
         {showProductName && (
-          <Grid item xs={12} sm={6} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
               size="small"
@@ -562,7 +562,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Data Source</InputLabel>
           <Select
@@ -588,7 +588,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Group By</InputLabel>
           <Select
@@ -614,7 +614,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControl fullWidth size="small">
           <InputLabel>Movement Type</InputLabel>
           <Select
@@ -640,7 +640,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControlLabel
           control={
             <Checkbox
@@ -660,7 +660,7 @@ export const ReportFilters = ({
     }
 
     return (
-      <Grid item xs={12} sm={6} md={4}>
+      <Grid item xs={12} sm={6} md={3}>
         <FormControlLabel
           control={
             <Checkbox
