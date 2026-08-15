@@ -66,7 +66,7 @@ export const useSalesReport = () => {
       }
 
       // Merge summary and comparison into summary state
-      const summaryData = { ...result.summary };
+      const summaryData = { ...(result.summary || {}) };
       if (result.comparison) {
         summaryData.comparison = result.comparison;
       }
@@ -84,8 +84,10 @@ export const useSalesReport = () => {
     } catch (err) {
       const errorMessage = err.message || 'Failed to load sales performance report';
       setError(errorMessage);
+      setData([]);
+      setSummary(null);
       console.error('Failed to load sales performance report:', err);
-      throw err;
+      return null;
     } finally {
       setLoading(false);
     }

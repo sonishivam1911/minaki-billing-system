@@ -195,6 +195,20 @@ export const ReportFilters = ({
     }
   };
 
+  const toDateString = (value) => {
+    if (!value) return '';
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      const year = value.getFullYear();
+      const month = String(value.getMonth() + 1).padStart(2, '0');
+      const day = String(value.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.slice(0, 10);
+    }
+    return '';
+  };
+
   const renderDateRangeFilter = () => {
     if (!availableFilters.includes('date_range') && !availableFilters.includes('start_date')) {
       return null;
@@ -205,8 +219,19 @@ export const ReportFilters = ({
         <DateRangePicker
           startDate={filters.start_date}
           endDate={filters.end_date}
-          onStartDateChange={(date) => handleFilterChange('start_date', date)}
-          onEndDateChange={(date) => handleFilterChange('end_date', date)}
+          onStartDateChange={(date) => handleFilterChange('start_date', toDateString(date))}
+          onEndDateChange={(date) => handleFilterChange('end_date', toDateString(date))}
+          onRangeChange={(startDate, endDate) => {
+            handleFilterChange('start_date', toDateString(startDate));
+            // Batch both dates in one update to avoid stale state
+            if (onFiltersChange) {
+              onFiltersChange({
+                ...filters,
+                start_date: toDateString(startDate),
+                end_date: toDateString(endDate),
+              });
+            }
+          }}
         />
       </Grid>
     );
