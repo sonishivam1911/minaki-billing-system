@@ -11,6 +11,7 @@
     "@mui/x-date-pickers": "^6.18.0",
     "@supabase/supabase-js": "^2.112.3",
     "date-fns": "^2.30.0",
+    "framer-motion": "^13.1.0",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.31",

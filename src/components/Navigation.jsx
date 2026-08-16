@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -175,6 +175,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/invoices', label: 'Invoices', icon: FileText },
     { path: '/store-locator', label: 'Store Locator', icon: MapPin },
     { path: '/store-management', label: 'Store Management', icon: Building2 },
+    { path: '/drive', label: 'Drive', icon: HardDrive },
     { path: '/whatsapp-crm', label: 'WhatsApp CRM', icon: MessageCircle },
     { path: '/customers', label: 'Customers', icon: User },
     { path: '/walk-ins', label: 'Walk-ins', icon: UserPlus },
