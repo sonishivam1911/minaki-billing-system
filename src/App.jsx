@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, DrivePage } from './pages';
+import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, DrivePage, RankTrackerPage, BacklinksPage, LocalSeoPage, AiVisibilityPage, SerpResultsPage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -440,7 +440,49 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
-                
+
+                {/* SEO */}
+                <Route
+                  path="/seo/rank-tracker"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <RankTrackerPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/seo/backlinks"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <BacklinksPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/seo/local-seo"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <LocalSeoPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/seo/ai-visibility"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <AiVisibilityPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/seo/serp-results"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <SerpResultsPage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Fallback for invalid routes */}
                 <Route path="*" element={<Navigate to="/catalog" replace />} />
               </Routes>
