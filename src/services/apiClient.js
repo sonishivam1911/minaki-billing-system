@@ -46,10 +46,10 @@ const getAuthToken = async () => {
  * @throws {Error} - If response is not ok
  */
 export const apiRequest = async (method, path, data = null, options = {}) => {
-  const { params = {}, headers = {}, skipAuth = false, timeoutMs } = options;
+  const { params = {}, headers = {}, skipAuth = false, timeoutMs, baseUrl } = options;
 
-  // Build full URL
-  let url = `${API_BASE_URL}${path}`;
+  // Build full URL (baseUrl lets callers target a different API prefix, e.g. Drive's /drive/api)
+  let url = `${baseUrl || API_BASE_URL}${path}`;
 
   // Add query parameters if provided
   if (Object.keys(params).length > 0) {

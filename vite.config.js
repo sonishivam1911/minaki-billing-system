@@ -23,6 +23,14 @@ export default defineConfig({
         target: process.env.VITE_API_URL || 'http://localhost:8001',
         changeOrigin: true,
       },
+      // Scoped to /drive/api (not bare /drive) — the frontend also owns the
+      // page route /drive (and /drive/folder/:id) for the Drive UI itself;
+      // proxying the bare prefix would intercept full-page loads of those
+      // routes and forward them to the backend instead of serving the SPA.
+      '/drive/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
 });
