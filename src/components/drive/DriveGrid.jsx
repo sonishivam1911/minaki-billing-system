@@ -2,7 +2,19 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 import DriveItem from './DriveItem';
 
-const DriveGrid = ({ folders = [], files = [], selectedIds, onSelect, onOpenFolder, onPreviewFile, onRename, onDelete, onMove }) => {
+const DriveGrid = ({
+  folders = [],
+  files = [],
+  selectedIds,
+  onSelect,
+  onOpenFolder,
+  onPreviewFile,
+  onRename,
+  onDelete,
+  onMove,
+  onCopyLink,
+  onDetails,
+}) => {
   if (folders.length === 0 && files.length === 0) {
     return (
       <Box sx={{ py: 8, textAlign: 'center' }}>
@@ -24,6 +36,7 @@ const DriveGrid = ({ folders = [], files = [], selectedIds, onSelect, onOpenFold
           onRename={onRename}
           onDelete={onDelete}
           onMove={onMove}
+          onDetails={onDetails}
         />
       ))}
       {files.map((file) => (
@@ -37,6 +50,8 @@ const DriveGrid = ({ folders = [], files = [], selectedIds, onSelect, onOpenFold
           onRename={onRename}
           onDelete={onDelete}
           onMove={onMove}
+          onCopyLink={onCopyLink}
+          onDetails={onDetails}
         />
       ))}
     </Box>

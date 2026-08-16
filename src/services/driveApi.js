@@ -28,6 +28,9 @@ export const driveApi = {
   moveFolder: (folderId, parentFolderId) =>
     driveRequest('PATCH', `/folders/${folderId}/move`, { parent_folder_id: parentFolderId }),
 
+  updateFolderDescription: (folderId, description) =>
+    driveRequest('PATCH', `/folders/${folderId}/description`, { description }),
+
   deleteFolder: (folderId) => driveRequest('DELETE', `/folders/${folderId}`),
 
   restoreFolder: (folderId) => driveRequest('POST', `/folders/${folderId}/restore`),
@@ -64,6 +67,9 @@ export const driveApi = {
   renameFile: (fileId, filename) => driveRequest('PATCH', `/files/${fileId}/rename`, { filename }),
 
   moveFile: (fileId, folderId) => driveRequest('PATCH', `/files/${fileId}/move`, { folder_id: folderId }),
+
+  updateFileDescription: (fileId, description) =>
+    driveRequest('PATCH', `/files/${fileId}/description`, { description }),
 
   deleteFile: (fileId) => driveRequest('DELETE', `/files/${fileId}`),
 

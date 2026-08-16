@@ -74,6 +74,22 @@ export const useDrive = () => {
     [refresh]
   );
 
+  const updateFolderDescription = useCallback(
+    async (folderId, description) => {
+      await driveApi.updateFolderDescription(folderId, description);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const updateFileDescription = useCallback(
+    async (fileId, description) => {
+      await driveApi.updateFileDescription(fileId, description);
+      await refresh();
+    },
+    [refresh]
+  );
+
   const moveItem = useCallback(
     async (item, targetFolderId) => {
       if (item.type === 'folder') {
@@ -239,6 +255,8 @@ export const useDrive = () => {
     createFolder,
     renameFolder,
     renameFile,
+    updateFolderDescription,
+    updateFileDescription,
     moveItem,
     deleteFolder,
     deleteFile,
