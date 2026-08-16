@@ -2,12 +2,14 @@
  * MINAKI Drive API Service
  * Shared team drive — folders, files, presigned upload/download, trash, search.
  *
- * API Prefix: /drive/api (proxied to the FastAPI backend, see vite.config.js)
+ * API Prefix: /drive/api — path-proxied in dev (vite.config.js), appended to
+ * the absolute backend origin in prod (API_ORIGIN, since nginx has no path
+ * proxy rules there — see apiClient.js for why).
  */
 
-import { apiRequest } from './apiClient';
+import { apiRequest, API_ORIGIN } from './apiClient';
 
-const DRIVE_BASE_URL = '/drive/api';
+const DRIVE_BASE_URL = API_ORIGIN ? `${API_ORIGIN}/drive/api` : '/drive/api';
 
 const driveRequest = (method, path, data = null, options = {}) =>
   apiRequest(method, path, data, { ...options, baseUrl: DRIVE_BASE_URL });
