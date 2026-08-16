@@ -18,12 +18,15 @@ const API_BASE_URL = VITE_API_URL || '/billing_system/api';
 
 console.log('🌐 API_BASE_URL (apiClient):', API_BASE_URL);
 
-// Resolved backend origin (null in dev, where nginx/Vite path-proxies relative
-// URLs; an absolute URL like https://api.minaki.me in prod, where nginx has no
-// API proxy rules at all — see images/billing-frontend/nginx.conf). Other API
-// prefixes (driveApi.js's /drive/api) must build their base off this, not off
-// a hardcoded relative path, or they 404 through the SPA catch-all in prod.
-export const API_ORIGIN = VITE_API_URL;
+// Resolved backend origin (scheme+host, no path) — null in dev, where
+// nginx/Vite path-proxies relative URLs; an absolute origin in prod, where
+// nginx has no API proxy rules at all (see images/billing-frontend/nginx.conf).
+// VITE_API_URL itself is set in prod to the full billing base
+// (https://api.minaki.me/billing_system/api), not a bare origin — strip back
+// to origin with URL() rather than reusing it directly, so other API
+// prefixes (driveApi.js's /drive/api) don't end up nested under
+// /billing_system/api/drive/api.
+export const API_ORIGIN = VITE_API_URL ? new URL(VITE_API_URL).origin : null;
 
 /**
  * Get Supabase access token for authenticated requests
