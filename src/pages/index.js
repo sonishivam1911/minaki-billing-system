@@ -36,3 +36,4 @@ export { WhatsAppCrmPage } from './WhatsAppCrmPage';
 // HR Management (recent UI: Dashboard + Weekly Schedule)
 export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';
 export { ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage } from './agents';
+export { RankTrackerPage, BacklinksPage, LocalSeoPage, AiVisibilityPage, SerpResultsPage } from './seo';

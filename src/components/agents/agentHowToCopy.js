@@ -79,4 +79,51 @@ export const AGENT_HOW_TO = {
       'Scroll to the Shopify section for what sold in store vs what the ads spent.',
     ],
   },
+  rankTracker: {
+    title: 'Rank Tracker',
+    what: 'This tracks where minaki.me shows up on Google for the search phrases you care about, over time.',
+    steps: [
+      'Create a tracker: give it a name, your domain, and a list of keywords.',
+      'Tap Check now to fetch fresh rankings for that tracker.',
+      'Open a tracker to see each keyword’s position history.',
+      'Come back later and check again to see if rankings moved.',
+    ],
+  },
+  backlinks: {
+    title: 'Backlinks',
+    what: 'This shows which other websites link to minaki.me — useful for judging SEO authority and spotting new mentions.',
+    steps: [
+      'Type a domain or URL and load the summary for an overview.',
+      'Switch to the Backlinks tab to see individual linking pages.',
+      'Switch to Referring Domains to see which sites link to you the most.',
+      'Page through results with Previous/Next.',
+    ],
+  },
+  localSeo: {
+    title: 'Local SEO',
+    what: 'This searches Google Business-style local listings — useful for checking how minaki.me stores appear in local search.',
+    steps: [
+      'Type a search phrase (for example "jewellery store near me").',
+      'Optionally narrow it with a location.',
+      'Tap a result to see its full details — address, rating, hours.',
+    ],
+  },
+  aiVisibility: {
+    title: 'AI Visibility',
+    what: 'This asks AI models (like the ones people use instead of Google now) a question and checks whether they mention your brand.',
+    steps: [
+      'Type a prompt someone might ask an AI assistant, and the brand name(s) to look for.',
+      'Tap Check. Each model’s answer is scanned for a mention.',
+      'Look at History to see past checks and how often you were mentioned.',
+    ],
+  },
+  serpResults: {
+    title: 'SERP Results',
+    what: 'This shows the full Google results page for a search phrase — organic listings, ads, featured snippet, and more — not just your own ranking.',
+    steps: [
+      'Type a keyword and pick device (mobile or desktop).',
+      'Tap Fetch to pull the live results page.',
+      'Scroll the sections: organic, paid, featured snippet, local pack, related searches, People Also Ask.',
+    ],
+  },
 };

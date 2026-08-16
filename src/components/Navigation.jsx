@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -54,9 +54,11 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   const isActive = (path) => location.pathname === path;
   const isHrActive = location.pathname.startsWith('/hr');
   const isAgentsActive = location.pathname.startsWith('/agents');
+  const isSeoActive = location.pathname.startsWith('/seo');
   const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
   // Keep Agents expanded by default so lower-nav items stay discoverable once the sidebar scrolls.
   const [agentsNavOpen, setAgentsNavOpen] = useState(true);
+  const [seoNavOpen, setSeoNavOpen] = useState(isSeoActive);
   const hasItemsInCart = cartItemCount > 0;
 
   React.useEffect(() => {
@@ -66,6 +68,10 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   React.useEffect(() => {
     if (isAgentsActive) setAgentsNavOpen(true);
   }, [isAgentsActive]);
+
+  React.useEffect(() => {
+    if (isSeoActive) setSeoNavOpen(true);
+  }, [isSeoActive]);
 
   const handleCartClick = (e) => {
     e.preventDefault();
@@ -197,6 +203,14 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/campaign-creative', label: 'Campaign Creative', icon: Sparkles },
     { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
     { path: '/agents/marketing', label: 'Meta Marketing', icon: Sparkles },
+  ];
+
+  const seoNavItems = [
+    { path: '/seo/rank-tracker', label: 'Rank Tracker', icon: TrendingUp },
+    { path: '/seo/backlinks', label: 'Backlinks', icon: Link2 },
+    { path: '/seo/local-seo', label: 'Local SEO', icon: MapPinned },
+    { path: '/seo/ai-visibility', label: 'AI Visibility', icon: Bot },
+    { path: '/seo/serp-results', label: 'SERP Results', icon: Search },
   ];
 
   return (
@@ -540,6 +554,75 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
             <Collapse in={agentsNavOpen} timeout="auto" unmountOnExit>
               <List component="div" disablePadding sx={{ pl: 1 }}>
                 {agentsNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <ListItem key={item.path} disablePadding sx={{ pl: 2, mb: 0.25 }}>
+                      <ListItemButton
+                        component={Link}
+                        to={item.path}
+                        selected={active}
+                        onClick={closeSidebar}
+                        sx={{
+                          borderRadius: '8px',
+                          '&.Mui-selected': {
+                            backgroundColor: '#f5f1e8',
+                            color: '#8b6f47',
+                            '&:hover': { backgroundColor: '#f5f1e8' },
+                          },
+                          '&:hover': {
+                            backgroundColor: '#f8f6f0',
+                          },
+                          py: 1,
+                          px: 2,
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: active ? '#8b6f47' : 'inherit' }}>
+                          <Icon size={18} />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{ fontSize: '0.9rem' }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Collapse>
+            <Divider sx={{ my: 2, mx: 2 }} />
+            <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
+              SEO
+            </Typography>
+            <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
+              <ListItemButton
+                onClick={() => setSeoNavOpen(!seoNavOpen)}
+                sx={{
+                  borderRadius: '8px',
+                  mx: 0.5,
+                  '&:hover': {
+                    backgroundColor: '#f8f6f0',
+                  },
+                  py: { xs: 1.25, sm: 1.25 },
+                  px: { xs: 1.5, sm: 1.5 },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isSeoActive ? '#8b6f47' : 'inherit' }}>
+                  <TrendingUp size={isMobile ? 22 : 20} />
+                </ListItemIcon>
+                <ListItemText
+                  primary="SEO"
+                  primaryTypographyProps={{
+                    fontWeight: isSeoActive ? 600 : 500,
+                    fontSize: { xs: '0.95rem', sm: '0.9rem' },
+                  }}
+                />
+                <Typography variant="body2" sx={{ transform: seoNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={seoNavOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding sx={{ pl: 1 }}>
+                {seoNavItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (
