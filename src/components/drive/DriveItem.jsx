@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { motion } from 'framer-motion';
-import { Box, Typography, IconButton, Menu, MenuItem } from '@mui/material';
-import { Folder, FileText, Image as ImageIcon, MoreVertical } from 'lucide-react';
+import { Box, Typography, IconButton, Menu, MenuItem, Divider } from '@mui/material';
+import { Folder, FileText, Image as ImageIcon, MoreVertical, Link as LinkIcon, Info } from 'lucide-react';
 import { useDriveMotion } from './motionConfig';
 
 export const DRIVE_ITEM_TYPE = 'DRIVE_ITEM';
@@ -18,7 +18,19 @@ const iconFor = (item) => {
  * drop target for other items when it's a folder (in-app item -> folder
  * dragging via the app-wide react-dnd DndProvider — see App.jsx).
  */
-const DriveItem = ({ item, viewMode = 'grid', selected, onSelect, onOpen, onRename, onDelete, onMove, onPreview }) => {
+const DriveItem = ({
+  item,
+  viewMode = 'grid',
+  selected,
+  onSelect,
+  onOpen,
+  onRename,
+  onDelete,
+  onMove,
+  onPreview,
+  onCopyLink,
+  onDetails,
+}) => {
   const motionCfg = useDriveMotion();
   const [menuAnchor, setMenuAnchor] = useState(null);
   const Icon = iconFor(item);
@@ -100,10 +112,13 @@ const DriveItem = ({ item, viewMode = 'grid', selected, onSelect, onOpen, onRena
           <MoreVertical size={16} />
         </IconButton>
         <ItemMenu
+          item={item}
           anchor={menuAnchor}
           onClose={() => setMenuAnchor(null)}
           onRename={() => onRename?.(item)}
           onDelete={() => onDelete?.(item)}
+          onCopyLink={item.type === 'file' ? () => onCopyLink?.(item) : null}
+          onDetails={() => onDetails?.(item)}
         />
       </motion.div>
     );
@@ -113,7 +128,7 @@ const DriveItem = ({ item, viewMode = 'grid', selected, onSelect, onOpen, onRena
     <motion.div
       ref={attachRef}
       onClick={handleClick}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.03, boxShadow: '0 8px 24px rgba(139,111,71,0.16)' }}
       whileTap={{ scale: 0.98 }}
       transition={motionCfg.micro}
       animate={{ backgroundColor: isDropHighlight ? 'rgba(139,111,71,0.1)' : 'rgba(250,248,243,1)' }}
@@ -123,13 +138,28 @@ const DriveItem = ({ item, viewMode = 'grid', selected, onSelect, onOpen, onRena
         alignItems: 'center',
         gap: 8,
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
         width: 140,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
         ...tileStyle,
       }}
     >
       <Box sx={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
         <Icon size={40} color="#8b6f47" strokeWidth={1.5} />
+        {item.description && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -2,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              backgroundColor: '#8b6f47',
+            }}
+          />
+        )}
         <IconButton
           size="small"
           sx={{ position: 'absolute', top: -8, right: -8 }}
@@ -149,17 +179,40 @@ const DriveItem = ({ item, viewMode = 'grid', selected, onSelect, onOpen, onRena
         {label}
       </Typography>
       <ItemMenu
+        item={item}
         anchor={menuAnchor}
         onClose={() => setMenuAnchor(null)}
         onRename={() => onRename?.(item)}
         onDelete={() => onDelete?.(item)}
+        onCopyLink={item.type === 'file' ? () => onCopyLink?.(item) : null}
+        onDetails={() => onDetails?.(item)}
       />
     </motion.div>
   );
 };
 
-const ItemMenu = ({ anchor, onClose, onRename, onDelete }) => (
+const ItemMenu = ({ anchor, onClose, onRename, onDelete, onCopyLink, onDetails }) => (
   <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={onClose} onClick={(e) => e.stopPropagation()}>
+    <MenuItem
+      onClick={() => {
+        onDetails();
+        onClose();
+      }}
+    >
+      <Info size={16} style={{ marginRight: 10 }} />
+      Details
+    </MenuItem>
+    {onCopyLink && (
+      <MenuItem
+        onClick={() => {
+          onCopyLink();
+          onClose();
+        }}
+      >
+        <LinkIcon size={16} style={{ marginRight: 10 }} />
+        Copy Link
+      </MenuItem>
+    )}
     <MenuItem
       onClick={() => {
         onRename();
@@ -168,11 +221,13 @@ const ItemMenu = ({ anchor, onClose, onRename, onDelete }) => (
     >
       Rename
     </MenuItem>
+    <Divider />
     <MenuItem
       onClick={() => {
         onDelete();
         onClose();
       }}
+      sx={{ color: 'error.main' }}
     >
       Delete
     </MenuItem>

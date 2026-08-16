@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Snackbar, Alert } from '@mui/material';
 import { useDrive } from '../../hooks/useDrive';
 import DriveToolbar from '../../components/drive/DriveToolbar';
 import DriveBreadcrumbs from '../../components/drive/DriveBreadcrumbs';
@@ -10,6 +10,10 @@ import DriveDropzone from '../../components/drive/DriveDropzone';
 import DriveUploadQueue from '../../components/drive/DriveUploadQueue';
 import DrivePreviewPanel from '../../components/drive/DrivePreviewPanel';
 import DriveTrashView from '../../components/drive/DriveTrashView';
+import NamePromptDialog from '../../components/drive/NamePromptDialog';
+import ConfirmDialog from '../../components/drive/ConfirmDialog';
+import FolderDetailsDialog from '../../components/drive/FolderDetailsDialog';
+import { driveApi } from '../../services/driveApi';
 
 const FOLDER_PATH_RE = /^\/drive\/folder\/(\d+)/;
 
@@ -22,6 +26,11 @@ const errText = (err, fallback) => err?.response?.data?.detail || err?.message |
  * Instead folder navigation updates the URL via useNavigate while staying
  * inside one persistent component instance; the pathname is parsed on change
  * to keep breadcrumb deep-links and browser back/forward working.
+ *
+ * Folder create/rename/delete go through in-DOM MUI dialogs (NamePromptDialog/
+ * ConfirmDialog), not window.prompt()/confirm() — native dialogs are
+ * unsupported in some embedded webview contexts this app runs in, which is
+ * why "New Folder" previously did nothing at all.
  */
 export const DrivePage = () => {
   const location = useLocation();
@@ -30,6 +39,11 @@ export const DrivePage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [previewFile, setPreviewFile] = useState(null);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [detailsFolder, setDetailsFolder] = useState(null);
+  const [toast, setToast] = useState(null); // { severity, message }
 
   useEffect(() => {
     const match = location.pathname.match(FOLDER_PATH_RE);
@@ -38,36 +52,42 @@ export const DrivePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
+  // Mirror hook-level errors (load/trash/search failures) into the toast —
+  // drive.error itself is never cleared by the hook, so the Snackbar's open
+  // state is driven solely by local `toast`, not by drive.error directly.
+  useEffect(() => {
+    if (drive.error) setToast({ severity: 'error', message: drive.error });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drive.error]);
+
   const openFolder = (folder) => navigate(`/drive/folder/${folder.id}`);
   const navigateBreadcrumb = (folderId) => navigate(folderId ? `/drive/folder/${folderId}` : '/drive');
 
-  const handleNewFolder = async () => {
-    const name = window.prompt('Folder name');
-    if (!name || !name.trim()) return;
+  const handleCreateFolder = async (name) => {
     try {
-      await drive.createFolder(name.trim());
+      await drive.createFolder(name);
     } catch (err) {
-      window.alert(errText(err, 'Failed to create folder'));
+      setToast({ severity: 'error', message: errText(err, 'Failed to create folder') });
+      throw err;
     }
   };
 
-  const handleRename = async (item) => {
-    const currentName = item.name || item.filename;
-    const nextName = window.prompt('Rename to', currentName);
-    if (!nextName || !nextName.trim() || nextName === currentName) return;
+  const handleRenameSubmit = async (nextName) => {
+    const item = renameTarget;
     try {
       if (item.type === 'folder') {
-        await drive.renameFolder(item.id, nextName.trim());
+        await drive.renameFolder(item.id, nextName);
       } else {
-        await drive.renameFile(item.id, nextName.trim());
+        await drive.renameFile(item.id, nextName);
       }
     } catch (err) {
-      window.alert(errText(err, 'Rename failed'));
+      setToast({ severity: 'error', message: errText(err, 'Rename failed') });
+      throw err;
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Delete "${item.name || item.filename}"?`)) return;
+  const handleDeleteConfirm = async () => {
+    const item = deleteTarget;
     try {
       if (item.type === 'folder') {
         await drive.deleteFolder(item.id);
@@ -75,7 +95,8 @@ export const DrivePage = () => {
         await drive.deleteFile(item.id);
       }
     } catch (err) {
-      window.alert(errText(err, 'Delete failed'));
+      setToast({ severity: 'error', message: errText(err, 'Delete failed') });
+      throw err;
     }
   };
 
@@ -83,7 +104,25 @@ export const DrivePage = () => {
     try {
       await drive.moveItem(draggedItem, targetFolderId);
     } catch (err) {
-      window.alert(errText(err, 'Move failed'));
+      setToast({ severity: 'error', message: errText(err, 'Move failed') });
+    }
+  };
+
+  const handleCopyLink = async (file) => {
+    try {
+      const { download_url: url } = await driveApi.getDownloadUrl(file.id);
+      await navigator.clipboard.writeText(url);
+      setToast({ severity: 'success', message: 'Link copied — valid for a limited time' });
+    } catch (err) {
+      setToast({ severity: 'error', message: errText(err, 'Failed to copy link') });
+    }
+  };
+
+  const handleDetails = (item) => {
+    if (item.type === 'folder') {
+      setDetailsFolder(item);
+    } else {
+      setPreviewFile(item);
     }
   };
 
@@ -103,7 +142,7 @@ export const DrivePage = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <DriveToolbar
-        onNewFolder={handleNewFolder}
+        onNewFolder={() => setNewFolderOpen(true)}
         onUploadFiles={drive.uploadFiles}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -114,12 +153,6 @@ export const DrivePage = () => {
 
       {!isSearching && drive.listing && (
         <DriveBreadcrumbs items={drive.listing.breadcrumbs} onNavigate={navigateBreadcrumb} />
-      )}
-
-      {drive.error && (
-        <Typography color="error" sx={{ px: 2, pt: 1 }}>
-          {drive.error}
-        </Typography>
       )}
 
       <DriveDropzone onFilesDropped={drive.uploadFiles}>
@@ -134,15 +167,43 @@ export const DrivePage = () => {
             selectedIds={drive.selectedIds}
             onOpenFolder={openFolder}
             onPreviewFile={setPreviewFile}
-            onRename={handleRename}
-            onDelete={handleDelete}
+            onRename={setRenameTarget}
+            onDelete={setDeleteTarget}
             onMove={handleMove}
+            onCopyLink={handleCopyLink}
+            onDetails={handleDetails}
           />
         ) : null}
       </DriveDropzone>
 
       <DriveUploadQueue items={drive.uploadQueue} onDismiss={drive.dismissUpload} />
-      <DrivePreviewPanel file={previewFile} onClose={() => setPreviewFile(null)} />
+
+      <DrivePreviewPanel
+        file={previewFile}
+        onClose={() => setPreviewFile(null)}
+        onSaveDescription={async (fileId, description) => {
+          try {
+            await drive.updateFileDescription(fileId, description);
+          } catch (err) {
+            setToast({ severity: 'error', message: errText(err, 'Failed to save description') });
+            throw err;
+          }
+        }}
+      />
+
+      <FolderDetailsDialog
+        folder={detailsFolder}
+        onClose={() => setDetailsFolder(null)}
+        onSaveDescription={async (description) => {
+          try {
+            await drive.updateFolderDescription(detailsFolder.id, description);
+          } catch (err) {
+            setToast({ severity: 'error', message: errText(err, 'Failed to save description') });
+            throw err;
+          }
+        }}
+      />
+
       <DriveTrashView
         open={trashOpen}
         trash={drive.trash}
@@ -151,7 +212,44 @@ export const DrivePage = () => {
         onRestoreFolder={drive.restoreFolder}
         onRestoreFile={drive.restoreFile}
       />
+
+      <NamePromptDialog
+        open={newFolderOpen}
+        title="New Folder"
+        label="Folder name"
+        confirmLabel="Create"
+        onConfirm={handleCreateFolder}
+        onClose={() => setNewFolderOpen(false)}
+      />
+
+      <NamePromptDialog
+        open={Boolean(renameTarget)}
+        title="Rename"
+        label={renameTarget?.type === 'folder' ? 'Folder name' : 'File name'}
+        initialValue={renameTarget?.name || renameTarget?.filename || ''}
+        confirmLabel="Rename"
+        onConfirm={handleRenameSubmit}
+        onClose={() => setRenameTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete"
+        message={`Delete "${deleteTarget?.name || deleteTarget?.filename}"? You can restore it from Trash.`}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setDeleteTarget(null)}
+      />
+
+      <Snackbar
+        open={Boolean(toast)}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Alert severity={toast?.severity || 'error'} onClose={() => setToast(null)} variant="filled">
+          {toast?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
-

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, IconButton, Typography, CircularProgress, Button } from '@mui/material';
-import { X, Download, FileText } from 'lucide-react';
+import { Box, IconButton, Typography, CircularProgress, Button, TextField } from '@mui/material';
+import { X, Download, FileText, Check } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useDriveMotion } from './motionConfig';
 import { driveApi } from '../../services/driveApi';
@@ -12,17 +12,22 @@ import { formatBytes } from './DriveItem';
  * negative letter-spacing (large-text typography rule); list/grid names elsewhere
  * keep normal body typography.
  */
-const DrivePreviewPanel = ({ file, onClose }) => {
+const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
   const motionCfg = useDriveMotion();
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [description, setDescription] = useState('');
+  const [savingDescription, setSavingDescription] = useState(false);
+  const [descriptionDirty, setDescriptionDirty] = useState(false);
 
   useEffect(() => {
     if (!file) {
       setDownloadUrl(null);
       return;
     }
+    setDescription(file.description || '');
+    setDescriptionDirty(false);
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -41,6 +46,16 @@ const DrivePreviewPanel = ({ file, onClose }) => {
       cancelled = true;
     };
   }, [file]);
+
+  const handleSaveDescription = async () => {
+    setSavingDescription(true);
+    try {
+      await onSaveDescription?.(file.id, description.trim() || null);
+      setDescriptionDirty(false);
+    } finally {
+      setSavingDescription(false);
+    }
+  };
 
   const isImage = (file?.content_type || '').startsWith('image/');
   const isPdf = file?.content_type === 'application/pdf';
@@ -108,6 +123,34 @@ const DrivePreviewPanel = ({ file, onClose }) => {
                     No inline preview for this file type
                   </Typography>
                 </Box>
+              )}
+            </Box>
+
+            <Box sx={{ p: 2, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={5}
+                size="small"
+                label="Description"
+                placeholder="Add a description…"
+                value={description}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  setDescriptionDirty(true);
+                }}
+              />
+              {descriptionDirty && (
+                <Button
+                  size="small"
+                  startIcon={<Check size={14} />}
+                  onClick={handleSaveDescription}
+                  disabled={savingDescription}
+                  sx={{ mt: 0.5 }}
+                >
+                  Save description
+                </Button>
               )}
             </Box>
 

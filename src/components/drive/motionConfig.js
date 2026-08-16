@@ -22,6 +22,9 @@ export const useDriveMotion = () => {
     micro: reduced ? { duration: 0.1 } : { type: 'spring', stiffness: 400, damping: 25 },
     // Instant tap highlight — snappy tween, not a spring (binary state flip).
     tap: { duration: 0.1 },
+    // Centered modal (dialogs): scale+fade in place, same "sheet" family
+    // timing (damping 0.8, response 0.3s) since it's also an overlay entrance.
+    modal: reduced ? { duration: 0.15 } : { type: 'spring', stiffness: 438, damping: 34 },
   };
 };
 
