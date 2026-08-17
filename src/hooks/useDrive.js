@@ -90,6 +90,15 @@ export const useDrive = () => {
     [refresh]
   );
 
+  const setFilePublic = useCallback(
+    async (fileId, isPublic) => {
+      const updated = await driveApi.setFilePublic(fileId, isPublic);
+      await refresh();
+      return updated;
+    },
+    [refresh]
+  );
+
   const moveItem = useCallback(
     async (item, targetFolderId) => {
       if (item.type === 'folder') {
@@ -257,6 +266,7 @@ export const useDrive = () => {
     renameFile,
     updateFolderDescription,
     updateFileDescription,
+    setFilePublic,
     moveItem,
     deleteFolder,
     deleteFile,
