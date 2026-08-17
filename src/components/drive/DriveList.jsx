@@ -14,6 +14,7 @@ const DriveList = ({
   onMove,
   onCopyLink,
   onDetails,
+  onSetPublic,
 }) => {
   if (folders.length === 0 && files.length === 0) {
     return (
@@ -52,6 +53,7 @@ const DriveList = ({
           onMove={onMove}
           onCopyLink={onCopyLink}
           onDetails={onDetails}
+          onSetPublic={onSetPublic}
         />
       ))}
     </Box>

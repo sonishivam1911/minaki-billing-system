@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Box, Button, IconButton, Tooltip } from '@mui/material';
-import { FolderPlus, Upload, LayoutGrid, List as ListIcon, Trash2 } from 'lucide-react';
+import { FolderPlus, Upload, LayoutGrid, List as ListIcon, Trash2, Download } from 'lucide-react';
 import DriveSearchBar from './DriveSearchBar';
 
 /**
@@ -16,6 +16,7 @@ const DriveToolbar = ({
   searchQuery,
   onSearchChange,
   onOpenTrash,
+  onExportView,
 }) => {
   const fileInputRef = useRef(null);
 
@@ -76,6 +77,11 @@ const DriveToolbar = ({
           color={viewMode === 'list' ? 'primary' : 'default'}
         >
           <ListIcon size={18} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Export this view as CSV">
+        <IconButton size="small" onClick={onExportView}>
+          <Download size={18} />
         </IconButton>
       </Tooltip>
       <Tooltip title="Trash">

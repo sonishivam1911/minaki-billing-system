@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Box, IconButton, Typography, CircularProgress, Button, TextField } from '@mui/material';
-import { X, Download, FileText, Check } from 'lucide-react';
+import { Box, IconButton, Typography, CircularProgress, Button, TextField, Switch, FormControlLabel } from '@mui/material';
+import { X, Download, FileText, Check, Globe, Copy } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useDriveMotion } from './motionConfig';
 import { driveApi } from '../../services/driveApi';
-import { formatBytes } from './DriveItem';
+import { formatBytes, formatDate } from './DriveItem';
 
 /**
  * Slide-over sheet, response 0.3s / damping 0.8 spring per the Apple-design
@@ -12,7 +12,7 @@ import { formatBytes } from './DriveItem';
  * negative letter-spacing (large-text typography rule); list/grid names elsewhere
  * keep normal body typography.
  */
-const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
+const DrivePreviewPanel = ({ file, onClose, onSaveDescription, onSetPublic }) => {
   const motionCfg = useDriveMotion();
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,6 +20,7 @@ const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
   const [description, setDescription] = useState('');
   const [savingDescription, setSavingDescription] = useState(false);
   const [descriptionDirty, setDescriptionDirty] = useState(false);
+  const [togglingPublic, setTogglingPublic] = useState(false);
 
   useEffect(() => {
     if (!file) {
@@ -54,6 +55,15 @@ const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
       setDescriptionDirty(false);
     } finally {
       setSavingDescription(false);
+    }
+  };
+
+  const handleTogglePublic = async (e) => {
+    setTogglingPublic(true);
+    try {
+      await onSetPublic?.(file.id, e.target.checked);
+    } finally {
+      setTogglingPublic(false);
     }
   };
 
@@ -99,7 +109,8 @@ const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
                   {file.filename}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {formatBytes(file.size_bytes)}
+                  {formatBytes(file.size_bytes)} · {file.content_type || 'Unknown type'} · Uploaded {formatDate(file.created_at)}
+                  {file.created_by_email ? ` by ${file.created_by_email}` : ''}
                 </Typography>
               </Box>
               <IconButton size="small" onClick={onClose}>
@@ -151,6 +162,40 @@ const DrivePreviewPanel = ({ file, onClose, onSaveDescription }) => {
                 >
                   Save description
                 </Button>
+              )}
+            </Box>
+
+            <Box sx={{ p: 2, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <FormControlLabel
+                control={<Switch checked={Boolean(file.is_public)} onChange={handleTogglePublic} disabled={togglingPublic} />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Globe size={14} />
+                    <Typography variant="body2">Public permanent link</Typography>
+                  </Box>
+                }
+              />
+              {file.is_public && file.public_url && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    value={file.public_url}
+                    InputProps={{ readOnly: true }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => navigator.clipboard.writeText(file.public_url)}
+                    title="Copy link"
+                  >
+                    <Copy size={16} />
+                  </IconButton>
+                </Box>
+              )}
+              {file.is_public && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Anyone with this link can view the file — no login required. Turn off to revoke.
+                </Typography>
               )}
             </Box>
 

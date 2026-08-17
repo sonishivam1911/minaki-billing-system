@@ -14,10 +14,38 @@ import NamePromptDialog from '../../components/drive/NamePromptDialog';
 import ConfirmDialog from '../../components/drive/ConfirmDialog';
 import FolderDetailsDialog from '../../components/drive/FolderDetailsDialog';
 import { driveApi } from '../../services/driveApi';
+import { formatBytes, formatDate } from '../../components/drive/DriveItem';
 
 const FOLDER_PATH_RE = /^\/drive\/folder\/(\d+)/;
 
 const errText = (err, fallback) => err?.response?.data?.detail || err?.message || fallback;
+
+const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+
+const exportListingToCsv = (folders, files, folderName) => {
+  const header = ['Type', 'Name', 'File Type', 'Size', 'Description', 'Uploaded', 'Uploaded By', 'Public'];
+  const rows = [
+    ...folders.map((f) => ['Folder', f.name, '', '', f.description || '', formatDate(f.created_at), f.created_by_email || '', '']),
+    ...files.map((f) => [
+      'File',
+      f.filename,
+      f.content_type || '',
+      formatBytes(f.size_bytes),
+      f.description || '',
+      formatDate(f.created_at),
+      f.created_by_email || '',
+      f.is_public ? 'Yes' : 'No',
+    ]),
+  ];
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `drive-${folderName || 'root'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
 
 /**
  * Mounted once at /drive/* (App.jsx). Deliberately does NOT use nested
@@ -118,6 +146,19 @@ export const DrivePage = () => {
     }
   };
 
+  const handleSetPublic = async (fileId, isPublic) => {
+    try {
+      const updated = await drive.setFilePublic(fileId, isPublic);
+      setPreviewFile((current) => (current?.id === fileId ? updated : current));
+      setToast({
+        severity: 'success',
+        message: isPublic ? 'File is now public — anyone with the link can view it' : 'Public link revoked',
+      });
+    } catch (err) {
+      setToast({ severity: 'error', message: errText(err, 'Failed to update sharing') });
+    }
+  };
+
   const handleDetails = (item) => {
     if (item.type === 'folder') {
       setDetailsFolder(item);
@@ -139,11 +180,21 @@ export const DrivePage = () => {
   const activeListing = drive.searchResults || drive.listing;
   const isSearching = Boolean(drive.searchResults);
 
+  const handleExportView = () => {
+    if (!activeListing) return;
+    exportListingToCsv(
+      activeListing.folders ?? activeListing.subfolders ?? [],
+      activeListing.files ?? [],
+      drive.listing?.folder?.name
+    );
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <DriveToolbar
         onNewFolder={() => setNewFolderOpen(true)}
         onUploadFiles={drive.uploadFiles}
+        onExportView={handleExportView}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         searchQuery={drive.searchQuery}
@@ -172,6 +223,7 @@ export const DrivePage = () => {
             onMove={handleMove}
             onCopyLink={handleCopyLink}
             onDetails={handleDetails}
+            onSetPublic={handleSetPublic}
           />
         ) : null}
       </DriveDropzone>
@@ -189,6 +241,7 @@ export const DrivePage = () => {
             throw err;
           }
         }}
+        onSetPublic={handleSetPublic}
       />
 
       <FolderDetailsDialog

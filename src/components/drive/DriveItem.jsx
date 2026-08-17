@@ -1,16 +1,80 @@
 import React, { useCallback, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { motion } from 'framer-motion';
-import { Box, Typography, IconButton, Menu, MenuItem, Divider } from '@mui/material';
-import { Folder, FileText, Image as ImageIcon, MoreVertical, Link as LinkIcon, Info } from 'lucide-react';
+import { Box, Typography, IconButton, Menu, MenuItem, Divider, Chip } from '@mui/material';
+import {
+  Folder,
+  FileText,
+  Image as ImageIcon,
+  FileSpreadsheet,
+  FileVideo,
+  FileAudio,
+  FileArchive,
+  FileCode,
+  MoreVertical,
+  Link as LinkIcon,
+  Info,
+  Globe,
+} from 'lucide-react';
 import { useDriveMotion } from './motionConfig';
 
 export const DRIVE_ITEM_TYPE = 'DRIVE_ITEM';
 
-const iconFor = (item) => {
-  if (item.type === 'folder') return Folder;
-  if ((item.content_type || '').startsWith('image/')) return ImageIcon;
-  return FileText;
+const EXT_MAP = {
+  pdf: { Icon: FileText, color: '#c0392b', label: 'PDF' },
+  doc: { Icon: FileText, color: '#2b579a', label: 'Word' },
+  docx: { Icon: FileText, color: '#2b579a', label: 'Word' },
+  csv: { Icon: FileSpreadsheet, color: '#1e7e45', label: 'CSV' },
+  xls: { Icon: FileSpreadsheet, color: '#1e7e45', label: 'Excel' },
+  xlsx: { Icon: FileSpreadsheet, color: '#1e7e45', label: 'Excel' },
+  zip: { Icon: FileArchive, color: '#8b6f47', label: 'Archive' },
+  rar: { Icon: FileArchive, color: '#8b6f47', label: 'Archive' },
+  '7z': { Icon: FileArchive, color: '#8b6f47', label: 'Archive' },
+  mp4: { Icon: FileVideo, color: '#7b3fa0', label: 'Video' },
+  mov: { Icon: FileVideo, color: '#7b3fa0', label: 'Video' },
+  mp3: { Icon: FileAudio, color: '#c77c1e', label: 'Audio' },
+  wav: { Icon: FileAudio, color: '#c77c1e', label: 'Audio' },
+  json: { Icon: FileCode, color: '#555', label: 'Code' },
+  txt: { Icon: FileText, color: '#5d4e37', label: 'Text' },
+};
+
+/** Distinct icon + color per file type (Finder/Drive-style), not one generic icon for everything. */
+const iconMetaFor = (item) => {
+  if (item.type === 'folder') return { Icon: Folder, color: '#8b6f47', label: 'Folder' };
+
+  const contentType = item.content_type || '';
+  if (contentType.startsWith('image/')) return { Icon: ImageIcon, color: '#2e7d32', label: 'Image' };
+  if (contentType.startsWith('video/')) return { Icon: FileVideo, color: '#7b3fa0', label: 'Video' };
+  if (contentType.startsWith('audio/')) return { Icon: FileAudio, color: '#c77c1e', label: 'Audio' };
+  if (contentType === 'application/pdf') return EXT_MAP.pdf;
+  if (contentType === 'text/csv') return EXT_MAP.csv;
+  if (contentType.includes('spreadsheet')) return EXT_MAP.xlsx;
+  if (contentType.includes('zip') || contentType.includes('compressed')) return EXT_MAP.zip;
+  if (contentType === 'application/json') return EXT_MAP.json;
+
+  const ext = (item.filename || '').split('.').pop()?.toLowerCase();
+  if (ext && EXT_MAP[ext]) return EXT_MAP[ext];
+
+  return { Icon: FileText, color: '#8b6f47', label: 'File' };
+};
+
+export const formatBytes = (bytes) => {
+  if (!bytes || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+};
+
+export const formatDate = (iso) => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 };
 
 /**
@@ -30,10 +94,11 @@ const DriveItem = ({
   onPreview,
   onCopyLink,
   onDetails,
+  onSetPublic,
 }) => {
   const motionCfg = useDriveMotion();
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const Icon = iconFor(item);
+  const { Icon, color, label: typeLabel } = iconMetaFor(item);
 
   const [{ isDragging }, drag] = useDrag({
     type: DRIVE_ITEM_TYPE,
@@ -76,6 +141,19 @@ const DriveItem = ({
     cursor: 'pointer',
   };
 
+  const menu = (
+    <ItemMenu
+      item={item}
+      anchor={menuAnchor}
+      onClose={() => setMenuAnchor(null)}
+      onRename={() => onRename?.(item)}
+      onDelete={() => onDelete?.(item)}
+      onCopyLink={item.type === 'file' ? () => onCopyLink?.(item) : null}
+      onDetails={() => onDetails?.(item)}
+      onSetPublic={item.type === 'file' ? (isPublic) => onSetPublic?.(item.id, isPublic) : null}
+    />
+  );
+
   if (viewMode === 'list') {
     return (
       <motion.div
@@ -93,12 +171,28 @@ const DriveItem = ({
           ...tileStyle,
         }}
       >
-        <Icon size={20} color="#8b6f47" />
-        <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Icon size={20} color={color} />
+        <Typography
+          variant="body2"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            onRename?.(item);
+          }}
+          sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        >
           {label}
         </Typography>
+        {item.is_public && <Chip icon={<Globe size={12} />} label="Public" size="small" sx={{ height: 20 }} />}
         {item.type === 'file' && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ width: 60, textAlign: 'right' }}>
+            {typeLabel}
+          </Typography>
+        )}
+        <Typography variant="caption" color="text.secondary" sx={{ width: 90, textAlign: 'right' }}>
+          {formatDate(item.created_at)}
+        </Typography>
+        {item.type === 'file' && (
+          <Typography variant="caption" color="text.secondary" sx={{ width: 60, textAlign: 'right' }}>
             {formatBytes(item.size_bytes)}
           </Typography>
         )}
@@ -111,15 +205,7 @@ const DriveItem = ({
         >
           <MoreVertical size={16} />
         </IconButton>
-        <ItemMenu
-          item={item}
-          anchor={menuAnchor}
-          onClose={() => setMenuAnchor(null)}
-          onRename={() => onRename?.(item)}
-          onDelete={() => onDelete?.(item)}
-          onCopyLink={item.type === 'file' ? () => onCopyLink?.(item) : null}
-          onDetails={() => onDetails?.(item)}
-        />
+        {menu}
       </motion.div>
     );
   }
@@ -145,8 +231,25 @@ const DriveItem = ({
       }}
     >
       <Box sx={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
-        <Icon size={40} color="#8b6f47" strokeWidth={1.5} />
-        {item.description && (
+        <Icon size={40} color={color} strokeWidth={1.5} />
+        {item.is_public && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -2,
+              left: '50%',
+              transform: 'translateX(6px)',
+              backgroundColor: '#fff',
+              borderRadius: '50%',
+              display: 'flex',
+              p: '2px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+            }}
+          >
+            <Globe size={11} color="#2e7d32" />
+          </Box>
+        )}
+        {item.description && !item.is_public && (
           <Box
             sx={{
               position: 'absolute',
@@ -178,20 +281,12 @@ const DriveItem = ({
       >
         {label}
       </Typography>
-      <ItemMenu
-        item={item}
-        anchor={menuAnchor}
-        onClose={() => setMenuAnchor(null)}
-        onRename={() => onRename?.(item)}
-        onDelete={() => onDelete?.(item)}
-        onCopyLink={item.type === 'file' ? () => onCopyLink?.(item) : null}
-        onDetails={() => onDetails?.(item)}
-      />
+      {menu}
     </motion.div>
   );
 };
 
-const ItemMenu = ({ anchor, onClose, onRename, onDelete, onCopyLink, onDetails }) => (
+const ItemMenu = ({ anchor, onClose, onRename, onDelete, onCopyLink, onDetails, onSetPublic, item }) => (
   <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={onClose} onClick={(e) => e.stopPropagation()}>
     <MenuItem
       onClick={() => {
@@ -211,6 +306,17 @@ const ItemMenu = ({ anchor, onClose, onRename, onDelete, onCopyLink, onDetails }
       >
         <LinkIcon size={16} style={{ marginRight: 10 }} />
         Copy Link
+      </MenuItem>
+    )}
+    {onSetPublic && (
+      <MenuItem
+        onClick={() => {
+          onSetPublic(!item?.is_public);
+          onClose();
+        }}
+      >
+        <Globe size={16} style={{ marginRight: 10 }} />
+        {item?.is_public ? 'Revoke Public Link' : 'Make Public'}
       </MenuItem>
     )}
     <MenuItem
@@ -233,17 +339,5 @@ const ItemMenu = ({ anchor, onClose, onRename, onDelete, onCopyLink, onDetails }
     </MenuItem>
   </Menu>
 );
-
-export const formatBytes = (bytes) => {
-  if (!bytes || bytes <= 0) return '';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-};
 
 export default DriveItem;

@@ -71,6 +71,8 @@ export const driveApi = {
   updateFileDescription: (fileId, description) =>
     driveRequest('PATCH', `/files/${fileId}/description`, { description }),
 
+  setFilePublic: (fileId, isPublic) => driveRequest('PATCH', `/files/${fileId}/public`, { is_public: isPublic }),
+
   deleteFile: (fileId) => driveRequest('DELETE', `/files/${fileId}`),
 
   restoreFile: (fileId) => driveRequest('POST', `/files/${fileId}/restore`),
