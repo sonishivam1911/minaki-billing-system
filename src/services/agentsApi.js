@@ -322,6 +322,8 @@ export const agentsApi = {
 
   listCreativePodTextPlacements: () => agentFetch('/api/agent/creative-pod/text-placements'),
 
+  listCreativePodBrandLanes: () => agentFetch('/api/agent/creative-pod/brand-lanes'),
+
   listCreativePodRuns: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -342,7 +344,10 @@ export const agentsApi = {
     width,
     height,
     variantCount = 1,
-    textRenderMode = 'burned_in',
+    // 'no_text' (default) renders zero in-image text; 'with_text' burns the
+    // locked title/subtitle/cta in as real type. See GET .../brand-lanes.
+    textRenderMode = 'no_text',
+    brandLane,
     imageModel,
     titlePosition,
     textModel,
@@ -353,7 +358,8 @@ export const agentsApi = {
     form.append('brief_text', briefText);
     form.append('product_image', productImageFile);
     form.append('variant_count', String(variantCount));
-    form.append('text_render_mode', textRenderMode || 'burned_in');
+    form.append('text_render_mode', textRenderMode || 'no_text');
+    if (brandLane) form.append('brand_lane', brandLane);
     if (goalType) form.append('goal_type', goalType);
     if (goalDetail) form.append('goal_detail', goalDetail);
     if (platform) form.append('platform', platform);
@@ -373,7 +379,9 @@ export const agentsApi = {
   },
 
   // body may include: hint, notify_emails, image_model, title_position,
-  // product_description (override; omit to keep the run's stored one)
+  // product_description (override; omit to keep the run's stored one),
+  // brand_lane (casting/color-lock override only — never re-runs the
+  // Director, so it can't rewrite prompt text or switch text_render_mode)
   regenerateCreativePodRun: (runId, body = {}) =>
     agentFetch(`/api/agent/creative-pod/runs/${runId}/regenerate`, {
       method: 'POST',
