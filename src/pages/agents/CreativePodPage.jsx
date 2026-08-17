@@ -14,8 +14,8 @@ import {
 const RECENT_RUNS_LIMIT = 15;
 const VARIANT_COUNT_OPTIONS = [1, 2, 3];
 const TEXT_RENDER_MODE_OPTIONS = [
-  { value: 'burned_in', label: 'Burned-in text (default)' },
-  { value: 'overlay', label: 'Overlay (legacy)' },
+  { value: 'no_text', label: 'No text (default)' },
+  { value: 'with_text', label: 'With text (burned-in title/subtitle/cta)' },
 ];
 
 const FIELD_HELP = {
@@ -30,7 +30,9 @@ const FIELD_HELP = {
   variantCount:
     'How many distinct image looks to generate. Each variant gets a different pose/camera/wardrobe delta and casting look from the lane pool.',
   textRenderMode:
-    'Burned-in paints Title/Subtitle/CTA into the image (preferred). Overlay keeps text separate for legacy HTML overlays.',
+    'No text renders zero in-image text — Title/Subtitle/CTA stay as copy-pack metadata only (default). With text burns that same title/subtitle/cta into the image as real, legible type, OCR-verified to match.',
+  brandLane:
+    'Which MINAKI vertical this banner speaks for. Leave on Auto to classify from the brief. MAIN is the master brand alone — no vertical-specific voice, palette, or imagery, for unity/all-three-lines content.',
   imageModel:
     'Which image model renders the banner. Leave on Auto for the best default. Faster models trade off fidelity.',
   imageModelMulti:
@@ -293,13 +295,15 @@ export const CreativePodPage = () => {
   const [textModels, setTextModels] = useState([]);
   const [textModelFilter, setTextModelFilter] = useState('');
   const [textPlacements, setTextPlacements] = useState([]);
+  const [brandLanes, setBrandLanes] = useState([]);
   const [schemaReady, setSchemaReady] = useState(true);
   const [briefText, setBriefText] = useState('');
   const [goalType, setGoalType] = useState('');
   const [goalDetail, setGoalDetail] = useState('');
   const [platform, setPlatform] = useState('website');
   const [variantCount, setVariantCount] = useState(2);
-  const [textRenderMode, setTextRenderMode] = useState('burned_in');
+  const [textRenderMode, setTextRenderMode] = useState('no_text');
+  const [brandLane, setBrandLane] = useState('');
   // Multi-select: first checked model is the primary generation (feeds
   // banner_urls/models_used/evaluator as before), any additional checked
   // models are generated+evaluated as comparisons on the SAME locked
@@ -322,6 +326,7 @@ export const CreativePodPage = () => {
   const [regenerateHint, setRegenerateHint] = useState('');
   const [regenerateImageModel, setRegenerateImageModel] = useState('');
   const [regenerateTitlePosition, setRegenerateTitlePosition] = useState('');
+  const [regenerateBrandLane, setRegenerateBrandLane] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [activeRun, setActiveRun] = useState(null);
@@ -331,20 +336,28 @@ export const CreativePodPage = () => {
 
   const loadCatalog = async () => {
     try {
-      const [goalsResponse, platformsResponse, modelsResponse, textModelsResponse, placementsResponse] =
-        await Promise.all([
-          agentsApi.listCreativePodGoals(),
-          agentsApi.listCreativePodPlatforms(),
-          agentsApi.listCreativePodModels(),
-          agentsApi.listCreativePodTextModels(),
-          agentsApi.listCreativePodTextPlacements(),
-        ]);
+      const [
+        goalsResponse,
+        platformsResponse,
+        modelsResponse,
+        textModelsResponse,
+        placementsResponse,
+        brandLanesResponse,
+      ] = await Promise.all([
+        agentsApi.listCreativePodGoals(),
+        agentsApi.listCreativePodPlatforms(),
+        agentsApi.listCreativePodModels(),
+        agentsApi.listCreativePodTextModels(),
+        agentsApi.listCreativePodTextPlacements(),
+        agentsApi.listCreativePodBrandLanes(),
+      ]);
       setGoals(goalsResponse.goals || []);
       setPlatforms(platformsResponse.platforms || []);
       setImageModels(modelsResponse.models || []);
       setDefaultImageModel(modelsResponse.default || '');
       setTextModels(textModelsResponse.models || []);
       setTextPlacements(placementsResponse.positions || []);
+      setBrandLanes(brandLanesResponse.brand_lanes || []);
       setSchemaReady(goalsResponse.schema_ready !== false);
       if (!goalType && (goalsResponse.goals || []).length) {
         setGoalType(goalsResponse.goals[0].goal_type);
@@ -405,6 +418,7 @@ export const CreativePodPage = () => {
         height: customHeight ? Number(customHeight) : undefined,
         variantCount,
         textRenderMode,
+        brandLane: brandLane || undefined,
         imageModel: primaryImageModel || undefined,
         titlePosition: titlePosition || undefined,
         textModel: textModel || undefined,
@@ -418,6 +432,7 @@ export const CreativePodPage = () => {
       setPrefilledReferenceImages(null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
+      setRegenerateBrandLane(normalized?.intake?.brand_lane || '');
       setRegenerateProductDescription(normalized?.intake?.product_description || '');
       await loadRecentRuns();
       if (comparisonImageModels.length > 0 && normalized?.runId) {
@@ -458,6 +473,7 @@ export const CreativePodPage = () => {
       setModelComparison(normalized?.decisionLogs?.model_comparison?.models || null);
       setRegenerateImageModel(normalized?.intake?.image_model || '');
       setRegenerateTitlePosition(normalized?.intake?.title_position || '');
+      setRegenerateBrandLane(normalized?.intake?.brand_lane || '');
       setRegenerateProductDescription(normalized?.intake?.product_description || '');
     } catch (error) {
       setErrorMessage(error.message);
@@ -473,7 +489,8 @@ export const CreativePodPage = () => {
     setGoalDetail(run.goalDetail || '');
     setPlatform(run.platform || 'website');
     setVariantCount(run.variantCount || 1);
-    setTextRenderMode(run.textRenderMode || 'burned_in');
+    setTextRenderMode(run.textRenderMode || 'no_text');
+    setBrandLane(run.brandLane || run.intake?.brand_lane || '');
     setSelectedImageModels(run.intake?.image_model ? [run.intake.image_model] : []);
     setTextModel(run.intake?.text_model || '');
     setTitlePosition(run.intake?.title_position || '');
@@ -514,6 +531,7 @@ export const CreativePodPage = () => {
         notify_emails: parseCommaSeparatedEmails(notifyEmails),
         image_model: regenerateImageModel || undefined,
         title_position: regenerateTitlePosition || undefined,
+        brand_lane: regenerateBrandLane || undefined,
         product_description:
           regenerateProductDescription.trim() !== (activeRun?.intake?.product_description || '')
             ? regenerateProductDescription.trim()
@@ -635,6 +653,18 @@ export const CreativePodPage = () => {
             {selectedPlatform?.description && (
               <span className="agents-collection-meta">{selectedPlatform.description}</span>
             )}
+          </label>
+
+          <label>
+            <FieldLabel label="Vertical" info={FIELD_HELP.brandLane} />
+            <select value={brandLane} onChange={(event) => setBrandLane(event.target.value)}>
+              <option value="">Auto-classify from brief</option>
+              {brandLanes.map((row) => (
+                <option key={row.value} value={row.value}>
+                  {row.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <div className="agents-form-row">
@@ -1000,6 +1030,23 @@ export const CreativePodPage = () => {
                   {textPlacements.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <FieldLabel
+                  label="Vertical"
+                  info="Casting/color-lock override only — regenerate never re-runs the Director, so this can't rewrite prompt text."
+                />
+                <select
+                  value={regenerateBrandLane}
+                  onChange={(event) => setRegenerateBrandLane(event.target.value)}
+                >
+                  <option value="">Keep run's lane</option>
+                  {brandLanes.map((row) => (
+                    <option key={row.value} value={row.value}>
+                      {row.label}
                     </option>
                   ))}
                 </select>
