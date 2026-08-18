@@ -6,20 +6,19 @@ import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 
-// Seed-keyword mode still goes through the shared DataForSEO/keyword_seed
-// body (ExpandSeedsBody), which caps max_per_seed at 200 server-side —
-// unrelated to and unaffected by the url_seed cap removal below.
-const KEYWORD_MODE_MAX = 200;
-const DEFAULT_KEYWORD_MODE_RESULTS = 200;
-
 const formatBidMicros = (micros) => (micros == null ? '—' : `₹${(micros / 1_000_000).toFixed(2)}`);
+
+// Blank -> no limit key sent at all -> backend (both keyword_seed and
+// url_seed modes) returns everything GenerateKeywordIdeas' pager has.
+const parseLimit = (value) => {
+  const parsed = Number(value);
+  return value !== '' && parsed > 0 ? Math.floor(parsed) : undefined;
+};
 
 export const KeywordPlannerPage = () => {
   const [mode, setMode] = useState('keywords');
   const [seedsText, setSeedsText] = useState('');
   const [url, setUrl] = useState('');
-  // Empty = no limit. Only meaningful for URL mode — keyword mode always
-  // sends a number (server caps it at 200 regardless).
   const [maxResults, setMaxResults] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -29,6 +28,7 @@ export const KeywordPlannerPage = () => {
   const runDiscover = async () => {
     setError(null);
     setResult(null);
+    const limit = parseLimit(maxResults);
 
     if (mode === 'keywords') {
       const seeds = seedsText
@@ -39,15 +39,11 @@ export const KeywordPlannerPage = () => {
         setError('Enter at least one seed keyword');
         return;
       }
-      const limit = Math.max(
-        1,
-        Math.min(KEYWORD_MODE_MAX, Number(maxResults) || DEFAULT_KEYWORD_MODE_RESULTS)
-      );
       setLoading(true);
       try {
         const res = await agentsApi.expandKeywordSeedsGoogleAds({
           seeds,
-          max_per_seed: limit,
+          ...(limit != null ? { max_per_seed: limit } : {}),
           run_embed: false,
         });
         setResult(res);
@@ -61,10 +57,6 @@ export const KeywordPlannerPage = () => {
         setError('Enter a website URL');
         return;
       }
-      // Blank/0 -> no max_results in the body at all -> backend returns
-      // every idea it has, unlimited.
-      const parsed = Number(maxResults);
-      const limit = maxResults !== '' && parsed > 0 ? Math.floor(parsed) : undefined;
       setLoading(true);
       try {
         const res = await agentsApi.expandUrlGoogleAds({
@@ -124,12 +116,11 @@ export const KeywordPlannerPage = () => {
         )}
 
         <label>
-          Max results {mode === 'url' && '(blank = no limit)'}
+          Max results (blank = no limit)
           <input
             type="number"
             min={1}
-            max={mode === 'keywords' ? KEYWORD_MODE_MAX : undefined}
-            placeholder={mode === 'url' ? 'No limit' : String(DEFAULT_KEYWORD_MODE_RESULTS)}
+            placeholder="No limit"
             value={maxResults}
             onChange={(e) => setMaxResults(e.target.value)}
           />
@@ -150,12 +141,6 @@ export const KeywordPlannerPage = () => {
             {total} keyword idea{total === 1 ? '' : 's'}
             {mode === 'url' ? ` for ${result.url}` : ''}
           </h2>
-          {mode === 'keywords' && total >= KEYWORD_MODE_MAX && (
-            <p className="agents-validation">
-              Hit the {KEYWORD_MODE_MAX} max-results ceiling for keyword mode — try Website URL mode
-              for the unlimited result set.
-            </p>
-          )}
           <div className="agents-table-wrap">
             <table className="agents-table">
               <thead>
