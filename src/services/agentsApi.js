@@ -175,6 +175,13 @@ export const agentsApi = {
       body: JSON.stringify(data),
     }),
 
+  expandUrlGoogleAds: (data) =>
+    agentFetch('/api/agent/keyword-warehouse/expand-url-google-ads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
   listKeywords: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

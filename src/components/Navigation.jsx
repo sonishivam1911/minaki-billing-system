@@ -206,6 +206,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   ];
 
   const seoNavItems = [
+    { path: '/seo/keyword-planner', label: 'Keyword Planner', icon: Tags },
     { path: '/seo/rank-tracker', label: 'Rank Tracker', icon: TrendingUp },
     { path: '/seo/backlinks', label: 'Backlinks', icon: Link2 },
     { path: '/seo/local-seo', label: 'Local SEO', icon: MapPinned },

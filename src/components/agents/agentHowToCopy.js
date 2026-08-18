@@ -79,6 +79,16 @@ export const AGENT_HOW_TO = {
       'Scroll to the Shopify section for what sold in store vs what the ads spent.',
     ],
   },
+  keywordPlanner: {
+    title: 'Keyword Planner',
+    what: 'This is Google’s own Keyword Planner data — real search volume, competition, and bid ranges — for either a list of words or a whole website.',
+    steps: [
+      'Choose "Seed keywords" and type a few words, or "Website URL" and paste a page like https://minaki.shop.',
+      'Website URL mode is usually better — Google reads what the page is actually about instead of just matching the words literally.',
+      'Tap Get keyword ideas. Results include monthly search volume and how competitive each keyword is.',
+      'Tap Trend on a row to see the last 12 months of search volume for that keyword.',
+    ],
+  },
   rankTracker: {
     title: 'Rank Tracker',
     what: 'This tracks where minaki.me shows up on Google for the search phrases you care about, over time.',
