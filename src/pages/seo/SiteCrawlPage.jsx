@@ -314,7 +314,7 @@ export const SiteCrawlPage = () => {
           <section className="agents-card">
             <h2 className="agents-section-title">Extract keywords</h2>
             <p className="agents-preview-skus">
-              Processes pending product/collection pages in batches — call repeatedly to work through the whole crawl.
+              Processes pending pages (any type) in batches — call repeatedly to work through the whole crawl.
             </p>
             <label>
               Batch size
