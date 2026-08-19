@@ -36,6 +36,9 @@ export const SiteCrawlPage = () => {
   const [keywordReport, setKeywordReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
+  const [cancelling, setCancelling] = useState(false);
+  const [resuming, setResuming] = useState(false);
+
   const loadCrawls = useCallback(async () => {
     setCrawlsLoading(true);
     try {
@@ -149,6 +152,32 @@ export const SiteCrawlPage = () => {
         refreshCrawl();
         loadPages();
       }, 1500);
+    }
+  };
+
+  const cancelCrawl = async () => {
+    setCancelling(true);
+    setError(null);
+    try {
+      await seoApi.cancelSiteCrawl(selectedId);
+      await Promise.all([refreshCrawl(), loadCrawls()]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const resumeCrawl = async () => {
+    setResuming(true);
+    setError(null);
+    try {
+      await seoApi.resumeSiteCrawl(selectedId);
+      await Promise.all([refreshCrawl(), loadCrawls()]);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setResuming(false);
     }
   };
 
@@ -269,6 +298,16 @@ export const SiteCrawlPage = () => {
               <button type="button" className="agents-btn secondary" onClick={refreshCrawl}>
                 Refresh now
               </button>
+              {crawl.status === 'running' && (
+                <button type="button" className="agents-btn secondary" onClick={cancelCrawl} disabled={cancelling}>
+                  {cancelling ? 'Cancelling…' : 'Cancel crawl'}
+                </button>
+              )}
+              {(crawl.status === 'cancelled' || crawl.status === 'failed') && (
+                <button type="button" className="agents-btn primary" onClick={resumeCrawl} disabled={resuming}>
+                  {resuming ? 'Resuming…' : 'Resume crawl'}
+                </button>
+              )}
             </div>
           </section>
 

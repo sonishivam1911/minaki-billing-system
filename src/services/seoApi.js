@@ -67,6 +67,10 @@ export const seoApi = {
 
   getSiteCrawl: (crawlId) => agentFetch(`/api/agent/site-crawl/${crawlId}`),
 
+  cancelSiteCrawl: (crawlId) => agentFetch(`/api/agent/site-crawl/${crawlId}/cancel`, jsonBody({})),
+
+  resumeSiteCrawl: (crawlId) => agentFetch(`/api/agent/site-crawl/${crawlId}/resume`, jsonBody({})),
+
   listSiteCrawlPages: (crawlId, params = {}) =>
     agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/pages`, params)),
 
