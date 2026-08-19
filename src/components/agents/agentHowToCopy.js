@@ -86,7 +86,7 @@ export const AGENT_HOW_TO = {
       'Type a domain (for example minaki.shop) and how many pages to crawl at most, then Start crawl.',
       'It runs in the background — the list below refreshes on its own while a crawl is running.',
       'Open a crawl to see its pages, filter by type, and open one to see its stored details.',
-      'Tap Extract next batch to pull real Google keyword data for a batch of product/collection pages — repeat until done.',
+      'Tap Extract next batch to pull real Google keyword data for a batch of crawled pages (any type) — repeat until done.',
       'View keyword report once some extraction has run, to see which keywords show up most across the site.',
     ],
   },
