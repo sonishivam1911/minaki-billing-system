@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -206,6 +206,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   ];
 
   const seoNavItems = [
+    { path: '/seo/site-crawl', label: 'Site Crawl', icon: Globe },
     { path: '/seo/keyword-planner', label: 'Keyword Planner', icon: Tags },
     { path: '/seo/rank-tracker', label: 'Rank Tracker', icon: TrendingUp },
     { path: '/seo/backlinks', label: 'Backlinks', icon: Link2 },

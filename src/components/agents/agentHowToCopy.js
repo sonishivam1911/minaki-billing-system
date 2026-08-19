@@ -79,6 +79,17 @@ export const AGENT_HOW_TO = {
       'Scroll to the Shopify section for what sold in store vs what the ads spent.',
     ],
   },
+  siteCrawl: {
+    title: 'Site Crawl',
+    what: 'This scrapes an entire Shopify site — every product, collection, and page — and can then check what keywords each page could rank for.',
+    steps: [
+      'Type a domain (for example minaki.shop) and how many pages to crawl at most, then Start crawl.',
+      'It runs in the background — the list below refreshes on its own while a crawl is running.',
+      'Open a crawl to see its pages, filter by type, and open one to see its stored details.',
+      'Tap Extract next batch to pull real Google keyword data for a batch of product/collection pages — repeat until done.',
+      'View keyword report once some extraction has run, to see which keywords show up most across the site.',
+    ],
+  },
   keywordPlanner: {
     title: 'Keyword Planner',
     what: 'This is Google’s own Keyword Planner data — real search volume, competition, and bid ranges — for either a list of words or a whole website.',
