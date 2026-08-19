@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 
 export const SEO_NAV_LINKS = [
+  { to: '/seo/site-crawl', label: 'Site Crawl' },
   { to: '/seo/keyword-planner', label: 'Keyword Planner' },
   { to: '/seo/rank-tracker', label: 'Rank Tracker' },
   { to: '/seo/backlinks', label: 'Backlinks' },

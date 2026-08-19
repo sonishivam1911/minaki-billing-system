@@ -58,4 +58,24 @@ export const seoApi = {
   // Full SERP block parsing — organic, paid, featured snippet, local pack,
   // knowledge graph, related searches, top stories, PAA.
   getSerpResults: (params = {}) => agentFetch(withQuery('/api/agent/serp/results', params)),
+
+  // Site crawl — sitemap discovery + scrape (HTML/JSON in S3+DB) + opt-in
+  // per-page Google Ads keyword extraction across a whole Shopify site.
+  listSiteCrawls: (params = {}) => agentFetch(withQuery('/api/agent/site-crawl', params)),
+
+  startSiteCrawl: (data) => agentFetch('/api/agent/site-crawl/start', jsonBody(data)),
+
+  getSiteCrawl: (crawlId) => agentFetch(`/api/agent/site-crawl/${crawlId}`),
+
+  listSiteCrawlPages: (crawlId, params = {}) =>
+    agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/pages`, params)),
+
+  getSiteCrawlPageDetail: (crawlId, url) =>
+    agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/pages/detail`, { url })),
+
+  extractSiteCrawlKeywords: (crawlId, data = {}) =>
+    agentFetch(`/api/agent/site-crawl/${crawlId}/extract-keywords`, jsonBody(data)),
+
+  getSiteCrawlKeywordReport: (crawlId, params = {}) =>
+    agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/keyword-report`, params)),
 };
