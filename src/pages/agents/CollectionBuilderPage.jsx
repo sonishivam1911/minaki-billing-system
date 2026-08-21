@@ -165,6 +165,11 @@ export const CollectionBuilderPage = () => {
   const [applyResult, setApplyResult] = useState(null);
   const [applySubmitting, setApplySubmitting] = useState(false);
 
+  // Combined "Generate & Publish" action — chains copy -> banner -> apply.
+  // autoPhase drives the button label / progress line; '' means idle.
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [autoPhase, setAutoPhase] = useState('');
+
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Logs: full run history across both pipelines (collection copy/SEO runs
@@ -287,11 +292,34 @@ export const CollectionBuilderPage = () => {
 
   const selectedProduct = products.find((p) => p.product_id === selectedProductId) || null;
 
+  // Every generate/regenerate endpoint now only does fast prep + enqueue
+  // (real background worker picks up the actual pipeline — see
+  // core/job_queue.py on the backend) and returns almost immediately with
+  // status: "running" and no result fields yet. This polls the matching
+  // GET .../runs/{id} endpoint until the row leaves "running", so callers
+  // get the real, finished result instead of the fast placeholder response.
+  // ~15s interval, ~12 min ceiling (real generations run well under that).
+  const pollRunUntilDone = async (getFn, runId, normalizeFn) => {
+    const intervalMs = 15000;
+    const maxAttempts = 48;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const row = await getFn(runId);
+      const normalized = normalizeFn(row);
+      if (normalized.status !== 'running') {
+        return normalized;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    throw new Error(
+      `Run #${runId} is still going after 12 minutes — check the Logs tab, it'll finish in the background.`
+    );
+  };
+
   const generateSeo = async () => {
     setSeoSubmitting(true);
     setErrorMessage(null);
     try {
-      const response = await agentsApi.generateCollectionPage({
+      const started = await agentsApi.generateCollectionPage({
         collection_handle: collectionHandle || undefined,
         collection_gid: collectionGid || undefined,
         active_filters: {},
@@ -302,9 +330,18 @@ export const CollectionBuilderPage = () => {
         // fingerprint-cached result from a previous run.
         force_regenerate: true,
       });
-      setSeoResult(normalizeCollectionRunForDisplay(response));
+      const runId = started.run_id;
+      const finalResult = runId
+        ? await pollRunUntilDone(agentsApi.getCollectionRun, runId, normalizeCollectionRunForDisplay)
+        : normalizeCollectionRunForDisplay(started);
+      setSeoResult(finalResult);
+      if (finalResult.status === 'failed') {
+        throw new Error(finalResult.errorMessage || 'Copy/SEO generation failed');
+      }
+      return finalResult;
     } catch (error) {
       setErrorMessage(error.message);
+      throw error;
     } finally {
       setSeoSubmitting(false);
     }
@@ -313,22 +350,20 @@ export const CollectionBuilderPage = () => {
   const generateBanner = async () => {
     if (!selectedProduct) {
       setErrorMessage('Pick a hero product first');
-      return;
+      throw new Error('Pick a hero product first');
     }
     if (!collectionLogicText.trim()) {
       setErrorMessage('Describe the collection positioning / logic first');
-      return;
+      throw new Error('Describe the collection positioning / logic first');
     }
     setBannerSubmitting(true);
     setErrorMessage(null);
     try {
-      // Two independent runs, not one merged call: a copy-only run and a
-      // banner-only run are each short enough to reliably finish inside a
-      // single deploy window. The merged one-request cycle blocked the
-      // worker for copy+banner combined (~15-20 min), which is exactly the
-      // window a mid-flight deploy restart kills without ever writing a
-      // final status — see the stale-run reaper fix (PR #195).
-      const response = await agentsApi.createCollectionBuilderBanner({
+      // Fast prep + enqueue now (see pollRunUntilDone above) — the RQ
+      // background worker runs the actual strategist/copywriter/director/
+      // image-gen/evaluator pipeline, so this is no longer racing a deploy
+      // restart the way the old synchronous 15-20 min call did.
+      const started = await agentsApi.createCollectionBuilderBanner({
         collection_gid: collectionGid,
         collection_title: collectionTitle,
         collection_handle: collectionHandle || undefined,
@@ -338,10 +373,19 @@ export const CollectionBuilderPage = () => {
         collection_logic_text: collectionLogicText.trim(),
         variant_count: 1,
       });
-      setBannerRun(normalizeCreativePodRunForDisplay(response));
+      const runId = started.run_id;
+      const finalResult = runId
+        ? await pollRunUntilDone(agentsApi.getCreativePodRun, runId, normalizeCreativePodRunForDisplay)
+        : normalizeCreativePodRunForDisplay(started);
+      setBannerRun(finalResult);
       setApplyResult(null);
+      if (finalResult.status === 'failed') {
+        throw new Error(finalResult.errorMessage || 'Banner generation failed');
+      }
+      return finalResult;
     } catch (error) {
       setErrorMessage(error.message);
+      throw error;
     } finally {
       setBannerSubmitting(false);
     }
@@ -352,12 +396,22 @@ export const CollectionBuilderPage = () => {
     setBannerSubmitting(true);
     setErrorMessage(null);
     try {
-      const response = await agentsApi.regenerateCreativePodRun(bannerRun.runId, {
+      // regenerate_banners() is fast-prep + enqueue too now, same run_id —
+      // poll that same id until the new image is actually done.
+      await agentsApi.regenerateCreativePodRun(bannerRun.runId, {
         hint: regenerateHint,
       });
-      setBannerRun(normalizeCreativePodRunForDisplay(response));
+      const finalResult = await pollRunUntilDone(
+        agentsApi.getCreativePodRun,
+        bannerRun.runId,
+        normalizeCreativePodRunForDisplay
+      );
+      setBannerRun(finalResult);
       setRegenerateHint('');
       setApplyResult(null);
+      if (finalResult.status === 'failed') {
+        setErrorMessage(finalResult.errorMessage || 'Banner regeneration failed');
+      }
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -370,16 +424,79 @@ export const CollectionBuilderPage = () => {
     setApplySubmitting(true);
     setErrorMessage(null);
     try {
+      // Metafield write only — single GraphQL mutation, genuinely fast,
+      // never went through the RQ split, no polling needed.
       const response = await agentsApi.applyCollectionBuilderBanner({
         creative_pod_run_id: bannerRun.runId,
         collection_gid: collectionGid,
         variant_index: 1,
       });
       setApplyResult(response);
+      if (!response.success) {
+        throw new Error(`Publish to Shopify failed: ${JSON.stringify(response.userErrors)}`);
+      }
+      return response;
     } catch (error) {
       setErrorMessage(error.message);
+      throw error;
     } finally {
       setApplySubmitting(false);
+    }
+  };
+
+  // One click: copy/SEO (already writes straight to the collection as part
+  // of its own generation) -> banner -> publish the banner to the same
+  // collection's Shopify metafields. Stops and surfaces a clear error at
+  // whichever step fails rather than silently skipping ahead — a failed
+  // banner does not attempt to publish, a failed publish still leaves the
+  // real banner run visible/regenerable above.
+  //
+  // Calls generateBanner()'s *returned* run directly (not the bannerRun
+  // state var) for the apply step — state set inside generateSeo/
+  // generateBanner isn't guaranteed to have re-rendered yet by the time
+  // this function's next line runs, so reading state here would risk a
+  // stale closure.
+  const generateAndPublish = async () => {
+    if (!selectedProduct) {
+      setErrorMessage('Pick a hero product first');
+      return;
+    }
+    if (!collectionLogicText.trim()) {
+      setErrorMessage('Describe the collection positioning / logic first');
+      return;
+    }
+    setAutoRunning(true);
+    setErrorMessage(null);
+    try {
+      setAutoPhase('copy');
+      await generateSeo();
+
+      setAutoPhase('banner');
+      const banner = await generateBanner();
+
+      setAutoPhase('publish');
+      setApplySubmitting(true);
+      let applyResponse;
+      try {
+        applyResponse = await agentsApi.applyCollectionBuilderBanner({
+          creative_pod_run_id: banner.runId,
+          collection_gid: collectionGid,
+          variant_index: 1,
+        });
+      } finally {
+        setApplySubmitting(false);
+      }
+      setApplyResult(applyResponse);
+      if (!applyResponse.success) {
+        throw new Error(`Publish to Shopify failed: ${JSON.stringify(applyResponse.userErrors)}`);
+      }
+
+      setAutoPhase('done');
+    } catch (error) {
+      setErrorMessage(error.message);
+      setAutoPhase('error');
+    } finally {
+      setAutoRunning(false);
     }
   };
 
@@ -620,12 +737,44 @@ export const CollectionBuilderPage = () => {
               />
             </label>
           </div>
+
+          <div className="agents-actions-row">
+            <button
+              type="button"
+              className="agents-btn primary"
+              onClick={generateAndPublish}
+              disabled={autoRunning || !collectionLogicText.trim()}
+            >
+              {autoRunning
+                ? {
+                    copy: 'Generating copy…',
+                    banner: 'Generating banner…',
+                    publish: 'Publishing to Shopify…',
+                  }[autoPhase] || 'Working…'
+                : 'Generate copy + banner & publish'}
+            </button>
+          </div>
+          {autoRunning && (
+            <p className="agents-muted-inline">
+              Runs copy/SEO, then the full banner pipeline (strategist → copy → director → image
+              gen → evaluator), then writes the banner to this collection's Shopify metafields —
+              in that order, stops and shows the error if any step fails. Keep this tab open, or
+              check the Logs tab later; the run keeps going in the background either way.
+            </p>
+          )}
+          {autoPhase === 'done' && !autoRunning && (
+            <p className="agents-validation">Copy, banner, and Shopify publish all completed.</p>
+          )}
         </section>
       )}
 
       {collectionHandle && (
         <section className="agents-card">
           <h2 className="agents-section-title">4. Collection copy / SEO</h2>
+          <p className="agents-collection-meta">
+            Individual steps below — use these to review or fix one piece (e.g. regenerate just
+            the banner with a hint) without re-running everything above.
+          </p>
           <p className="agents-collection-meta">
             Generates SEO title/description and collection body copy only — no images. Writes
             straight to the collection (same as the old Collection Pages generator).
