@@ -187,6 +187,11 @@ export const Breadcrumbs = () => {
       title: 'Meta Marketing',
       icon: Sparkles,
       parent: null
+    },
+    '/agents/settings': {
+      title: 'Agent Settings',
+      icon: Sparkles,
+      parent: null
     }
   };
 
