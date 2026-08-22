@@ -20,6 +20,7 @@ export const AGENT_NAV_LINKS = [
   { to: '/agents/campaign-creative', label: 'Campaign Creative' },
   { to: '/agents/creative-pod', label: 'Banner Generation' },
   { to: '/agents/marketing', label: 'Meta Marketing' },
+  { to: '/agents/settings', label: 'Agent Settings' },
 ];
 
 export const AgentsSubnav = () => {
