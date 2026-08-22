@@ -331,6 +331,18 @@ export const agentsApi = {
 
   listCreativePodBrandLanes: () => agentFetch('/api/agent/creative-pod/brand-lanes'),
 
+  listCreativePodVisualVariants: (brandLane) =>
+    agentFetch(`/api/agent/creative-pod/visual-variants/${brandLane}`),
+
+  getAgentSettings: (scope) => agentFetch(`/api/agent/agent-settings/${scope}`),
+
+  saveAgentSettings: (scope, config) =>
+    agentFetch(`/api/agent/agent-settings/${scope}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config }),
+    }),
+
   listCreativePodRuns: (params = {}) => {
     const q = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
