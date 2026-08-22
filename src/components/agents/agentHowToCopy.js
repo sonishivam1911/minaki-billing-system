@@ -81,13 +81,13 @@ export const AGENT_HOW_TO = {
   },
   siteCrawl: {
     title: 'Site Crawl',
-    what: 'This scrapes an entire Shopify site — every product, collection, and page — and can then check what keywords each page could rank for.',
+    what: 'One click per domain: scrapes an entire Shopify site — every product, collection, and page — then automatically pulls real Google keyword data for every page it found and builds a keyword graph, no extra steps.',
     steps: [
-      'Type a domain (for example minaki.shop) and how many pages to crawl at most, then Start crawl.',
+      'Type a domain (for example minaki.shop) and how many pages to crawl at most, then Start crawl. That’s the one click — everything else runs on its own.',
       'It runs in the background — the list below refreshes on its own while a crawl is running.',
-      'Open a crawl to see its pages, filter by type, and open one to see its stored details.',
-      'Tap Extract next batch to pull real Google keyword data for a batch of crawled pages (any type) — repeat until done.',
-      'View keyword report once some extraction has run, to see which keywords show up most across the site.',
+      'Once the crawl finishes, keyword extraction starts automatically and works through every page in batches until done — Keywords extracted (pages) climbs on its own.',
+      'Open View keyword report for the top keywords across the site as both a chart and a table — which keywords show up most, on how many pages, with how much search volume.',
+      'Extract next batch is still there if you want to force a re-run of anything left pending, but you shouldn’t normally need it.',
     ],
   },
   keywordPlanner: {
