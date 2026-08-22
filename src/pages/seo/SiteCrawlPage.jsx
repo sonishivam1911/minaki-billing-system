@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { seoApi } from '../../services/seoApi';
 import { SeoSubnav } from '../../components/seo/SeoSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { LoadingSpinner, ErrorMessage } from '../../components';
+
+const KEYWORD_CHART_TOP_N = 15;
 
 const PAGES_PAGE_SIZE = 50;
 const POLL_INTERVAL_MS = 5000;
@@ -339,6 +342,32 @@ export const SiteCrawlPage = () => {
           {keywordReport && (
             <section className="agents-card">
               <h2 className="agents-section-title">Keyword report ({keywordReport.keywords.length})</h2>
+              {keywordReport.keywords.length > 0 && (
+                <div style={{ width: '100%', height: 360 }}>
+                  <ResponsiveContainer>
+                    <BarChart
+                      data={keywordReport.keywords.slice(0, KEYWORD_CHART_TOP_N)}
+                      layout="vertical"
+                      margin={{ left: 24, right: 24 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis type="number" stroke="#6b7280" style={{ fontSize: 12 }} />
+                      <YAxis
+                        type="category"
+                        dataKey="keyword"
+                        width={160}
+                        stroke="#6b7280"
+                        style={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: 4 }}
+                        formatter={(value) => [value, 'Avg monthly searches']}
+                      />
+                      <Bar dataKey="total_avg_monthly_searches" fill="#8b6f47" name="Avg monthly searches" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               <div className="agents-table-wrap">
                 <table className="agents-table">
                   <thead>
