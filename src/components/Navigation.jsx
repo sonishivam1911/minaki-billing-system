@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe, Settings } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -203,6 +203,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/campaign-creative', label: 'Campaign Creative', icon: Sparkles },
     { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
     { path: '/agents/marketing', label: 'Meta Marketing', icon: Sparkles },
+    { path: '/agents/settings', label: 'Agent Settings', icon: Settings },
   ];
 
   const seoNavItems = [
