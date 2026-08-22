@@ -165,6 +165,15 @@ export const CollectionBuilderPage = () => {
   const [applyResult, setApplyResult] = useState(null);
   const [applySubmitting, setApplySubmitting] = useState(false);
 
+  // Vertical/scene override — omitting both preserves the old auto-classify
+  // behavior (which almost always lands on Demi Fine); pre-filled from the
+  // saved Agent Settings default (see AgentSettingsPage.jsx), overridable
+  // per run via these pickers.
+  const [brandLanes, setBrandLanes] = useState([]);
+  const [brandLane, setBrandLane] = useState('');
+  const [visualSubVariants, setVisualSubVariants] = useState([]);
+  const [visualSubVariant, setVisualSubVariant] = useState('');
+
   // Combined "Generate & Publish" action — chains copy -> banner -> apply.
   // autoPhase drives the button label / progress line; '' means idle.
   const [autoRunning, setAutoRunning] = useState(false);
@@ -214,6 +223,44 @@ export const CollectionBuilderPage = () => {
     }, delay);
     return () => clearTimeout(timer);
   }, [collectionSearch]);
+
+  useEffect(() => {
+    const loadBrandDefaults = async () => {
+      try {
+        const [brandLanesResponse, settingsResponse] = await Promise.all([
+          agentsApi.listCreativePodBrandLanes(),
+          agentsApi.getAgentSettings('collection_builder'),
+        ]);
+        setBrandLanes(brandLanesResponse.brand_lanes || []);
+        const defaultLane = settingsResponse.config?.brand_lane || '';
+        setBrandLane(defaultLane);
+        setVisualSubVariant(settingsResponse.config?.visual_sub_variant || '');
+        if (defaultLane) {
+          const variantsResponse = await agentsApi.listCreativePodVisualVariants(defaultLane);
+          setVisualSubVariants(variantsResponse.visual_sub_variants || []);
+        }
+      } catch {
+        // Non-fatal — pickers just fall back to "auto-classify", same as
+        // before this feature existed.
+      }
+    };
+    loadBrandDefaults();
+  }, []);
+
+  const handleBrandLaneChange = async (nextLane) => {
+    setBrandLane(nextLane);
+    setVisualSubVariant('');
+    if (!nextLane) {
+      setVisualSubVariants([]);
+      return;
+    }
+    try {
+      const response = await agentsApi.listCreativePodVisualVariants(nextLane);
+      setVisualSubVariants(response.visual_sub_variants || []);
+    } catch {
+      setVisualSubVariants([]);
+    }
+  };
 
   const resetDownstreamState = () => {
     setProducts([]);
@@ -372,6 +419,8 @@ export const CollectionBuilderPage = () => {
         product_description: selectedProduct.description || undefined,
         collection_logic_text: collectionLogicText.trim(),
         variant_count: 1,
+        brand_lane: brandLane || undefined,
+        visual_sub_variant: visualSubVariant || undefined,
       });
       const runId = started.run_id;
       const finalResult = runId
@@ -736,6 +785,35 @@ export const CollectionBuilderPage = () => {
                 rows={3}
               />
             </label>
+
+            <div className="agents-form-row">
+              <label>
+                Vertical
+                <select value={brandLane} onChange={(event) => handleBrandLaneChange(event.target.value)}>
+                  <option value="">Auto-classify from brief (usually Demi Fine)</option>
+                  {brandLanes.map((row) => (
+                    <option key={row.value} value={row.value}>
+                      {row.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Scene / mood
+                <select
+                  value={visualSubVariant}
+                  onChange={(event) => setVisualSubVariant(event.target.value)}
+                  disabled={!brandLane}
+                >
+                  <option value="">{brandLane ? "Lane's default scene" : 'Pick a vertical first'}</option>
+                  {visualSubVariants.map((row) => (
+                    <option key={row.value} value={row.value}>
+                      {row.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="agents-actions-row">
