@@ -85,9 +85,9 @@ export const AGENT_HOW_TO = {
     steps: [
       'Type a domain (for example minaki.shop) and how many pages to crawl at most, then Start crawl. That’s the one click — everything else runs on its own.',
       'It runs in the background — the list below refreshes on its own while a crawl is running.',
-      'Once the crawl finishes, keyword extraction starts automatically and works through every page in batches until done — Keywords extracted (pages) climbs on its own.',
+      'Once the crawl finishes, keyword extraction starts automatically and works through every page in batches until done — watch it live in the Extract keywords status report (percent complete, pending/done/failed, keywords stored).',
       'Open View keyword report for the top keywords across the site as both a chart and a table — which keywords show up most, on how many pages, with how much search volume.',
-      'Extract next batch is still there if you want to force a re-run of anything left pending, but you shouldn’t normally need it.',
+      'Extract all is still there if you want to (re)start extraction by hand, or force a retry of anything left pending, but you shouldn’t normally need it.',
     ],
   },
   keywordPlanner: {

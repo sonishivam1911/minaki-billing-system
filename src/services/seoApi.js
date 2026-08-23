@@ -80,6 +80,9 @@ export const seoApi = {
   extractSiteCrawlKeywords: (crawlId, data = {}) =>
     agentFetch(`/api/agent/site-crawl/${crawlId}/extract-keywords`, jsonBody(data)),
 
+  getSiteCrawlKeywordExtractionStatus: (crawlId) =>
+    agentFetch(`/api/agent/site-crawl/${crawlId}/keyword-extraction-status`),
+
   getSiteCrawlKeywordReport: (crawlId, params = {}) =>
     agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/keyword-report`, params)),
 };
