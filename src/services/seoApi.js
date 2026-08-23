@@ -85,4 +85,13 @@ export const seoApi = {
 
   getSiteCrawlKeywordReport: (crawlId, params = {}) =>
     agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/keyword-report`, params)),
+
+  checkSiteCrawlSchema: (crawlId, data = {}) =>
+    agentFetch(`/api/agent/site-crawl/${crawlId}/check-schema`, jsonBody(data)),
+
+  getSiteCrawlSchemaCheckStatus: (crawlId) =>
+    agentFetch(`/api/agent/site-crawl/${crawlId}/schema-check-status`),
+
+  getSiteCrawlSchemaReport: (crawlId, params = {}) =>
+    agentFetch(withQuery(`/api/agent/site-crawl/${crawlId}/schema-report`, params)),
 };
