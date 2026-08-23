@@ -1,14 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Autocomplete, TextField } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner, ErrorMessage } from '../../components';
+import { LoadingSpinner } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { collectHttpImageUrls, normalizeCreativePodRunForDisplay } from './creativePodRun';
 import { ensureStringArray, normalizeCollectionRunForDisplay } from './collectionPageRun';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Alert } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../components/ui/select';
+import { cn } from '../../lib/utils';
 
 // Every agent pod that persists runs — one place to log + price all of them,
 // not just Collection Builder's own two pipelines. Product Writer, Keywords,
@@ -75,6 +90,24 @@ const RULE_COLUMN_LABELS = {
   WEIGHT: 'Weight',
 };
 
+// Radix Select items can't have an empty-string value — these sentinels
+// stand in for "auto-classify" / "lane's default scene" and get mapped back
+// to '' (the real, meaningful state value) in the change handlers below.
+const AUTO_LANE_VALUE = '__auto__';
+const DEFAULT_SCENE_VALUE = '__default__';
+
+// Gemstone badge family (see design direction doc) mapped from whatever
+// label text Creative Pod's brand-lane API returns — Bridal/Fine/Demi Fine
+// aren't fixed enum values on the frontend, so this matches on label text
+// rather than a hardcoded value list.
+const laneBadgeVariant = (label = '') => {
+  const normalized = String(label).toLowerCase();
+  if (normalized.includes('bridal')) return 'ruby';
+  if (normalized.includes('demi')) return 'citrine';
+  if (normalized.includes('fine')) return 'emerald';
+  return 'sapphire';
+};
+
 const RULE_RELATION_LABELS = {
   EQUALS: 'is',
   NOT_EQUALS: 'is not',
@@ -105,16 +138,17 @@ const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
   if (!verdict) return null;
   const breakdown = verdict.score_breakdown || [];
   return (
-    <div className="agents-copy-block">
-      <p>
-        <strong>{slotName}:</strong> {verdict.pass ? 'pass' : 'needs review'} — score {verdict.score}
+    <div className="space-y-1.5 border-t border-[var(--color-border)] pt-3 first:border-t-0 first:pt-0">
+      <p className="text-sm">
+        <strong className="font-semibold">{slotName}:</strong>{' '}
+        {verdict.pass ? 'pass' : 'needs review'} — score {verdict.score}
         {verdict.hard_gate_failed ? ' (hard gate failed)' : ''}
       </p>
       {breakdown.length > 0 ? (
-        <ul className="agents-hook-list">
+        <ul className="list-disc space-y-1 pl-5 text-sm">
           {breakdown.map((entry) => (
             <li key={entry.axis}>
-              <strong>{entry.axis}:</strong>{' '}
+              <strong className="font-semibold">{entry.axis}:</strong>{' '}
               {entry.score !== undefined ? `${entry.score}/100 — ` : `${entry.status} — `}
               {entry.detail}
             </li>
@@ -122,7 +156,7 @@ const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
         </ul>
       ) : (
         (verdict.reasons || []).length > 0 && (
-          <p className="agents-collection-meta">{verdict.reasons.join('; ')}</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{verdict.reasons.join('; ')}</p>
         )
       )}
     </div>
@@ -648,16 +682,14 @@ export const CollectionBuilderPage = () => {
   const pricingTotalUsd = pricingRows.reduce((sum, row) => sum + (Number(row.costUsd) || 0), 0);
 
   return (
-    <div className="screen-container agents-page">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">Collection Builder</h1>
-          <p className="screen-subtitle">
-            Pick a collection and a hero product, generate SEO copy and a Creative Pod banner, then
-            apply the banner to the collection's Shopify metafields.
-          </p>
-        </div>
-      </div>
+    <div className="minaki-ui mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6">
+      <header className="mb-2">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Collection Builder</h1>
+        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+          Pick a collection and a hero product, generate SEO copy and a Creative Pod banner, then
+          apply the banner to the collection's Shopify metafields.
+        </p>
+      </header>
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.collections} />
 
@@ -672,154 +704,222 @@ export const CollectionBuilderPage = () => {
         ]}
       />
 
-      {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />}
+      {errorMessage && (
+        <Alert variant="destructive" title="Something went wrong" className="mb-4">
+          {errorMessage}{' '}
+          <Button variant="link" size="sm" className="h-auto p-0 text-[var(--color-destructive)]" onClick={() => setErrorMessage(null)}>
+            Dismiss
+          </Button>
+        </Alert>
+      )}
 
       {activeTab === 'builder' && (
-      <>
-      <section className="agents-card">
-        <h2 className="agents-section-title">1. Collection</h2>
-        <div className="agents-form-stack">
-          <label>
-            Shopify collection
-            <Autocomplete
-              options={shopifyCollections}
-              loading={collectionsLoading}
-              value={shopifyCollections.find((row) => row.handle === pickerValue) || null}
-              getOptionLabel={(row) =>
-                row?.title ? `${row.title} — ${row.handle}` : row?.handle || ''
-              }
-              isOptionEqualToValue={(option, value) => option.handle === value.handle}
-              onInputChange={(_event, value, reason) => {
-                if (reason === 'input') setCollectionSearch(value);
-              }}
-              onChange={(_event, row) => selectCollection(row)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  placeholder="Type a collection name…"
-                />
-              )}
+      <div className="space-y-5">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">1. Collection</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="collection-search">Shopify collection</Label>
+            <Input
+              id="collection-search"
+              value={collectionSearch}
+              onChange={(event) => setCollectionSearch(event.target.value)}
+              placeholder="Type a collection name…"
+              autoComplete="off"
             />
-          </label>
-        </div>
-      </section>
-
-      {collectionHandle && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">2. Hero product</h2>
-          <p className="agents-collection-meta">Newest products first, 24 at a time.</p>
-          {productsLoading ? (
-            <LoadingSpinner message="Loading products…" />
-          ) : products.length ? (
-            <>
-              <div
-                className="agents-banner-grid"
-                style={{ gridTemplateColumns: 'repeat(6, 1fr)' }}
-              >
-                {products.map((product) => {
-                  const isSelected = selectedProductId === product.product_id;
-                  return (
-                    <button
-                      type="button"
-                      key={product.product_id}
-                      className={`agents-banner-cell agents-product-pick${isSelected ? ' active' : ''}`}
-                      onClick={() => setSelectedProductId(product.product_id)}
-                      style={
-                        isSelected
-                          ? {
-                              borderColor: '#8a6d3b',
-                              borderWidth: '2px',
-                              boxShadow: '0 0 0 2px rgba(138, 109, 59, 0.35)',
-                            }
-                          : undefined
-                      }
-                    >
-                      {product.image_url ? (
-                        <img src={product.image_url} alt={product.title} loading="lazy" />
-                      ) : (
-                        <span className="agents-muted">No image</span>
-                      )}
-                      <span className="agents-collection-meta">
-                        {isSelected ? '✓ ' : ''}
-                        {product.title}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {productsPageInfo.has_next_page && (
-                <div className="agents-actions-row" style={{ marginTop: '0.75rem' }}>
+          </div>
+          {collectionTitle && (
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              Selected: <span className="font-medium text-[var(--color-foreground)]">{collectionTitle}</span>{' '}
+              <Button variant="link" size="sm" className="h-auto p-0" onClick={() => selectCollection(null)}>
+                Clear
+              </Button>
+            </p>
+          )}
+          {collectionsLoading ? (
+            <LoadingSpinner message="Loading collections…" />
+          ) : shopifyCollections.length > 0 ? (
+            <div className="max-h-64 overflow-y-auto rounded-md border border-[var(--color-border)]">
+              {shopifyCollections.map((row) => {
+                const isActive = pickerValue === row.handle;
+                return (
                   <button
                     type="button"
-                    className="agents-btn secondary"
-                    onClick={loadMoreProducts}
-                    disabled={productsLoadingMore}
+                    key={row.handle}
+                    onClick={() => selectCollection(row)}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2 text-left text-sm last:border-b-0 hover:bg-[var(--color-muted)]',
+                      isActive && 'bg-[var(--color-accent)]/60 hover:bg-[var(--color-accent)]/60'
+                    )}
                   >
-                    {productsLoadingMore ? 'Loading more…' : 'Load more products'}
+                    <span>{row.title || row.handle}</span>
+                    <span className="text-xs text-[var(--color-muted-foreground)]">{row.handle}</span>
                   </button>
-                </div>
-              )}
-            </>
+                );
+              })}
+            </div>
           ) : (
-            <p className="agents-muted">No products found in this collection.</p>
+            collectionSearch && (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                No collections match "{collectionSearch}".
+              </p>
+            )
           )}
-        </section>
+        </CardContent>
+      </Card>
+
+      {collectionHandle && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">2. Hero product</CardTitle>
+            <CardDescription>Newest products first, 24 at a time.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {productsLoading ? (
+              <LoadingSpinner message="Loading products…" />
+            ) : products.length ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  {products.map((product) => {
+                    const isSelected = selectedProductId === product.product_id;
+                    return (
+                      <Card
+                        key={product.product_id}
+                        showcase
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedProductId(product.product_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedProductId(product.product_id);
+                          }
+                        }}
+                        className={cn(
+                          'cursor-pointer overflow-hidden p-0',
+                          isSelected && 'border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/50'
+                        )}
+                      >
+                        <div className="aspect-square w-full overflow-hidden bg-[var(--color-muted)]">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.title}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-[var(--color-muted-foreground)]">
+                              No image
+                            </div>
+                          )}
+                        </div>
+                        <p className="line-clamp-2 px-2 py-1.5 text-xs text-[var(--color-muted-foreground)]">
+                          {isSelected && <span className="text-[var(--color-primary)]">✓ </span>}
+                          {product.title}
+                        </p>
+                      </Card>
+                    );
+                  })}
+                </div>
+                {productsPageInfo.has_next_page && (
+                  <div className="flex justify-center">
+                    <Button variant="secondary" onClick={loadMoreProducts} disabled={productsLoadingMore}>
+                      {productsLoadingMore ? 'Loading more…' : 'Load more products'}
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                No products found in this collection.
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {selectedProduct && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">3. Collection positioning / logic</h2>
-          <div className="agents-form-stack">
-            <label>
-              What is this collection about, and why does the hero product represent it?
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">3. Collection positioning / logic</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="collection-logic">
+                What is this collection about, and why does the hero product represent it?
+              </Label>
               {collectionLogicText && (
-                <span className="agents-collection-meta">
+                <p className="text-sm text-[var(--color-muted-foreground)]">
                   Prefilled from this collection's automated Shopify rule — edit freely.
-                </span>
+                </p>
               )}
-              <textarea
+              <Textarea
+                id="collection-logic"
                 value={collectionLogicText}
                 onChange={(event) => setCollectionLogicText(event.target.value)}
                 placeholder="e.g. Everyday stackable gold jewelry for young professionals — emphasize versatility and gifting appeal."
                 rows={3}
               />
-            </label>
+            </div>
 
-            <div className="agents-form-row">
-              <label>
-                Vertical
-                <select value={brandLane} onChange={(event) => handleBrandLaneChange(event.target.value)}>
-                  <option value="">Auto-classify from brief (usually Demi Fine)</option>
-                  {brandLanes.map((row) => (
-                    <option key={row.value} value={row.value}>
-                      {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Scene / mood
-                <select
-                  value={visualSubVariant}
-                  onChange={(event) => setVisualSubVariant(event.target.value)}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Vertical</Label>
+                <Select
+                  value={brandLane || AUTO_LANE_VALUE}
+                  onValueChange={(value) =>
+                    handleBrandLaneChange(value === AUTO_LANE_VALUE ? '' : value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AUTO_LANE_VALUE}>Auto-classify from brief (usually Demi Fine)</SelectItem>
+                    {brandLanes.map((row) => (
+                      <SelectItem key={row.value} value={row.value}>
+                        {row.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {brandLane && (
+                  <Badge variant={laneBadgeVariant(brandLanes.find((row) => row.value === brandLane)?.label)}>
+                    {brandLanes.find((row) => row.value === brandLane)?.label || brandLane}
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Scene / mood</Label>
+                <Select
+                  value={visualSubVariant || DEFAULT_SCENE_VALUE}
+                  onValueChange={(value) =>
+                    setVisualSubVariant(value === DEFAULT_SCENE_VALUE ? '' : value)
+                  }
                   disabled={!brandLane}
                 >
-                  <option value="">{brandLane ? "Lane's default scene" : 'Pick a vertical first'}</option>
-                  {visualSubVariants.map((row) => (
-                    <option key={row.value} value={row.value}>
-                      {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={DEFAULT_SCENE_VALUE}>
+                      {brandLane ? "Lane's default scene" : 'Pick a vertical first'}
+                    </SelectItem>
+                    {visualSubVariants.map((row) => (
+                      <SelectItem key={row.value} value={row.value}>
+                        {row.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
+          </CardContent>
+          <CardFooter className="flex-wrap items-start gap-2">
+            <Button
               onClick={generateAndPublish}
               disabled={autoRunning || !collectionLogicText.trim()}
             >
@@ -830,390 +930,366 @@ export const CollectionBuilderPage = () => {
                     publish: 'Publishing to Shopify…',
                   }[autoPhase] || 'Working…'
                 : 'Generate copy + banner & publish'}
-            </button>
-          </div>
-          {autoRunning && (
-            <p className="agents-muted-inline">
-              Runs copy/SEO, then the full banner pipeline (strategist → copy → director → image
-              gen → evaluator), then writes the banner to this collection's Shopify metafields —
-              in that order, stops and shows the error if any step fails. Keep this tab open, or
-              check the Logs tab later; the run keeps going in the background either way.
-            </p>
-          )}
-          {autoPhase === 'done' && !autoRunning && (
-            <p className="agents-validation">Copy, banner, and Shopify publish all completed.</p>
-          )}
-        </section>
+            </Button>
+            {autoRunning && (
+              <p className="w-full text-sm text-[var(--color-muted-foreground)]">
+                Runs copy/SEO, then the full banner pipeline (strategist → copy → director → image
+                gen → evaluator), then writes the banner to this collection's Shopify metafields —
+                in that order, stops and shows the error if any step fails. Keep this tab open, or
+                check the Logs tab later; the run keeps going in the background either way.
+              </p>
+            )}
+            {autoPhase === 'done' && !autoRunning && (
+              <p className="w-full text-sm font-medium text-[var(--color-success)]">
+                Copy, banner, and Shopify publish all completed.
+              </p>
+            )}
+          </CardFooter>
+        </Card>
       )}
 
       {collectionHandle && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">4. Collection copy / SEO</h2>
-          <p className="agents-collection-meta">
-            Individual steps below — use these to review or fix one piece (e.g. regenerate just
-            the banner with a hint) without re-running everything above.
-          </p>
-          <p className="agents-collection-meta">
-            Generates SEO title/description and collection body copy only — no images. Writes
-            straight to the collection (same as the old Collection Pages generator).
-          </p>
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn secondary"
-              onClick={generateSeo}
-              disabled={seoSubmitting}
-            >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">4. Collection copy / SEO</CardTitle>
+            <CardDescription>
+              Individual steps below — use these to review or fix one piece (e.g. regenerate just
+              the banner with a hint) without re-running everything above. Generates SEO
+              title/description and collection body copy only — no images. Writes straight to the
+              collection (same as the old Collection Pages generator).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="secondary" onClick={generateSeo} disabled={seoSubmitting}>
               {seoSubmitting ? 'Generating copy…' : 'Generate copy/SEO'}
-            </button>
-          </div>
-          {seoResult && (
-            <>
-              {seoResult.errorMessage && (
-                <p className="agents-status-err">{seoResult.errorMessage}</p>
-              )}
-              {seoWireframe && (
-                <div className="agents-copy-block">
-                  <h3>SEO wireframe</h3>
-                  {seoWireframe.seo_title && <p><strong>Title:</strong> {seoWireframe.seo_title}</p>}
-                  {seoWireframe.seo_description && (
-                    <p><strong>Meta:</strong> {seoWireframe.seo_description}</p>
-                  )}
-                  {seoWireframeKeywords.length ? (
-                    <p><strong>Keywords:</strong> {seoWireframeKeywords.join(', ')}</p>
-                  ) : null}
-                </div>
-              )}
-              {seoCopyPackage && (
-                <div className="agents-copy-block">
-                  <h3>Collection copy</h3>
-                  {seoCopyPackage.short_description && (
-                    <p className="agents-lead">{seoCopyPackage.short_description}</p>
-                  )}
-                  {seoCopyParagraphs.map((paragraph, index) => (
-                    <p key={index}>{paragraph}</p>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </section>
+            </Button>
+            {seoResult && (
+              <div className="space-y-4">
+                {seoResult.errorMessage && (
+                  <Alert variant="destructive">{seoResult.errorMessage}</Alert>
+                )}
+                {seoWireframe && (
+                  <div className="space-y-1.5 rounded-md border border-[var(--color-border)] p-4 text-sm">
+                    <h3 className="font-display text-base font-semibold">SEO wireframe</h3>
+                    {seoWireframe.seo_title && (
+                      <p><strong className="font-semibold">Title:</strong> {seoWireframe.seo_title}</p>
+                    )}
+                    {seoWireframe.seo_description && (
+                      <p><strong className="font-semibold">Meta:</strong> {seoWireframe.seo_description}</p>
+                    )}
+                    {seoWireframeKeywords.length ? (
+                      <p><strong className="font-semibold">Keywords:</strong> {seoWireframeKeywords.join(', ')}</p>
+                    ) : null}
+                  </div>
+                )}
+                {seoCopyPackage && (
+                  <div className="space-y-2 rounded-md border border-[var(--color-border)] p-4 text-sm">
+                    <h3 className="font-display text-base font-semibold">Collection copy</h3>
+                    {seoCopyPackage.short_description && (
+                      <p className="font-medium">{seoCopyPackage.short_description}</p>
+                    )}
+                    {seoCopyParagraphs.map((paragraph, index) => (
+                      <p key={index}>{paragraph}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {selectedProduct && collectionLogicText.trim() && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">5. Banner</h2>
-          <p className="agents-collection-meta">
-            goal: Collection page traffic (MOFU) · platform: website · image model:
-            google/gemini-3-pro-image · text model: anthropic/claude-opus-5
-          </p>
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={generateBanner}
-              disabled={bannerSubmitting}
-            >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">5. Banner</CardTitle>
+            <CardDescription>
+              goal: Collection page traffic (MOFU) · platform: website · image model:
+              google/gemini-3-pro-image · text model: anthropic/claude-opus-5
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={generateBanner} disabled={bannerSubmitting}>
               {bannerSubmitting ? 'Generating banner…' : 'Generate banner'}
-            </button>
-          </div>
-          {bannerSubmitting && (
-            <p className="agents-muted-inline">
-              Runs strategist → copy → director → image gen → evaluator. Keep this tab open.
-            </p>
-          )}
+            </Button>
+            {bannerSubmitting && (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                Runs strategist → copy → director → image gen → evaluator. Keep this tab open.
+              </p>
+            )}
 
-          {bannerRun && (
-            <>
-              {bannerRun.errorMessage && (
-                <p className="agents-status-err">{bannerRun.errorMessage}</p>
-              )}
-              {bannerImageUrls.length > 0 ? (
-                <div className="agents-banner-grid">
-                  {bannerImageUrls.map((imageUrl) => (
-                    <a
-                      key={imageUrl}
-                      href={imageUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="agents-banner-cell"
-                    >
-                      <img src={imageUrl} alt="Collection banner" loading="lazy" />
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <p className="agents-muted">No images yet.</p>
-              )}
+            {bannerRun && (
+              <div className="space-y-4">
+                {bannerRun.errorMessage && (
+                  <Alert variant="destructive">{bannerRun.errorMessage}</Alert>
+                )}
+                {bannerImageUrls.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    {bannerImageUrls.map((imageUrl) => (
+                      <a
+                        key={imageUrl}
+                        href={imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-lg border border-[var(--color-border)] transition-shadow hover:shadow-md"
+                      >
+                        <img src={imageUrl} alt="Collection banner" loading="lazy" className="h-full w-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[var(--color-muted-foreground)]">No images yet.</p>
+                )}
 
-              {evaluator && (
-                <div className="agents-copy-block">
-                  <h3>Evaluator — quality gate</h3>
-                  <p>
-                    <strong>Composite score: {evaluator.composite_score}</strong> —{' '}
-                    {evaluator.pass ? 'pass' : 'needs review'}
-                  </p>
-                  {(evaluator.variants || []).map((variant) => (
-                    <div key={variant.variant_index}>
-                      {Object.entries(variant.slots || {}).map(([slotName, verdict]) => (
-                        <EvaluatorSlotBreakdown key={slotName} slotName={slotName} verdict={verdict} />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
+                {evaluator && (
+                  <div className="space-y-2 rounded-md border border-[var(--color-border)] p-4">
+                    <h3 className="font-display text-base font-semibold">Evaluator — quality gate</h3>
+                    <p className="text-sm">
+                      <strong className="font-semibold">Composite score: {evaluator.composite_score}</strong> —{' '}
+                      {evaluator.pass ? 'pass' : 'needs review'}
+                    </p>
+                    {(evaluator.variants || []).map((variant) => (
+                      <div key={variant.variant_index} className="space-y-2">
+                        {Object.entries(variant.slots || {}).map(([slotName, verdict]) => (
+                          <EvaluatorSlotBreakdown key={slotName} slotName={slotName} verdict={verdict} />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-              <div className="agents-form-stack agents-regen-stack">
-                <label>
-                  Regenerate hint
-                  <input
-                    value={regenerateHint}
-                    onChange={(event) => setRegenerateHint(event.target.value)}
-                    placeholder="e.g. darker background, sharper product, shorter headline"
-                  />
-                </label>
-                <div className="agents-actions-row compact">
-                  <button
-                    type="button"
-                    className="agents-btn secondary"
-                    onClick={regenerateBanner}
-                    disabled={bannerSubmitting}
-                  >
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="regenerate-hint">Regenerate hint</Label>
+                    <Input
+                      id="regenerate-hint"
+                      value={regenerateHint}
+                      onChange={(event) => setRegenerateHint(event.target.value)}
+                      placeholder="e.g. darker background, sharper product, shorter headline"
+                    />
+                  </div>
+                  <Button variant="secondary" onClick={regenerateBanner} disabled={bannerSubmitting}>
                     {bannerSubmitting ? 'Regenerating…' : 'Regenerate banner'}
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </>
-          )}
-        </section>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {bannerRun && bannerImageUrls.length > 0 && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">6. Apply to collection</h2>
-          <p className="agents-collection-meta">
-            Writes the desktop/mobile banner URLs to this collection's Shopify metafields
-            (namespace <code>minaki.collection_page</code>, same keys the old Collection Pages
-            generator used).
-          </p>
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={applyToCollection}
-              disabled={applySubmitting}
-            >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">6. Apply to collection</CardTitle>
+            <CardDescription>
+              Writes the desktop/mobile banner URLs to this collection's Shopify metafields
+              (namespace <code>minaki.collection_page</code>, same keys the old Collection Pages
+              generator used).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={applyToCollection} disabled={applySubmitting}>
               {applySubmitting ? 'Applying…' : 'Apply banner to collection'}
-            </button>
-          </div>
-          {applyResult && (
-            <p className={applyResult.success ? 'agents-validation' : 'agents-status-err'}>
-              {applyResult.success
-                ? `Applied: ${applyResult.written_metafields.join(', ')}`
-                : `Failed: ${JSON.stringify(applyResult.userErrors)}`}
-            </p>
-          )}
-        </section>
+            </Button>
+            {applyResult && (
+              <Alert variant={applyResult.success ? 'success' : 'destructive'}>
+                {applyResult.success
+                  ? `Applied: ${applyResult.written_metafields.join(', ')}`
+                  : `Failed: ${JSON.stringify(applyResult.userErrors)}`}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
       )}
-      </>
+      </div>
       )}
 
       {activeTab === 'logs' && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">Run logs</h2>
-          <p className="agents-collection-meta">
-            Full history of every run across every agent pod that stores one, with complete
-            output per run — not just the latest one from this session. (Product Writer, Keywords,
-            and Naming Teams don't persist runs, so they have nothing to show here.)
-          </p>
-          <div className="agents-actions-row compact">
-            {LOG_PIPELINES.map((pipeline) => (
-              <button
-                key={pipeline.key}
-                type="button"
-                className={`agents-btn ${logsKind === pipeline.key ? 'primary' : 'secondary'}`}
-                onClick={() => loadLogs(pipeline.key)}
-                disabled={logsLoading}
-              >
-                {pipeline.label}
-              </button>
-            ))}
-          </div>
-
-          {logsError && <p className="agents-status-err">{logsError}</p>}
-          {logsLoading ? (
-            <LoadingSpinner message="Loading runs…" />
-          ) : logsItems.length === 0 ? (
-            <p className="agents-muted">No runs found.</p>
-          ) : (
-            <div className="agents-form-stack">
-              {logsItems.map((row) => {
-                const runId = row.run_id ?? row.id;
-                const key = `${logsKind}:${runId}`;
-                const isExpanded = expandedRunKey === key;
-                return (
-                  <div key={key} className="agents-copy-block">
-                    <button
-                      type="button"
-                      className="agents-btn secondary"
-                      onClick={() => toggleExpandRun(runId, logsKind)}
-                      style={{ width: '100%', textAlign: 'left' }}
-                    >
-                      {isExpanded ? '▾' : '▸'} #{runId} — {row.status || 'unknown'} —{' '}
-                      {LOG_PIPELINES.find((p) => p.key === logsKind).rowLabel(row)}
-                      {row.created_at ? ` — ${row.created_at}` : ''}
-                    </button>
-
-                    {isExpanded && (
-                      <div style={{ marginTop: '0.75rem' }}>
-                        {expandedLoading ? (
-                          <LoadingSpinner message="Loading full run output…" />
-                        ) : expandedDetail ? (
-                          <>
-                            {logsKind === 'copy' && (
-                              <>
-                                {expandedDetail.wireframe && (
-                                  <p>
-                                    <strong>SEO title:</strong>{' '}
-                                    {expandedDetail.wireframe.seo_title || '—'}
-                                    <br />
-                                    <strong>SEO description:</strong>{' '}
-                                    {expandedDetail.wireframe.seo_description || '—'}
-                                  </p>
-                                )}
-                                {expandedDetail.copyPackage?.short_description && (
-                                  <p className="agents-lead">
-                                    {expandedDetail.copyPackage.short_description}
-                                  </p>
-                                )}
-                                {ensureStringArray(expandedDetail.copyPackage?.paragraphs).map(
-                                  (paragraph, index) => (
-                                    <p key={index}>{paragraph}</p>
-                                  )
-                                )}
-                              </>
-                            )}
-                            {logsKind === 'banner' && (
-                              <>
-                                {collectHttpImageUrls(expandedDetail.bannerUrls).length > 0 && (
-                                  <div className="agents-banner-grid">
-                                    {collectHttpImageUrls(expandedDetail.bannerUrls).map((url) => (
-                                      <a
-                                        key={url}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="agents-banner-cell"
-                                      >
-                                        <img src={url} alt="Logged banner" loading="lazy" />
-                                      </a>
-                                    ))}
-                                  </div>
-                                )}
-                                {expandedDetail.decisionLogs?.evaluator && (
-                                  <div style={{ marginTop: '0.5rem' }}>
-                                    <strong>
-                                      Evaluator score:{' '}
-                                      {expandedDetail.decisionLogs.evaluator.composite_score}
-                                    </strong>{' '}
-                                    — {expandedDetail.decisionLogs.evaluator.pass ? 'pass' : 'needs review'}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                            <details style={{ marginTop: '0.75rem' }}>
-                              <summary className="agents-muted-inline">Entire raw output (JSON)</summary>
-                              <pre
-                                style={{
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word',
-                                  maxHeight: '480px',
-                                  overflow: 'auto',
-                                  fontSize: '0.75rem',
-                                  fontFamily:
-                                    'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                                  background: 'rgba(0,0,0,0.03)',
-                                  border: '1px solid rgba(0,0,0,0.08)',
-                                  borderRadius: '6px',
-                                  padding: '0.75rem',
-                                  marginTop: '0.5rem',
-                                }}
-                              >
-                                {JSON.stringify(expandedDetail, null, 2)}
-                              </pre>
-                            </details>
-                          </>
-                        ) : (
-                          <p className="agents-muted">No detail loaded.</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Run logs</CardTitle>
+            <CardDescription>
+              Full history of every run across every agent pod that stores one, with complete
+              output per run — not just the latest one from this session. (Product Writer, Keywords,
+              and Naming Teams don't persist runs, so they have nothing to show here.)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {LOG_PIPELINES.map((pipeline) => (
+                <Button
+                  key={pipeline.key}
+                  variant={logsKind === pipeline.key ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => loadLogs(pipeline.key)}
+                  disabled={logsLoading}
+                >
+                  {pipeline.label}
+                </Button>
+              ))}
             </div>
-          )}
-        </section>
+
+            {logsError && <Alert variant="destructive">{logsError}</Alert>}
+            {logsLoading ? (
+              <LoadingSpinner message="Loading runs…" />
+            ) : logsItems.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">No runs found.</p>
+            ) : (
+              <div className="space-y-3">
+                {logsItems.map((row) => {
+                  const runId = row.run_id ?? row.id;
+                  const key = `${logsKind}:${runId}`;
+                  const isExpanded = expandedRunKey === key;
+                  return (
+                    <div key={key} className="rounded-md border border-[var(--color-border)] p-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => toggleExpandRun(runId, logsKind)}
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        {isExpanded ? '▾' : '▸'} #{runId} — {row.status || 'unknown'} —{' '}
+                        {LOG_PIPELINES.find((p) => p.key === logsKind).rowLabel(row)}
+                        {row.created_at ? ` — ${row.created_at}` : ''}
+                      </Button>
+
+                      {isExpanded && (
+                        <div className="mt-3 space-y-3 text-sm">
+                          {expandedLoading ? (
+                            <LoadingSpinner message="Loading full run output…" />
+                          ) : expandedDetail ? (
+                            <>
+                              {logsKind === 'copy' && (
+                                <>
+                                  {expandedDetail.wireframe && (
+                                    <p>
+                                      <strong className="font-semibold">SEO title:</strong>{' '}
+                                      {expandedDetail.wireframe.seo_title || '—'}
+                                      <br />
+                                      <strong className="font-semibold">SEO description:</strong>{' '}
+                                      {expandedDetail.wireframe.seo_description || '—'}
+                                    </p>
+                                  )}
+                                  {expandedDetail.copyPackage?.short_description && (
+                                    <p className="font-medium">
+                                      {expandedDetail.copyPackage.short_description}
+                                    </p>
+                                  )}
+                                  {ensureStringArray(expandedDetail.copyPackage?.paragraphs).map(
+                                    (paragraph, index) => (
+                                      <p key={index}>{paragraph}</p>
+                                    )
+                                  )}
+                                </>
+                              )}
+                              {logsKind === 'banner' && (
+                                <>
+                                  {collectHttpImageUrls(expandedDetail.bannerUrls).length > 0 && (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                      {collectHttpImageUrls(expandedDetail.bannerUrls).map((url) => (
+                                        <a
+                                          key={url}
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="overflow-hidden rounded-lg border border-[var(--color-border)] transition-shadow hover:shadow-md"
+                                        >
+                                          <img src={url} alt="Logged banner" loading="lazy" className="h-full w-full object-cover" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {expandedDetail.decisionLogs?.evaluator && (
+                                    <div>
+                                      <strong className="font-semibold">
+                                        Evaluator score:{' '}
+                                        {expandedDetail.decisionLogs.evaluator.composite_score}
+                                      </strong>{' '}
+                                      — {expandedDetail.decisionLogs.evaluator.pass ? 'pass' : 'needs review'}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              <details>
+                                <summary className="cursor-pointer text-sm text-[var(--color-muted-foreground)]">
+                                  Entire raw output (JSON)
+                                </summary>
+                                <pre className="mt-2 max-h-[480px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--color-border)] bg-[var(--color-muted)] p-3 font-mono text-xs">
+                                  {JSON.stringify(expandedDetail, null, 2)}
+                                </pre>
+                              </details>
+                            </>
+                          ) : (
+                            <p className="text-sm text-[var(--color-muted-foreground)]">No detail loaded.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {activeTab === 'pricing' && canViewPricing && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">Pricing</h2>
-          <p className="agents-collection-meta">
-            Estimated spend per agent call across recent runs (admin/manager only — the API omits
-            this data entirely for other roles, this isn't just a hidden tab).
-          </p>
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn secondary"
-              onClick={loadPricing}
-              disabled={pricingLoading}
-            >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pricing</CardTitle>
+            <CardDescription>
+              Estimated spend per agent call across recent runs (admin/manager only — the API omits
+              this data entirely for other roles, this isn't just a hidden tab).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button variant="secondary" onClick={loadPricing} disabled={pricingLoading}>
               {pricingLoading ? 'Loading…' : 'Refresh'}
-            </button>
-          </div>
-          {pricingError && <p className="agents-status-err">{pricingError}</p>}
-          {pricingLoading ? (
-            <LoadingSpinner message="Loading pricing across recent runs…" />
-          ) : pricingRows.length === 0 ? (
-            <p className="agents-muted">No cost data recorded on recent runs yet.</p>
-          ) : (
-            <>
-              <p>
-                <strong>Total (last {pricingRows.length} agent calls shown): ${pricingTotalUsd.toFixed(4)}</strong>
+            </Button>
+            {pricingError && <Alert variant="destructive">{pricingError}</Alert>}
+            {pricingLoading ? (
+              <LoadingSpinner message="Loading pricing across recent runs…" />
+            ) : pricingRows.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                No cost data recorded on recent runs yet.
               </p>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="agents-table">
-                  <thead>
-                    <tr>
-                      <th>Run</th>
-                      <th>Pipeline</th>
-                      <th>Agent</th>
-                      <th>Model</th>
-                      <th>Input tokens</th>
-                      <th>Output tokens</th>
-                      <th>Cost (USD)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            ) : (
+              <>
+                <p className="text-sm">
+                  <strong className="font-semibold">
+                    Total (last {pricingRows.length} agent calls shown): ${pricingTotalUsd.toFixed(4)}
+                  </strong>
+                </p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Run</TableHead>
+                      <TableHead>Pipeline</TableHead>
+                      <TableHead>Agent</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead className="text-right">Input tokens</TableHead>
+                      <TableHead className="text-right">Output tokens</TableHead>
+                      <TableHead className="text-right">Cost (USD)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {pricingRows.map((row, index) => (
-                      <tr key={`${row.kind}-${row.runId}-${row.agent}-${index}`}>
-                        <td>#{row.runId}</td>
-                        <td>{row.pipelineLabel}</td>
-                        <td>{row.agent}</td>
-                        <td>{row.model || '—'}</td>
-                        <td>{row.inputTokens ?? '—'}</td>
-                        <td>{row.outputTokens ?? '—'}</td>
-                        <td>${Number(row.costUsd || 0).toFixed(4)}</td>
-                      </tr>
+                      <TableRow key={`${row.kind}-${row.runId}-${row.agent}-${index}`}>
+                        <TableCell>#{row.runId}</TableCell>
+                        <TableCell>{row.pipelineLabel}</TableCell>
+                        <TableCell>{row.agent}</TableCell>
+                        <TableCell>{row.model || '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.inputTokens ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.outputTokens ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">${Number(row.costUsd || 0).toFixed(4)}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </section>
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );

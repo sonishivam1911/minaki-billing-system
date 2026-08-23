@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
-import { LoadingSpinner, ErrorMessage } from '../../components';
+import { LoadingSpinner } from '../../components';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Button } from '../../components/ui/button';
+import { Alert } from '../../components/ui/alert';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../components/ui/select';
 
 const SCOPES = [
   {
@@ -26,6 +37,8 @@ const SCOPES = [
 ];
 
 const VARIANT_COUNT_OPTIONS = [1, 2, 3];
+const AUTO_VALUE = '__auto__';
+const DEFAULT_VALUE = '__default__';
 
 export const AgentSettingsPage = () => {
   const [loading, setLoading] = useState(true);
@@ -120,10 +133,8 @@ export const AgentSettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="screen-container agents-page">
-        <div className="screen-header">
-          <h1 className="screen-title">Agent Settings</h1>
-        </div>
+      <div className="minaki-ui mx-auto max-w-3xl px-4 py-6 sm:px-6">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Agent Settings</h1>
         <AgentsSubnav />
         <LoadingSpinner />
       </div>
@@ -131,139 +142,173 @@ export const AgentSettingsPage = () => {
   }
 
   return (
-    <div className="screen-container agents-page">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">Agent Settings</h1>
-          <p className="screen-subtitle">
-            Global generation defaults shared by Collection Builder, Creative Pod, and Campaign
-            Creative — stored on the server, editable without a redeploy.
-          </p>
-        </div>
-      </div>
+    <div className="minaki-ui mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <header className="mb-2">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Agent Settings</h1>
+        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+          Global generation defaults shared by Collection Builder, Creative Pod, and Campaign
+          Creative — stored on the server, editable without a redeploy.
+        </p>
+      </header>
       <AgentsSubnav />
-      {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />}
+      {errorMessage && (
+        <Alert variant="destructive" title="Couldn't load settings" className="mb-6">
+          {errorMessage}
+        </Alert>
+      )}
 
-      {SCOPES.map((scope) => {
-        const config = settings[scope.key] || {};
-        const laneVariants = visualVariantsByLane[config.brand_lane] || [];
-        return (
-          <section className="agents-card" key={scope.key}>
-            <h2 className="agents-section-title">{scope.label}</h2>
-            <p className="agents-muted">{scope.description}</p>
+      <div className="space-y-6">
+        {SCOPES.map((scope) => {
+          const config = settings[scope.key] || {};
+          const laneVariants = visualVariantsByLane[config.brand_lane] || [];
+          return (
+            <Card key={scope.key}>
+              <CardHeader>
+                <CardTitle>{scope.label}</CardTitle>
+                <CardDescription>{scope.description}</CardDescription>
+              </CardHeader>
 
-            <div className="agents-form-stack">
-              {scope.fields.includes('brand_lane') && (
-                <label>
-                  Default vertical
-                  <select
-                    value={config.brand_lane || ''}
-                    onChange={(event) => updateField(scope.key, 'brand_lane', event.target.value)}
-                  >
-                    <option value="">Auto-classify from brief</option>
-                    {brandLanes.map((row) => (
-                      <option key={row.value} value={row.value}>
-                        {row.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <CardContent className="grid gap-4 sm:grid-cols-2">
+                {scope.fields.includes('brand_lane') && (
+                  <div className="space-y-1.5">
+                    <Label>Default vertical</Label>
+                    <Select
+                      value={config.brand_lane || AUTO_VALUE}
+                      onValueChange={(value) =>
+                        updateField(scope.key, 'brand_lane', value === AUTO_VALUE ? '' : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUTO_VALUE}>Auto-classify from brief</SelectItem>
+                        {brandLanes.map((row) => (
+                          <SelectItem key={row.value} value={row.value}>
+                            {row.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-              {scope.fields.includes('visual_sub_variant') && (
-                <label>
-                  Default scene / mood
-                  <select
-                    value={config.visual_sub_variant || ''}
-                    onChange={(event) =>
-                      updateField(scope.key, 'visual_sub_variant', event.target.value)
-                    }
-                    disabled={!config.brand_lane}
-                  >
-                    <option value="">
-                      {config.brand_lane ? "Lane's default scene" : 'Pick a vertical first'}
-                    </option>
-                    {laneVariants.map((row) => (
-                      <option key={row.value} value={row.value}>
-                        {row.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+                {scope.fields.includes('visual_sub_variant') && (
+                  <div className="space-y-1.5">
+                    <Label>Default scene / mood</Label>
+                    <Select
+                      value={config.visual_sub_variant || DEFAULT_VALUE}
+                      onValueChange={(value) =>
+                        updateField(scope.key, 'visual_sub_variant', value === DEFAULT_VALUE ? '' : value)
+                      }
+                      disabled={!config.brand_lane}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_VALUE}>
+                          {config.brand_lane ? "Lane's default scene" : 'Pick a vertical first'}
+                        </SelectItem>
+                        {laneVariants.map((row) => (
+                          <SelectItem key={row.value} value={row.value}>
+                            {row.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-              {scope.fields.includes('image_model') && (
-                <label>
-                  Default image model
-                  <select
-                    value={config.image_model || ''}
-                    onChange={(event) => updateField(scope.key, 'image_model', event.target.value)}
-                  >
-                    <option value="">Use pipeline default</option>
-                    {imageModels.map((row) => (
-                      <option key={row.value} value={row.value}>
-                        {row.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+                {scope.fields.includes('image_model') && (
+                  <div className="space-y-1.5">
+                    <Label>Default image model</Label>
+                    <Select
+                      value={config.image_model || DEFAULT_VALUE}
+                      onValueChange={(value) =>
+                        updateField(scope.key, 'image_model', value === DEFAULT_VALUE ? '' : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_VALUE}>Use pipeline default</SelectItem>
+                        {imageModels.map((row) => (
+                          <SelectItem key={row.value} value={row.value}>
+                            {row.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-              {scope.fields.includes('text_model') && (
-                <label>
-                  Default text model
-                  <select
-                    value={config.text_model || ''}
-                    onChange={(event) => updateField(scope.key, 'text_model', event.target.value)}
-                  >
-                    <option value="">Use pipeline default</option>
-                    {textModels.map((row) => (
-                      <option key={row.value} value={row.value}>
-                        {row.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+                {scope.fields.includes('text_model') && (
+                  <div className="space-y-1.5">
+                    <Label>Default text model</Label>
+                    <Select
+                      value={config.text_model || DEFAULT_VALUE}
+                      onValueChange={(value) =>
+                        updateField(scope.key, 'text_model', value === DEFAULT_VALUE ? '' : value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_VALUE}>Use pipeline default</SelectItem>
+                        {textModels.map((row) => (
+                          <SelectItem key={row.value} value={row.value}>
+                            {row.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-              {scope.fields.includes('variant_count') && (
-                <label>
-                  Default image variants
-                  <select
-                    value={config.variant_count || 1}
-                    onChange={(event) =>
-                      updateField(scope.key, 'variant_count', Number(event.target.value))
-                    }
-                  >
-                    {VARIANT_COUNT_OPTIONS.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
+                {scope.fields.includes('variant_count') && (
+                  <div className="space-y-1.5">
+                    <Label>Default image variants</Label>
+                    <Select
+                      value={String(config.variant_count || 1)}
+                      onValueChange={(value) => updateField(scope.key, 'variant_count', Number(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VARIANT_COUNT_OPTIONS.map((value) => (
+                          <SelectItem key={value} value={String(value)}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </CardContent>
 
-            <div className="agents-actions-row">
-              <button
-                type="button"
-                className="agents-btn primary"
-                onClick={() => saveScope(scope.key)}
-                disabled={saving[scope.key]}
-              >
-                {saving[scope.key] ? 'Saving…' : 'Save defaults'}
-              </button>
-              {savedAt[scope.key] && (
-                <span className="agents-muted-inline">
-                  Last saved {new Date(savedAt[scope.key]).toLocaleString()}
-                </span>
-              )}
-            </div>
-            {saveError[scope.key] && <ErrorMessage message={saveError[scope.key]} />}
-          </section>
-        );
-      })}
+              <CardFooter className="flex-wrap items-center gap-3">
+                <Button onClick={() => saveScope(scope.key)} disabled={saving[scope.key]}>
+                  {saving[scope.key] ? 'Saving…' : 'Save defaults'}
+                </Button>
+                {savedAt[scope.key] && (
+                  <span className="text-sm text-[var(--color-muted-foreground)]">
+                    Last saved {new Date(savedAt[scope.key]).toLocaleString()}
+                  </span>
+                )}
+                {saveError[scope.key] && (
+                  <Alert variant="destructive" className="w-full">
+                    {saveError[scope.key]}
+                  </Alert>
+                )}
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 };

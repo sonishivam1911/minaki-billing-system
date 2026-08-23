@@ -1,58 +1,50 @@
 import React from 'react';
+import { useIsMobile } from '../../hooks/use-media-query';
 import {
-  FormControl,
-  InputLabel,
-  MenuItem,
   Select,
-  Tabs,
-  Tab,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
 /**
- * In-page mode switch: dropdown on phones, scrollable tabs on desktop.
+ * In-page mode switch: dropdown at <=767px (agents-ui-material.mdc), scrollable tabs above it.
  */
-export const AgentsModeSelect = ({
-  label = 'View',
-  value,
-  onChange,
-  options = [],
-}) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+export const AgentsModeSelect = ({ label = 'View', value, onChange, options = [] }) => {
+  const isMobile = useIsMobile();
 
   if (isMobile) {
     return (
-      <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-        <InputLabel id="agents-mode-label">{label}</InputLabel>
-        <Select
-          labelId="agents-mode-label"
-          label={label}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          {options.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
+      <div className="minaki-ui mb-4">
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger aria-label={label}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
-      </FormControl>
+      </div>
     );
   }
 
   return (
-    <Tabs
-      value={value}
-      onChange={(_event, nextValue) => onChange(nextValue)}
-      variant="scrollable"
-      scrollButtons="auto"
-      sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
-    >
-      {options.map((option) => (
-        <Tab key={option.value} value={option.value} label={option.label} />
-      ))}
-    </Tabs>
+    <div className="minaki-ui mb-4">
+      <Tabs value={value} onValueChange={onChange}>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          {options.map((option) => (
+            <TabsTrigger key={option.value} value={option.value}>
+              {option.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+    </div>
   );
 };

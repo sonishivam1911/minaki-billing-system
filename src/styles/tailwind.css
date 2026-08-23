@@ -1,0 +1,193 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Minaki UI design tokens — "Vault & Ledger" direction.
+ * Two surface languages on one token set: Vault (showcase, image-led,
+ * gold-lit — catalog/agents) and Ledger (flat, hairline, tabular —
+ * invoices/reports/admin). See the design-direction doc for the full
+ * rationale; this file is the literal implementation of its tokens.
+ */
+@theme {
+  --font-display: 'Cormorant Garamond', Didot, 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.625rem;   /* 10px */
+  --radius-lg: 1.125rem;   /* 18px */
+}
+
+:root {
+  /* core palette */
+  --color-ink: #17120e;
+  --color-parchment: #f1e8d3;
+  --color-brass: #a9793c;
+  --color-brass-hi: #c99a55;
+  --color-verdigris: #1f3b32;
+  --color-garnet: #7a2131;
+
+  /* gemstone accent family — tags/status/category only, never chrome */
+  --color-ruby: #9c2b3a;
+  --color-emerald: #1f6b4d;
+  --color-sapphire: #24507a;
+  --color-amethyst: #5b3b7a;
+  --color-citrine: #9a6a06;
+
+  /* semantic surface tokens (what components actually consume) */
+  --color-background: var(--color-parchment);
+  --color-foreground: var(--color-ink);
+
+  --color-surface: #fbf6ea;
+  --color-surface-muted: #e9dcbf;
+
+  --color-primary: var(--color-brass);
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #8f632e;
+
+  --color-secondary: var(--color-verdigris);
+  --color-secondary-foreground: var(--color-parchment);
+
+  --color-muted: #ece0c4;
+  --color-muted-foreground: #6b5d47;
+
+  --color-border: #ddcda3;
+  --color-input: #ddcda3;
+  --color-ring: var(--color-brass);
+
+  --color-accent: #f0ddb0;
+  --color-accent-foreground: #6b5537;
+
+  --color-destructive: var(--color-garnet);
+  --color-destructive-foreground: #ffffff;
+  --color-warning: var(--color-citrine);
+  --color-warning-foreground: #ffffff;
+  --color-success: var(--color-emerald);
+  --color-success-foreground: #ffffff;
+  --color-info: var(--color-sapphire);
+  --color-info-foreground: #ffffff;
+
+  --color-card: #fbf6ea;
+  --color-card-foreground: var(--color-ink);
+
+  --color-popover: #fbf6ea;
+  --color-popover-foreground: var(--color-ink);
+
+  --shadow-showcase: 0 6px 20px rgba(23, 18, 14, 0.10), 0 1px 3px rgba(23, 18, 14, 0.08);
+  --shadow-vault: 0 20px 50px rgba(23, 18, 14, 0.28), 0 4px 14px rgba(23, 18, 14, 0.18);
+}
+
+.dark {
+  --color-background: var(--color-ink);
+  --color-foreground: var(--color-parchment);
+
+  --color-surface: #1f1810;
+  --color-surface-muted: #281f14;
+
+  --color-primary: var(--color-brass-hi);
+  --color-primary-foreground: #1c1710;
+  --color-primary-hover: #dcbe92;
+
+  --color-secondary: #2c5548;
+  --color-secondary-foreground: var(--color-parchment);
+
+  --color-muted: #281f14;
+  --color-muted-foreground: #c2b394;
+
+  --color-border: #3a2f1f;
+  --color-input: #3a2f1f;
+  --color-ring: var(--color-brass-hi);
+
+  --color-accent: #3a2c18;
+  --color-accent-foreground: #dcbe92;
+
+  --color-destructive: #d95a6a;
+  --color-destructive-foreground: #1c1710;
+  --color-warning: #d1a13f;
+  --color-warning-foreground: #1c1710;
+  --color-success: #4f9e7c;
+  --color-success-foreground: #1c1710;
+  --color-info: #5f96c4;
+  --color-info-foreground: #1c1710;
+
+  --color-card: #1f1810;
+  --color-card-foreground: var(--color-parchment);
+
+  --color-popover: #1f1810;
+  --color-popover-foreground: var(--color-parchment);
+
+  --shadow-vault: 0 24px 60px rgba(0, 0, 0, 0.55), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  .minaki-ui {
+    font-family: var(--font-sans);
+    color: var(--color-foreground);
+  }
+  .minaki-ui h1,
+  .minaki-ui h2,
+  .minaki-ui h3,
+  .minaki-ui h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+}
+
+/*
+ * Signature motion: a gold-facet shimmer sweeping across primary buttons on
+ * hover, like light catching metal. Reserved for primary confirm actions —
+ * see .btn-shimmer usage in button.jsx. Respects reduced-motion by simply
+ * not needing motion to be legible (the sweep is decorative, not stateful).
+ */
+@layer utilities {
+  .btn-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.55) 40%, transparent 60%);
+    background-size: 220% 100%;
+    background-position: 150% 0;
+    transition: background-position 0.7s ease;
+    pointer-events: none;
+  }
+  .btn-shimmer:hover::after,
+  .btn-shimmer:focus-visible::after {
+    background-position: -50% 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn-shimmer::after {
+      display: none;
+    }
+  }
+
+  .card-showcase {
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.28s ease;
+  }
+  .card-showcase:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-vault);
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      100deg,
+      var(--color-muted) 30%,
+      color-mix(in srgb, var(--color-primary) 30%, var(--color-muted)) 50%,
+      var(--color-muted) 70%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-sweep 1.6s infinite linear;
+  }
+  @keyframes skeleton-sweep {
+    from { background-position: 120% 0; }
+    to { background-position: -20% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer { animation: none; }
+  }
+}

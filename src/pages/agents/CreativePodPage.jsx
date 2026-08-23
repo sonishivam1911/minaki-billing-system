@@ -3,13 +3,29 @@ import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { FieldLabel } from '../../components/agents/FieldInfoTip';
-import { LoadingSpinner, ErrorMessage } from '../../components';
+import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
+import { FieldInfoTip } from '../../components/agents/FieldInfoTip';
+import { LoadingSpinner } from '../../components';
 import {
   collectHttpImageUrls,
   normalizeCreativePodRunForDisplay,
   parseCommaSeparatedEmails,
 } from './creativePodRun';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Alert } from '../../components/ui/alert';
+import { Checkbox } from '../../components/ui/checkbox';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../components/ui/select';
 
 const RECENT_RUNS_LIMIT = 15;
 const VARIANT_COUNT_OPTIONS = [1, 2, 3];
@@ -17,6 +33,11 @@ const TEXT_RENDER_MODE_OPTIONS = [
   { value: 'no_text', label: 'No text (default)' },
   { value: 'with_text', label: 'With text (burned-in title/subtitle/cta)' },
 ];
+
+// Radix Select can't take an empty-string item value, so every "Auto" /
+// "unset" choice is stored under this sentinel and mapped back to '' in the
+// change handler — same pattern as AgentSettingsPage.
+const AUTO_VALUE = '__auto__';
 
 const FIELD_HELP = {
   brief:
@@ -59,15 +80,57 @@ const FIELD_HELP = {
 
 const ROUTE_LABELS = { A: 'Route A', B: 'Route B' };
 
+// Shared "sub-panel" surface used throughout the agent-output breakdowns
+// below (routes, copy variants, evaluator slots, director scene, etc).
+const BLOCK_CLASS = 'space-y-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-3';
+const META_CLASS = 'text-sm text-[var(--color-muted-foreground)]';
+const HOOK_LIST_CLASS = 'list-disc space-y-1 pl-5 text-sm';
+
+/** Maps a MINAKI brand-lane value to its gemstone Badge variant. */
+const laneBadgeVariant = (laneValue) => {
+  const value = String(laneValue || '').toLowerCase();
+  if (value.includes('bridal')) return 'ruby';
+  if (value.includes('demi')) return 'citrine';
+  if (value.includes('fine')) return 'emerald';
+  return 'outline';
+};
+
+/** Label + optional info-tip, styled with the new Label primitive. */
+const FieldLabelRow = ({ htmlFor, label, info }) => (
+  <div className="flex items-center gap-1.5">
+    <Label htmlFor={htmlFor}>{label}</Label>
+    {info ? <FieldInfoTip label={label}>{info}</FieldInfoTip> : null}
+  </div>
+);
+
+/** Grid of clickable banner thumbnails — reused for reference images, model
+ * comparisons, variant results, and the flat banner fallback. */
+const BannerImageGrid = ({ images, altPrefix }) => {
+  if (!images.length) return null;
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {images.map((imageUrl) => (
+        <Card key={imageUrl} showcase className="overflow-hidden p-0">
+          <a href={imageUrl} target="_blank" rel="noreferrer" className="block">
+            <img src={imageUrl} alt={altPrefix} loading="lazy" className="aspect-square w-full object-cover" />
+          </a>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 const RouteBlock = ({ routeKey, route }) => {
   if (!route) return null;
   return (
-    <div className="agents-copy-block">
-      <p><strong>{ROUTE_LABELS[routeKey] || routeKey}:</strong> {route.angle}</p>
-      {route.emotion && <p className="agents-collection-meta">Emotion: {route.emotion}</p>}
-      {route.gain_quote && <p className="agents-collection-meta">Gain: {route.gain_quote}</p>}
+    <div className={BLOCK_CLASS}>
+      <p className="text-sm">
+        <strong className="font-semibold">{ROUTE_LABELS[routeKey] || routeKey}:</strong> {route.angle}
+      </p>
+      {route.emotion && <p className={META_CLASS}>Emotion: {route.emotion}</p>}
+      {route.gain_quote && <p className={META_CLASS}>Gain: {route.gain_quote}</p>}
       {Array.isArray(route.hooks) && route.hooks.length > 0 && (
-        <ul className="agents-hook-list">
+        <ul className={HOOK_LIST_CLASS}>
           {route.hooks.map((hook) => (
             <li key={hook}>{hook}</li>
           ))}
@@ -80,12 +143,15 @@ const RouteBlock = ({ routeKey, route }) => {
 const CopyVariantBlock = ({ variantKey, variant, isRecommended }) => {
   if (!variant) return null;
   return (
-    <div className="agents-copy-block">
-      <p>
-        <strong>Variant {variantKey}{isRecommended ? ' (recommended)' : ''}:</strong>{' '}
+    <div className={BLOCK_CLASS}>
+      <p className="text-sm">
+        <strong className="font-semibold">
+          Variant {variantKey}
+          {isRecommended ? ' (recommended)' : ''}:
+        </strong>{' '}
         {variant.hook_line}
       </p>
-      {variant.caption && <p className="agents-collection-meta">{variant.caption}</p>}
+      {variant.caption && <p className={META_CLASS}>{variant.caption}</p>}
     </div>
   );
 };
@@ -94,25 +160,25 @@ const EvaluatorSlotBreakdown = ({ slotName, verdict }) => {
   if (!verdict) return null;
   const breakdown = verdict.score_breakdown || [];
   return (
-    <div className="agents-copy-block">
-      <p>
-        <strong>{slotName}:</strong> {verdict.pass ? 'pass' : 'needs review'} — score {verdict.score}
-        {verdict.hard_gate_failed ? ' (hard gate failed)' : ''}
+    <div className={BLOCK_CLASS}>
+      <p className="flex flex-wrap items-center gap-2 text-sm">
+        <strong className="font-semibold">{slotName}:</strong>
+        <Badge variant={verdict.pass ? 'success' : 'warning'}>{verdict.pass ? 'Pass' : 'Needs review'}</Badge>
+        <span>score {verdict.score}</span>
+        {verdict.hard_gate_failed ? <span>(hard gate failed)</span> : null}
       </p>
       {breakdown.length > 0 ? (
-        <ul className="agents-hook-list">
+        <ul className={HOOK_LIST_CLASS}>
           {breakdown.map((entry) => (
             <li key={entry.axis}>
-              <strong>{entry.axis}:</strong>{' '}
+              <strong className="font-semibold">{entry.axis}:</strong>{' '}
               {entry.score !== undefined ? `${entry.score}/100 — ` : `${entry.status} — `}
               {entry.detail}
             </li>
           ))}
         </ul>
       ) : (
-        (verdict.reasons || []).length > 0 && (
-          <p className="agents-collection-meta">{verdict.reasons.join('; ')}</p>
-        )
+        (verdict.reasons || []).length > 0 && <p className={META_CLASS}>{verdict.reasons.join('; ')}</p>
       )}
     </div>
   );
@@ -125,31 +191,22 @@ const ModelComparisonPanel = ({ comparison, loading }) => {
   if (!loading && !comparison) return null;
   const entries = Object.entries(comparison || {});
   return (
-    <div className="agents-copy-block">
-      <h3>Model comparison</h3>
-      {loading && <p className="agents-muted-inline">Generating comparison variants…</p>}
+    <div className={BLOCK_CLASS}>
+      <h3 className="text-sm font-semibold">Model comparison</h3>
+      {loading && <p className={META_CLASS}>Generating comparison variants…</p>}
       {entries.map(([modelId, result]) => (
-        <div key={modelId} className="agents-copy-block">
-          <p>
-            <strong>{modelId}</strong>
+        <div key={modelId} className="space-y-2">
+          <p className="text-sm">
+            <strong className="font-semibold">{modelId}</strong>
             {result.error
               ? ` — failed: ${result.error}`
               : ` — score ${result.quality_score} (${result.pass ? 'pass' : 'needs review'})`}
           </p>
-          {!result.error && collectHttpImageUrls(result.banner_urls).length > 0 && (
-            <div className="agents-banner-grid">
-              {collectHttpImageUrls(result.banner_urls).map((imageUrl) => (
-                <a
-                  key={imageUrl}
-                  href={imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="agents-banner-cell"
-                >
-                  <img src={imageUrl} alt={`${modelId} comparison`} loading="lazy" />
-                </a>
-              ))}
-            </div>
+          {!result.error && (
+            <BannerImageGrid
+              images={collectHttpImageUrls(result.banner_urls)}
+              altPrefix={`${modelId} comparison`}
+            />
           )}
         </div>
       ))}
@@ -176,113 +233,121 @@ const AgentOutputsPanel = ({ contentBrief, copyPack, visualSpec, decisionLogs })
   if (!hasAny) return null;
 
   return (
-    <details className="agents-copy-block agents-agent-outputs">
-      <summary>Full agent outputs (Strategist · Copywriter · Director · Evaluator)</summary>
+    <details className="space-y-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <summary className="cursor-pointer text-sm font-semibold">
+        Full agent outputs (Strategist · Copywriter · Director · Evaluator)
+      </summary>
 
-      {costEntries.length > 0 && (
-        <div className="agents-copy-block">
-          <h3>Cost per agent</h3>
-          <p>
-            <strong>Total: ${totalCost.toFixed(4)}</strong>{' '}
-            <span className="agents-collection-meta">
-              (text-agent/evaluator costs are token counts × OpenRouter's published rates;
-              image generation cost is OpenRouter's own reported spend per call)
-            </span>
-          </p>
-          <ul className="agents-hook-list">
-            {costEntries.map(([agentLabel, entry]) => (
-              <li key={agentLabel}>
-                <strong>{agentLabel}:</strong> ${(entry.cost_usd || 0).toFixed(4)}
-                {entry.model ? ` — ${entry.model}` : ''}
-                {entry.input_tokens !== undefined
-                  ? ` (${entry.input_tokens} in / ${entry.output_tokens} out tokens)`
-                  : entry.calls !== undefined
-                    ? ` (${entry.calls} call${entry.calls === 1 ? '' : 's'})`
-                    : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {routes.length > 0 && (
-        <div className="agents-copy-block">
-          <h3>Strategist — routes</h3>
-          {routes.map(([key, route]) => (
-            <RouteBlock key={key} routeKey={key.replace('route_', '').toUpperCase()} route={route} />
-          ))}
-        </div>
-      )}
-
-      {(Object.keys(copyVariants).length > 0 || copyPack?.claims) && (
-        <div className="agents-copy-block">
-          <h3>Copywriter — copy pack</h3>
-          {Object.entries(copyVariants).map(([key, variant]) => (
-            <CopyVariantBlock
-              key={key}
-              variantKey={key}
-              variant={variant}
-              isRecommended={key === recommendedVariant}
-            />
-          ))}
-          {copyPack?.alt_text && (
-            <p className="agents-collection-meta">Alt text: {copyPack.alt_text}</p>
-          )}
-          {Array.isArray(copyPack?.claims) && copyPack.claims.length > 0 && (
-            <ul className="agents-hook-list">
-              {copyPack.claims.map((claim) => (
-                <li key={claim.text}>{claim.text}</li>
+      <div className="mt-4 space-y-4">
+        {costEntries.length > 0 && (
+          <div className={BLOCK_CLASS}>
+            <h3 className="text-sm font-semibold">Cost per agent</h3>
+            <p className="text-sm">
+              <strong className="font-semibold">Total: ${totalCost.toFixed(4)}</strong>{' '}
+              <span className={META_CLASS}>
+                (text-agent/evaluator costs are token counts × OpenRouter's published rates; image
+                generation cost is OpenRouter's own reported spend per call)
+              </span>
+            </p>
+            <ul className={HOOK_LIST_CLASS}>
+              {costEntries.map(([agentLabel, entry]) => (
+                <li key={agentLabel}>
+                  <strong className="font-semibold">{agentLabel}:</strong> ${(entry.cost_usd || 0).toFixed(4)}
+                  {entry.model ? ` — ${entry.model}` : ''}
+                  {entry.input_tokens !== undefined
+                    ? ` (${entry.input_tokens} in / ${entry.output_tokens} out tokens)`
+                    : entry.calls !== undefined
+                      ? ` (${entry.calls} call${entry.calls === 1 ? '' : 's'})`
+                      : ''}
+                </li>
               ))}
             </ul>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {(visualSpec || director) && (
-        <div className="agents-copy-block">
-          <h3>Director — scene</h3>
-          {visualSpec?.concept && <p><strong>Concept:</strong> {visualSpec.concept}</p>}
-          {visualSpec?.mood && <p className="agents-collection-meta">Mood: {visualSpec.mood}</p>}
-          {visualSpec?.pose && <p className="agents-collection-meta">Pose: {visualSpec.pose}</p>}
-          {visualSpec?.casting && (
-            <p className="agents-collection-meta">Casting: {visualSpec.casting}</p>
-          )}
-          {visualSpec?.color_notes && (
-            <p className="agents-collection-meta">Colors: {visualSpec.color_notes}</p>
-          )}
-          {typography && (
-            <p className="agents-collection-meta">
-              Text placement: {typography.title_position || 'auto'}
-              {typography.contrast_notes ? ` — ${typography.contrast_notes}` : ''}
-            </p>
-          )}
-          {director?.scene && <p className="agents-collection-meta">Scene: {director.scene}</p>}
-          {director?.product_fidelity && (
-            <p className="agents-collection-meta">Product fidelity: {director.product_fidelity}</p>
-          )}
-          {director?.legibility && (
-            <p className="agents-collection-meta">Legibility: {director.legibility}</p>
-          )}
-        </div>
-      )}
-
-      {evaluator && (
-        <div className="agents-copy-block">
-          <h3>Evaluator — quality gate</h3>
-          <p>
-            <strong>Composite score: {evaluator.composite_score}</strong> —{' '}
-            {evaluator.pass ? 'pass' : 'needs review'}
-          </p>
-          {(evaluator.variants || []).map((variant) => (
-            <div key={variant.variant_index}>
-              <p className="agents-collection-meta">Variant {variant.variant_index}</p>
-              {Object.entries(variant.slots || {}).map(([slotName, verdict]) => (
-                <EvaluatorSlotBreakdown key={slotName} slotName={slotName} verdict={verdict} />
+        {routes.length > 0 && (
+          <div className={BLOCK_CLASS}>
+            <h3 className="text-sm font-semibold">Strategist — routes</h3>
+            <div className="space-y-2">
+              {routes.map(([key, route]) => (
+                <RouteBlock key={key} routeKey={key.replace('route_', '').toUpperCase()} route={route} />
               ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {(Object.keys(copyVariants).length > 0 || copyPack?.claims) && (
+          <div className={BLOCK_CLASS}>
+            <h3 className="text-sm font-semibold">Copywriter — copy pack</h3>
+            <div className="space-y-2">
+              {Object.entries(copyVariants).map(([key, variant]) => (
+                <CopyVariantBlock
+                  key={key}
+                  variantKey={key}
+                  variant={variant}
+                  isRecommended={key === recommendedVariant}
+                />
+              ))}
+            </div>
+            {copyPack?.alt_text && <p className={META_CLASS}>Alt text: {copyPack.alt_text}</p>}
+            {Array.isArray(copyPack?.claims) && copyPack.claims.length > 0 && (
+              <ul className={HOOK_LIST_CLASS}>
+                {copyPack.claims.map((claim) => (
+                  <li key={claim.text}>{claim.text}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {(visualSpec || director) && (
+          <div className={BLOCK_CLASS}>
+            <h3 className="text-sm font-semibold">Director — scene</h3>
+            {visualSpec?.concept && (
+              <p className="text-sm">
+                <strong className="font-semibold">Concept:</strong> {visualSpec.concept}
+              </p>
+            )}
+            {visualSpec?.mood && <p className={META_CLASS}>Mood: {visualSpec.mood}</p>}
+            {visualSpec?.pose && <p className={META_CLASS}>Pose: {visualSpec.pose}</p>}
+            {visualSpec?.casting && <p className={META_CLASS}>Casting: {visualSpec.casting}</p>}
+            {visualSpec?.color_notes && <p className={META_CLASS}>Colors: {visualSpec.color_notes}</p>}
+            {typography && (
+              <p className={META_CLASS}>
+                Text placement: {typography.title_position || 'auto'}
+                {typography.contrast_notes ? ` — ${typography.contrast_notes}` : ''}
+              </p>
+            )}
+            {director?.scene && <p className={META_CLASS}>Scene: {director.scene}</p>}
+            {director?.product_fidelity && (
+              <p className={META_CLASS}>Product fidelity: {director.product_fidelity}</p>
+            )}
+            {director?.legibility && <p className={META_CLASS}>Legibility: {director.legibility}</p>}
+          </div>
+        )}
+
+        {evaluator && (
+          <div className={BLOCK_CLASS}>
+            <h3 className="text-sm font-semibold">Evaluator — quality gate</h3>
+            <p className="flex flex-wrap items-center gap-2 text-sm">
+              <strong className="font-semibold">Composite score: {evaluator.composite_score}</strong>
+              <Badge variant={evaluator.pass ? 'success' : 'warning'}>
+                {evaluator.pass ? 'Pass' : 'Needs review'}
+              </Badge>
+            </p>
+            <div className="space-y-2">
+              {(evaluator.variants || []).map((variant) => (
+                <div key={variant.variant_index} className="space-y-2">
+                  <p className={META_CLASS}>Variant {variant.variant_index}</p>
+                  {Object.entries(variant.slots || {}).map(([slotName, verdict]) => (
+                    <EvaluatorSlotBreakdown key={slotName} slotName={slotName} verdict={verdict} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </details>
   );
 };
@@ -386,6 +451,7 @@ export const CreativePodPage = () => {
   useEffect(() => {
     loadCatalog();
     loadRecentRuns();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const createCreativePodRun = async () => {
@@ -550,580 +616,617 @@ export const CreativePodPage = () => {
   const bannerImageUrls = collectHttpImageUrls(activeRun?.bannerUrls);
   const variantCards = activeRun?.variants || [];
   const selectedPlatform = platforms.find((row) => row.platform === platform);
+  const prefilledImages = prefilledReferenceImages
+    ? [prefilledReferenceImages.productImageUrl, ...(prefilledReferenceImages.lifestyleImageUrls || [])].filter(
+        Boolean
+      )
+    : [];
+
+  const RUN_COLUMNS = [
+    { key: 'id', label: 'ID' },
+    { key: 'goal_type', label: 'Goal', render: (row) => row.goal_type || '—' },
+    { key: 'status', label: 'Status' },
+    { key: 'brief_text', label: 'Brief', render: (row) => (row.brief_text || '').slice(0, 60) || '—' },
+    {
+      key: 'actions',
+      label: '',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => viewRunDetails(row.id)}>
+            View
+          </Button>
+          <span className="text-[var(--color-muted-foreground)]">·</span>
+          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => prefillFormFromRunId(row.id)}>
+            Rerun
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="screen-container agents-page creative-pod-page">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">Banner Generation</h1>
-          <p className="screen-subtitle">
-            Creative Pod — pick goal + platform, upload a product image, generate banners, then
-            regenerate with feedback
-          </p>
-        </div>
-      </div>
+    <div className="minaki-ui mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6">
+      <header className="mb-2">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Banner Generation</h1>
+        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+          Creative Pod — pick goal + platform, upload a product image, generate banners, then
+          regenerate with feedback
+        </p>
+      </header>
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.banners} />
       {errorMessage && (
-        <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />
+        <Alert variant="destructive" title="Something went wrong" className="mb-4">
+          {errorMessage}
+        </Alert>
       )}
 
       {!schemaReady && (
-        <div className="agents-card agents-alert">
-          <p>
-            Creative pod runs table is missing or file-fallback is active. Apply the{' '}
-            <code>creative_pod_runs</code> migration on Postgres when ready; local file storage still
-            works for testing.
-          </p>
-        </div>
+        <Alert variant="warning" className="mb-6">
+          Creative pod runs table is missing or file-fallback is active. Apply the{' '}
+          <code>creative_pod_runs</code> migration on Postgres when ready; local file storage still
+          works for testing.
+        </Alert>
       )}
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">New banner run</h2>
-        {prefilledFromRunId && (
-          <div className="agents-alert agents-prefill-banner">
-            <p>
-              Prefilled from Run #{prefilledFromRunId} — all fields below are editable.
-              File inputs can&apos;t be prefilled by the browser, so you must upload the
-              product image (and lifestyle images, if any) again to submit.
-            </p>
-            {prefilledReferenceImages?.productImageUrl && (
-              <div className="agents-banner-grid">
-                <a
-                  href={prefilledReferenceImages.productImageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="agents-banner-cell"
-                >
-                  <img src={prefilledReferenceImages.productImageUrl} alt="Previous product reference" loading="lazy" />
-                </a>
-                {(prefilledReferenceImages.lifestyleImageUrls || []).map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="agents-banner-cell">
-                    <img src={url} alt="Previous lifestyle reference" loading="lazy" />
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="agents-form-stack">
-          <label>
-            <FieldLabel label="Brief" info={FIELD_HELP.brief} />
-            <textarea
-              value={briefText}
-              onChange={(event) => setBriefText(event.target.value)}
-              rows={4}
-              placeholder="e.g. Diwali gifting hero for crystal earrings collection — traffic to collection page"
-            />
-          </label>
-
-          <label>
-            <FieldLabel label="Goal" info={FIELD_HELP.goal} />
-            <select value={goalType} onChange={(event) => setGoalType(event.target.value)}>
-              <option value="">Auto-map from brief</option>
-              {goals.map((goal) => (
-                <option key={goal.goal_type} value={goal.goal_type}>
-                  {goal.label || goal.goal_type}
-                  {goal.funnel ? ` · ${goal.funnel}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <FieldLabel label="Goal detail (optional)" info={FIELD_HELP.goalDetail} />
-            <input
-              value={goalDetail}
-              onChange={(event) => setGoalDetail(event.target.value)}
-              placeholder="Extra nuance for the strategist"
-            />
-          </label>
-
-          <label>
-            <FieldLabel label="Platform" info={FIELD_HELP.platform} />
-            <select value={platform} onChange={(event) => setPlatform(event.target.value)}>
-              {platforms.map((row) => (
-                <option key={row.platform} value={row.platform}>
-                  {row.label}
-                  {row.category ? ` (${row.category})` : ''}
-                </option>
-              ))}
-              {!platforms.length && <option value="website">Our website</option>}
-            </select>
-            {selectedPlatform?.description && (
-              <span className="agents-collection-meta">{selectedPlatform.description}</span>
-            )}
-          </label>
-
-          <label>
-            <FieldLabel label="Vertical" info={FIELD_HELP.brandLane} />
-            <select value={brandLane} onChange={(event) => setBrandLane(event.target.value)}>
-              <option value="">Auto-classify from brief</option>
-              {brandLanes.map((row) => (
-                <option key={row.value} value={row.value}>
-                  {row.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="agents-form-row">
-            <label>
-              <FieldLabel label="Image variants" info={FIELD_HELP.variantCount} />
-              <select
-                value={variantCount}
-                onChange={(event) => setVariantCount(Number(event.target.value))}
-              >
-                {VARIANT_COUNT_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <FieldLabel label="Text render mode" info={FIELD_HELP.textRenderMode} />
-              <select
-                value={textRenderMode}
-                onChange={(event) => setTextRenderMode(event.target.value)}
-              >
-                {TEXT_RENDER_MODE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="agents-form-row">
-            <label>
-              <FieldLabel label="Text-safe space" info={FIELD_HELP.titlePosition} />
-              <select value={titlePosition} onChange={(event) => setTitlePosition(event.target.value)}>
-                <option value="">Auto (Director picks)</option>
-                {textPlacements.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div>
-            <FieldLabel label="Image model(s)" info={FIELD_HELP.imageModelMulti} />
-            <div className="agents-check-group agents-compare-models-group">
-              {imageModels.map((option) => (
-                <label key={option.value}>
-                  <input
-                    type="checkbox"
-                    checked={selectedImageModels.includes(option.value)}
-                    onChange={() => toggleImageModelSelection(option.value)}
-                  />
-                  {option.label}
-                </label>
-              ))}
-              {!imageModels.length && (
-                <span className="agents-collection-meta">No models loaded yet.</span>
-              )}
-            </div>
-            {selectedImageModels.length === 0 && (
-              <span className="agents-collection-meta">
-                None checked = Auto ({imageModels.find((m) => m.value === defaultImageModel)?.label || defaultImageModel || 'default'}).
-              </span>
-            )}
-            {selectedImageModels.length === 1 && (
-              <span className="agents-collection-meta">Single model — this run's primary result.</span>
-            )}
-            {selectedImageModels.length > 1 && (
-              <span className="agents-collection-meta">
-                First checked ({imageModels.find((m) => m.value === selectedImageModels[0])?.label || selectedImageModels[0]}) is the primary result. The other {selectedImageModels.length - 1} will be generated and evaluated as comparisons, stored on this same run, right after.
-              </span>
-            )}
-          </div>
-
-          <label>
-            <FieldLabel label="Text model (Strategist/Copywriter/Director)" info={FIELD_HELP.textModel} />
-            <input
-              value={textModelFilter}
-              onChange={(event) => setTextModelFilter(event.target.value)}
-              placeholder={`Search ${textModels.length || ''} models…`}
-              className="agents-model-filter"
-            />
-            <select value={textModel} onChange={(event) => setTextModel(event.target.value)}>
-              <option value="">Auto (default)</option>
-              {textModels
-                .filter((option) => {
-                  const needle = textModelFilter.trim().toLowerCase();
-                  if (!needle) return true;
-                  return (
-                    option.value.toLowerCase().includes(needle) ||
-                    (option.label || '').toLowerCase().includes(needle)
-                  );
-                })
-                .map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-            </select>
-          </label>
-
-          <div className="agents-form-row">
-            <label>
-              <FieldLabel label="Custom width (px)" info={FIELD_HELP.customWidth} />
-              <input
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={customWidth}
-                onChange={(event) => setCustomWidth(event.target.value)}
-                placeholder="optional — platform default"
-              />
-            </label>
-            <label>
-              <FieldLabel label="Custom height (px)" info={FIELD_HELP.customHeight} />
-              <input
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={customHeight}
-                onChange={(event) => setCustomHeight(event.target.value)}
-                placeholder="optional — platform default"
-              />
-            </label>
-          </div>
-
-          <label>
-            <FieldLabel label="Product image (required)" info={FIELD_HELP.productImage} />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => setProductImageFile(event.target.files?.[0] || null)}
-            />
-            {productImageFile && (
-              <span className="agents-collection-meta">{productImageFile.name}</span>
-            )}
-          </label>
-
-          <label>
-            <FieldLabel
-              label="Product description (optional)"
-              info={FIELD_HELP.productDescription}
-            />
-            <textarea
-              value={productDescription}
-              onChange={(event) => setProductDescription(event.target.value)}
-              placeholder="e.g. rigid open-cuff bangle, single CZ stone, split-wire silhouette — NOT a ring, NOT a chain-link bracelet"
-              rows={2}
-            />
-          </label>
-
-          <label>
-            <FieldLabel
-              label="Lifestyle reference images (optional)"
-              info={FIELD_HELP.lifestyleImages}
-            />
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(event) => setLifestyleImageFiles(Array.from(event.target.files || []))}
-            />
-            {lifestyleImageFiles.length > 0 && (
-              <span className="agents-collection-meta">
-                {lifestyleImageFiles.length} file{lifestyleImageFiles.length === 1 ? '' : 's'}{' '}
-                selected
-              </span>
-            )}
-          </label>
-
-          <label>
-            <FieldLabel label="Notify emails" info={FIELD_HELP.notifyEmails} />
-            <input
-              value={notifyEmails}
-              onChange={(event) => setNotifyEmails(event.target.value)}
-              placeholder="you@minaki.com, team@minaki.com"
-              inputMode="email"
-              autoComplete="email"
-            />
-          </label>
-
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={createCreativePodRun}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Generating banners…' : 'Generate banners'}
-            </button>
-          </div>
-        </div>
-        {isSubmitting && (
-          <p className="agents-muted-inline">
-            Creative Pod runs strategist → copy → director → image gen. Keep this tab open.
-            {selectedImageModels.length > 1
-              ? ` Then compares against ${selectedImageModels.length - 1} additional model${selectedImageModels.length - 1 === 1 ? '' : 's'}.`
-              : ''}
-          </p>
-        )}
-      </section>
-
-      {activeRun && (
-        <section className="agents-card">
-          <div className="agents-actions-row compact agents-run-header-actions">
-            <h2 className="agents-section-title">
-              Run #{activeRun.runId} — {activeRun.status}
-            </h2>
-            <button
-              type="button"
-              className="agents-btn secondary"
-              onClick={() => prefillFormFromRun(activeRun)}
-            >
-              Prefill form to rerun with changes
-            </button>
-          </div>
-          {activeRun.errorMessage && (
-            <p className="agents-status-err">{activeRun.errorMessage}</p>
-          )}
-          <p className="agents-muted">
-            {[activeRun.goalType, activeRun.platformLabel || activeRun.platform, activeRun.brandLane]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-          {(activeRun.inImageTitle || activeRun.inImageSubtitle || activeRun.inImageCta) && (
-            <div className="agents-copy-block">
-              <h3>In-image copy</h3>
-              {activeRun.inImageTitle && <p><strong>Title:</strong> {activeRun.inImageTitle}</p>}
-              {activeRun.inImageSubtitle && (
-                <p><strong>Subtitle:</strong> {activeRun.inImageSubtitle}</p>
-              )}
-              {activeRun.inImageCta && <p><strong>CTA:</strong> {activeRun.inImageCta}</p>}
-            </div>
-          )}
-
-          <AgentOutputsPanel
-            contentBrief={activeRun.contentBrief}
-            copyPack={activeRun.copyPack}
-            visualSpec={activeRun.visualSpec}
-            decisionLogs={activeRun.decisionLogs}
-          />
-
-          <ModelComparisonPanel comparison={modelComparison} loading={comparingModels} />
-
-          {variantCards.length > 0 ? (
-            variantCards.map((variantCard) => (
-              <div key={`variant-${variantCard.variantIndex}`} className="agents-copy-block">
-                <h3>
-                  Variant {variantCard.variantIndex}
-                  {variantCard.diversityLabel ? ` — ${variantCard.diversityLabel}` : ''}
-                </h3>
-                {variantCard.castingKey && (
-                  <p className="agents-collection-meta">Casting: {variantCard.castingKey}</p>
-                )}
-                {variantCard.ocr && (
-                  <p className="agents-validation">
-                    Text QA:{' '}
-                    {variantCard.ocr.pass
-                      ? 'pass'
-                      : `needs review (${(variantCard.ocr.reasons || []).join('; ') || 'failed'})`}
-                    {variantCard.ocr.attempt ? ` · attempt ${variantCard.ocr.attempt}` : ''}
-                    {variantCard.ocr.image_model ? ` · ${variantCard.ocr.image_model}` : ''}
-                  </p>
-                )}
-                {variantCard.imageUrls.length > 0 ? (
-                  <div className="agents-banner-grid">
-                    {variantCard.imageUrls.map((imageUrl) => (
-                      <a
-                        key={imageUrl}
-                        href={imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="agents-banner-cell"
-                      >
-                        <img
-                          src={imageUrl}
-                          alt={`Creative pod variant ${variantCard.variantIndex}`}
-                          loading="lazy"
-                        />
-                      </a>
-                    ))}
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>New banner run</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {prefilledFromRunId && (
+              <Alert variant="info">
+                <p>
+                  Prefilled from Run #{prefilledFromRunId} — all fields below are editable. File
+                  inputs can&apos;t be prefilled by the browser, so you must upload the product image
+                  (and lifestyle images, if any) again to submit.
+                </p>
+                {prefilledImages.length > 0 && (
+                  <div className="mt-3">
+                    <BannerImageGrid images={prefilledImages} altPrefix="Previous reference" />
                   </div>
-                ) : (
-                  <p className="agents-muted">No images for this variant.</p>
                 )}
-              </div>
-            ))
-          ) : (
-            bannerImageUrls.length > 0 && (
-              <div className="agents-banner-grid">
-                {bannerImageUrls.map((imageUrl) => (
-                  <a
-                    key={imageUrl}
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="agents-banner-cell"
-                  >
-                    <img src={imageUrl} alt="Creative pod banner" loading="lazy" />
-                  </a>
-                ))}
-              </div>
-            )
-          )}
+              </Alert>
+            )}
 
-          {activeRun.emailNotification && (
-            <p className="agents-validation">
-              Email:{' '}
-              {activeRun.emailNotification.success
-                ? activeRun.emailNotification.message || 'sent'
-                : activeRun.emailNotification.error ||
-                  activeRun.emailNotification.message ||
-                  'skipped/failed'}
-            </p>
-          )}
-
-          <div className="agents-form-stack agents-regen-stack">
-            <label>
-              <FieldLabel label="Regenerate hint" info={FIELD_HELP.regenerateHint} />
-              <input
-                value={regenerateHint}
-                onChange={(event) => setRegenerateHint(event.target.value)}
-                placeholder="e.g. darker background, sharper product, shorter headline"
+            <div className="space-y-1.5">
+              <FieldLabelRow htmlFor="cp-brief" label="Brief" info={FIELD_HELP.brief} />
+              <Textarea
+                id="cp-brief"
+                value={briefText}
+                onChange={(event) => setBriefText(event.target.value)}
+                rows={4}
+                placeholder="e.g. Diwali gifting hero for crystal earrings collection — traffic to collection page"
               />
-            </label>
-            <label>
-              <FieldLabel
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <FieldLabelRow label="Goal" info={FIELD_HELP.goal} />
+                <Select
+                  value={goalType || AUTO_VALUE}
+                  onValueChange={(value) => setGoalType(value === AUTO_VALUE ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AUTO_VALUE}>Auto-map from brief</SelectItem>
+                    {goals.map((goal) => (
+                      <SelectItem key={goal.goal_type} value={goal.goal_type}>
+                        {goal.label || goal.goal_type}
+                        {goal.funnel ? ` · ${goal.funnel}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <FieldLabelRow htmlFor="cp-platform" label="Platform" info={FIELD_HELP.platform} />
+                <Select value={platform} onValueChange={setPlatform}>
+                  <SelectTrigger id="cp-platform">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {platforms.length ? (
+                      platforms.map((row) => (
+                        <SelectItem key={row.platform} value={row.platform}>
+                          {row.label}
+                          {row.category ? ` (${row.category})` : ''}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="website">Our website</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {selectedPlatform?.description && <p className={META_CLASS}>{selectedPlatform.description}</p>}
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <FieldLabelRow htmlFor="cp-goal-detail" label="Goal detail (optional)" info={FIELD_HELP.goalDetail} />
+                <Input
+                  id="cp-goal-detail"
+                  value={goalDetail}
+                  onChange={(event) => setGoalDetail(event.target.value)}
+                  placeholder="Extra nuance for the strategist"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <FieldLabelRow label="Vertical" info={FIELD_HELP.brandLane} />
+                <Select
+                  value={brandLane || AUTO_VALUE}
+                  onValueChange={(value) => setBrandLane(value === AUTO_VALUE ? '' : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={AUTO_VALUE}>Auto-classify from brief</SelectItem>
+                    {brandLanes.map((row) => (
+                      <SelectItem key={row.value} value={row.value}>
+                        {row.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <FieldLabelRow label="Image variants" info={FIELD_HELP.variantCount} />
+                <Select value={String(variantCount)} onValueChange={(value) => setVariantCount(Number(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VARIANT_COUNT_OPTIONS.map((value) => (
+                      <SelectItem key={value} value={String(value)}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <FieldLabelRow label="Text render mode" info={FIELD_HELP.textRenderMode} />
+                <Select value={textRenderMode} onValueChange={setTextRenderMode}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEXT_RENDER_MODE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow label="Text-safe space" info={FIELD_HELP.titlePosition} />
+              <Select
+                value={titlePosition || AUTO_VALUE}
+                onValueChange={(value) => setTitlePosition(value === AUTO_VALUE ? '' : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={AUTO_VALUE}>Auto (Director picks)</SelectItem>
+                  {textPlacements.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow label="Image model(s)" info={FIELD_HELP.imageModelMulti} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {imageModels.map((option) => (
+                  <label key={option.value} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selectedImageModels.includes(option.value)}
+                      onCheckedChange={() => toggleImageModelSelection(option.value)}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+                {!imageModels.length && <p className={META_CLASS}>No models loaded yet.</p>}
+              </div>
+              {selectedImageModels.length === 0 && (
+                <p className={META_CLASS}>
+                  None checked = Auto (
+                  {imageModels.find((m) => m.value === defaultImageModel)?.label || defaultImageModel || 'default'}
+                  ).
+                </p>
+              )}
+              {selectedImageModels.length === 1 && (
+                <p className={META_CLASS}>Single model — this run's primary result.</p>
+              )}
+              {selectedImageModels.length > 1 && (
+                <p className={META_CLASS}>
+                  First checked (
+                  {imageModels.find((m) => m.value === selectedImageModels[0])?.label || selectedImageModels[0]}) is
+                  the primary result. The other {selectedImageModels.length - 1} will be generated and evaluated as
+                  comparisons, stored on this same run, right after.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow
+                htmlFor="cp-text-model-filter"
+                label="Text model (Strategist/Copywriter/Director)"
+                info={FIELD_HELP.textModel}
+              />
+              <Input
+                id="cp-text-model-filter"
+                value={textModelFilter}
+                onChange={(event) => setTextModelFilter(event.target.value)}
+                placeholder={`Search ${textModels.length || ''} models…`}
+              />
+              <Select
+                value={textModel || AUTO_VALUE}
+                onValueChange={(value) => setTextModel(value === AUTO_VALUE ? '' : value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={AUTO_VALUE}>Auto (default)</SelectItem>
+                  {textModels
+                    .filter((option) => {
+                      const needle = textModelFilter.trim().toLowerCase();
+                      if (!needle) return true;
+                      return (
+                        option.value.toLowerCase().includes(needle) ||
+                        (option.label || '').toLowerCase().includes(needle)
+                      );
+                    })
+                    .map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <FieldLabelRow htmlFor="cp-custom-width" label="Custom width (px)" info={FIELD_HELP.customWidth} />
+                <Input
+                  id="cp-custom-width"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={customWidth}
+                  onChange={(event) => setCustomWidth(event.target.value)}
+                  placeholder="optional — platform default"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabelRow htmlFor="cp-custom-height" label="Custom height (px)" info={FIELD_HELP.customHeight} />
+                <Input
+                  id="cp-custom-height"
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={customHeight}
+                  onChange={(event) => setCustomHeight(event.target.value)}
+                  placeholder="optional — platform default"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow htmlFor="cp-product-image" label="Product image (required)" info={FIELD_HELP.productImage} />
+              <input
+                id="cp-product-image"
+                type="file"
+                accept="image/*"
+                onChange={(event) => setProductImageFile(event.target.files?.[0] || null)}
+                className="block w-full text-sm text-[var(--color-foreground)] file:mr-3 file:rounded-md file:border file:border-[var(--color-border)] file:bg-[var(--color-secondary)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--color-secondary-foreground)] hover:file:opacity-90"
+              />
+              {productImageFile && <p className={META_CLASS}>{productImageFile.name}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow
+                htmlFor="cp-product-description"
                 label="Product description (optional)"
                 info={FIELD_HELP.productDescription}
               />
-              <textarea
-                value={regenerateProductDescription}
-                onChange={(event) => setRegenerateProductDescription(event.target.value)}
+              <Textarea
+                id="cp-product-description"
+                value={productDescription}
+                onChange={(event) => setProductDescription(event.target.value)}
                 placeholder="e.g. rigid open-cuff bangle, single CZ stone, split-wire silhouette — NOT a ring, NOT a chain-link bracelet"
                 rows={2}
               />
-            </label>
-            <div className="agents-form-row">
-              <label>
-                <FieldLabel label="Image model" info={FIELD_HELP.imageModel} />
-                <select
-                  value={regenerateImageModel}
-                  onChange={(event) => setRegenerateImageModel(event.target.value)}
-                >
-                  <option value="">Auto (Seedream 4.5)</option>
-                  {imageModels.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <FieldLabel label="Text-safe space" info={FIELD_HELP.titlePosition} />
-                <select
-                  value={regenerateTitlePosition}
-                  onChange={(event) => setRegenerateTitlePosition(event.target.value)}
-                >
-                  <option value="">Auto (Director picks)</option>
-                  {textPlacements.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <FieldLabel
-                  label="Vertical"
-                  info="Casting/color-lock override only — regenerate never re-runs the Director, so this can't rewrite prompt text."
-                />
-                <select
-                  value={regenerateBrandLane}
-                  onChange={(event) => setRegenerateBrandLane(event.target.value)}
-                >
-                  <option value="">Keep run's lane</option>
-                  {brandLanes.map((row) => (
-                    <option key={row.value} value={row.value}>
-                      {row.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
-            <div className="agents-actions-row compact">
-              <button
-                type="button"
-                className="agents-btn primary"
-                onClick={regenerateBanners}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Regenerating…' : 'Regenerate banners'}
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">Recent runs</h2>
-        <div className="agents-actions-row compact">
-          <button
-            type="button"
-            className="agents-btn secondary"
-            onClick={loadRecentRuns}
-            disabled={recentRunsLoading}
-          >
-            Refresh
-          </button>
-        </div>
-        {recentRunsLoading ? (
-          <LoadingSpinner message="Loading runs…" />
-        ) : (
-          <div className="agents-table-wrap">
-            <p className="agents-preview-skus">{recentRunsTotal} total runs</p>
-            <table className="agents-table creative-pod-runs-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Goal</th>
-                  <th>Status</th>
-                  <th>Brief</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {recentRuns.map((runRow) => (
-                  <tr key={runRow.id}>
-                    <td data-label="ID">{runRow.id}</td>
-                    <td data-label="Goal">{runRow.goal_type || '—'}</td>
-                    <td data-label="Status">{runRow.status}</td>
-                    <td data-label="Brief">{(runRow.brief_text || '').slice(0, 60) || '—'}</td>
-                    <td data-label="">
-                      <button
-                        type="button"
-                        className="agents-link-btn"
-                        onClick={() => viewRunDetails(runRow.id)}
-                      >
-                        View
-                      </button>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="agents-link-btn"
-                        onClick={() => prefillFormFromRunId(runRow.id)}
-                      >
-                        Rerun
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+            <div className="space-y-1.5">
+              <FieldLabelRow
+                htmlFor="cp-lifestyle-images"
+                label="Lifestyle reference images (optional)"
+                info={FIELD_HELP.lifestyleImages}
+              />
+              <input
+                id="cp-lifestyle-images"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(event) => setLifestyleImageFiles(Array.from(event.target.files || []))}
+                className="block w-full text-sm text-[var(--color-foreground)] file:mr-3 file:rounded-md file:border file:border-[var(--color-border)] file:bg-[var(--color-secondary)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--color-secondary-foreground)] hover:file:opacity-90"
+              />
+              {lifestyleImageFiles.length > 0 && (
+                <p className={META_CLASS}>
+                  {lifestyleImageFiles.length} file{lifestyleImageFiles.length === 1 ? '' : 's'} selected
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <FieldLabelRow htmlFor="cp-notify-emails" label="Notify emails" info={FIELD_HELP.notifyEmails} />
+              <Input
+                id="cp-notify-emails"
+                value={notifyEmails}
+                onChange={(event) => setNotifyEmails(event.target.value)}
+                placeholder="you@minaki.com, team@minaki.com"
+                inputMode="email"
+                autoComplete="email"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col items-start gap-3">
+            <Button onClick={createCreativePodRun} disabled={isSubmitting}>
+              {isSubmitting ? 'Generating banners…' : 'Generate banners'}
+            </Button>
+            {isSubmitting && (
+              <p className={META_CLASS}>
+                Creative Pod runs strategist → copy → director → image gen. Keep this tab open.
+                {selectedImageModels.length > 1
+                  ? ` Then compares against ${selectedImageModels.length - 1} additional model${
+                      selectedImageModels.length - 1 === 1 ? '' : 's'
+                    }.`
+                  : ''}
+              </p>
+            )}
+          </CardFooter>
+        </Card>
+
+        {activeRun && (
+          <Card>
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+              <CardTitle>
+                Run #{activeRun.runId} — {activeRun.status}
+              </CardTitle>
+              <Button variant="secondary" size="sm" onClick={() => prefillFormFromRun(activeRun)}>
+                Prefill form to rerun with changes
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {activeRun.errorMessage && <Alert variant="destructive">{activeRun.errorMessage}</Alert>}
+              <div className="flex flex-wrap items-center gap-2">
+                <p className={META_CLASS}>
+                  {[activeRun.goalType, activeRun.platformLabel || activeRun.platform].filter(Boolean).join(' · ')}
+                </p>
+                {activeRun.brandLane && (
+                  <Badge variant={laneBadgeVariant(activeRun.brandLane)}>{activeRun.brandLane}</Badge>
+                )}
+              </div>
+
+              {(activeRun.inImageTitle || activeRun.inImageSubtitle || activeRun.inImageCta) && (
+                <div className={BLOCK_CLASS}>
+                  <h3 className="text-sm font-semibold">In-image copy</h3>
+                  {activeRun.inImageTitle && (
+                    <p className="text-sm">
+                      <strong className="font-semibold">Title:</strong> {activeRun.inImageTitle}
+                    </p>
+                  )}
+                  {activeRun.inImageSubtitle && (
+                    <p className="text-sm">
+                      <strong className="font-semibold">Subtitle:</strong> {activeRun.inImageSubtitle}
+                    </p>
+                  )}
+                  {activeRun.inImageCta && (
+                    <p className="text-sm">
+                      <strong className="font-semibold">CTA:</strong> {activeRun.inImageCta}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <AgentOutputsPanel
+                contentBrief={activeRun.contentBrief}
+                copyPack={activeRun.copyPack}
+                visualSpec={activeRun.visualSpec}
+                decisionLogs={activeRun.decisionLogs}
+              />
+
+              <ModelComparisonPanel comparison={modelComparison} loading={comparingModels} />
+
+              {variantCards.length > 0 ? (
+                <div className="space-y-4">
+                  {variantCards.map((variantCard) => (
+                    <div key={`variant-${variantCard.variantIndex}`} className={BLOCK_CLASS}>
+                      <h3 className="text-sm font-semibold">
+                        Variant {variantCard.variantIndex}
+                        {variantCard.diversityLabel ? ` — ${variantCard.diversityLabel}` : ''}
+                      </h3>
+                      {variantCard.castingKey && <p className={META_CLASS}>Casting: {variantCard.castingKey}</p>}
+                      {variantCard.ocr && (
+                        <p className="flex flex-wrap items-center gap-2 text-sm">
+                          <span>Text QA:</span>
+                          <Badge variant={variantCard.ocr.pass ? 'success' : 'warning'}>
+                            {variantCard.ocr.pass ? 'Pass' : 'Needs review'}
+                          </Badge>
+                          {!variantCard.ocr.pass && (variantCard.ocr.reasons || []).length > 0 && (
+                            <span className={META_CLASS}>{variantCard.ocr.reasons.join('; ')}</span>
+                          )}
+                          {variantCard.ocr.attempt ? <span className={META_CLASS}>attempt {variantCard.ocr.attempt}</span> : null}
+                          {variantCard.ocr.image_model ? (
+                            <span className={META_CLASS}>{variantCard.ocr.image_model}</span>
+                          ) : null}
+                        </p>
+                      )}
+                      {variantCard.imageUrls.length > 0 ? (
+                        <BannerImageGrid
+                          images={variantCard.imageUrls}
+                          altPrefix={`Creative pod variant ${variantCard.variantIndex}`}
+                        />
+                      ) : (
+                        <p className={META_CLASS}>No images for this variant.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <BannerImageGrid images={bannerImageUrls} altPrefix="Creative pod banner" />
+              )}
+
+              {activeRun.emailNotification && (
+                <p className="text-sm">
+                  Email:{' '}
+                  {activeRun.emailNotification.success
+                    ? activeRun.emailNotification.message || 'sent'
+                    : activeRun.emailNotification.error || activeRun.emailNotification.message || 'skipped/failed'}
+                </p>
+              )}
+
+              <div className="space-y-4 border-t border-[var(--color-border)] pt-6">
+                <div className="space-y-1.5">
+                  <FieldLabelRow htmlFor="cp-regen-hint" label="Regenerate hint" info={FIELD_HELP.regenerateHint} />
+                  <Input
+                    id="cp-regen-hint"
+                    value={regenerateHint}
+                    onChange={(event) => setRegenerateHint(event.target.value)}
+                    placeholder="e.g. darker background, sharper product, shorter headline"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <FieldLabelRow
+                    htmlFor="cp-regen-product-description"
+                    label="Product description (optional)"
+                    info={FIELD_HELP.productDescription}
+                  />
+                  <Textarea
+                    id="cp-regen-product-description"
+                    value={regenerateProductDescription}
+                    onChange={(event) => setRegenerateProductDescription(event.target.value)}
+                    placeholder="e.g. rigid open-cuff bangle, single CZ stone, split-wire silhouette — NOT a ring, NOT a chain-link bracelet"
+                    rows={2}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <FieldLabelRow label="Image model" info={FIELD_HELP.imageModel} />
+                    <Select
+                      value={regenerateImageModel || AUTO_VALUE}
+                      onValueChange={(value) => setRegenerateImageModel(value === AUTO_VALUE ? '' : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUTO_VALUE}>Auto (Seedream 4.5)</SelectItem>
+                        {imageModels.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabelRow label="Text-safe space" info={FIELD_HELP.titlePosition} />
+                    <Select
+                      value={regenerateTitlePosition || AUTO_VALUE}
+                      onValueChange={(value) => setRegenerateTitlePosition(value === AUTO_VALUE ? '' : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUTO_VALUE}>Auto (Director picks)</SelectItem>
+                        {textPlacements.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabelRow
+                      label="Vertical"
+                      info="Casting/color-lock override only — regenerate never re-runs the Director, so this can't rewrite prompt text."
+                    />
+                    <Select
+                      value={regenerateBrandLane || AUTO_VALUE}
+                      onValueChange={(value) => setRegenerateBrandLane(value === AUTO_VALUE ? '' : value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={AUTO_VALUE}>Keep run's lane</SelectItem>
+                        {brandLanes.map((row) => (
+                          <SelectItem key={row.value} value={row.value}>
+                            {row.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button onClick={regenerateBanners} disabled={isSubmitting}>
+                  {isSubmitting ? 'Regenerating…' : 'Regenerate banners'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
-      </section>
+
+        <Card>
+          <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+            <CardTitle>Recent runs</CardTitle>
+            <Button variant="outline" size="sm" onClick={loadRecentRuns} disabled={recentRunsLoading}>
+              Refresh
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {recentRunsLoading ? (
+              <LoadingSpinner message="Loading runs…" />
+            ) : (
+              <div className="space-y-3">
+                <p className={META_CLASS}>{recentRunsTotal} total runs</p>
+                <AgentsPagedTable
+                  columns={RUN_COLUMNS}
+                  rows={recentRuns}
+                  selectedRowId={activeRun?.runId}
+                  getRowId={(row) => row.id}
+                  emptyLabel="No runs yet."
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

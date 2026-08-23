@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Typography } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner, ErrorMessage } from '../../components';
-import { ReportTable } from '../../components/reports/ReportTable';
+import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
+import { LoadingSpinner } from '../../components';
 import { useAuth } from '../../context/AuthContext';
 import { fmtMoney, fmtNum, fmtRoas } from '../../utils/marketingFormat';
 import {
@@ -13,6 +12,20 @@ import {
   defaultPortfolioDateRange,
   normalizeMetaPortfolioRun,
 } from './portfolioRun';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Button } from '../../components/ui/button';
+import { Alert } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../components/ui/select';
 
 const RECENT_RUNS_LIMIT = 15;
 const DEFAULT_STATUS_FILTER = 'ACTIVE';
@@ -22,6 +35,19 @@ const RESOLUTION_OPTIONS = [
   { value: 'week', label: 'Weekly' },
   { value: 'month', label: 'Monthly' },
 ];
+
+const STATUS_BADGE_VARIANT = {
+  active: 'success',
+  paused: 'warning',
+  archived: 'default',
+  deleted: 'destructive',
+  completed: 'success',
+  failed: 'destructive',
+  running: 'sapphire',
+};
+
+const statusBadgeVariant = (status) =>
+  STATUS_BADGE_VARIANT[String(status || '').toLowerCase()] || 'outline';
 
 const campaignStatusValue = (campaign) =>
   String(campaign?.effective_status || campaign?.status || 'UNKNOWN').trim();
@@ -55,7 +81,7 @@ const SelectAllCheckbox = ({ checked, indeterminate, onChange, ariaLabel }) => {
     <input
       ref={checkboxRef}
       type="checkbox"
-      className="agents-table-checkbox"
+      className="h-4 w-4 rounded border border-[var(--color-input)] accent-[var(--color-primary)]"
       checked={checked}
       onChange={onChange}
       onClick={(event) => event.stopPropagation()}
@@ -65,48 +91,35 @@ const SelectAllCheckbox = ({ checked, indeterminate, onChange, ariaLabel }) => {
 };
 
 const MetricsStrip = ({ metrics = {} }) => (
-  <div className="agents-summary-grid">
-    <div className="agents-summary-card">
-      <span>Spend</span>
-      <strong>{fmtMoney(metrics.spend)}</strong>
-    </div>
-    <div className="agents-summary-card">
-      <span>Clicks</span>
-      <strong>{fmtNum(metrics.clicks)}</strong>
-    </div>
-    <div className="agents-summary-card">
-      <span>Add to cart</span>
-      <strong>{fmtNum(metrics.add_to_cart)}</strong>
-    </div>
-    <div className="agents-summary-card">
-      <span>Purchases</span>
-      <strong>{fmtNum(metrics.purchases)}</strong>
-    </div>
-    <div className="agents-summary-card">
-      <span>Purchase value</span>
-      <strong>{fmtMoney(metrics.purchase_value)}</strong>
-    </div>
-    <div className="agents-summary-card">
-      <span>ROAS</span>
-      <strong>{fmtRoas(metrics.roas)}</strong>
-    </div>
+  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    {[
+      ['Spend', fmtMoney(metrics.spend)],
+      ['Clicks', fmtNum(metrics.clicks)],
+      ['Add to cart', fmtNum(metrics.add_to_cart)],
+      ['Purchases', fmtNum(metrics.purchases)],
+      ['Purchase value', fmtMoney(metrics.purchase_value)],
+      ['ROAS', fmtRoas(metrics.roas)],
+    ].map(([label, value]) => (
+      <div key={label} className="rounded-md border border-[var(--color-border)] p-3">
+        <p className="text-xs text-[var(--color-muted-foreground)]">{label}</p>
+        <p className="mt-1 text-lg font-semibold tabular-nums">{value}</p>
+      </div>
+    ))}
   </div>
 );
 
 const SectionTitle = ({ children }) => (
-  <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#2c2416', mb: 1.5, mt: 1 }}>
-    {children}
-  </Typography>
+  <h4 className="mb-2 mt-1 text-sm font-semibold">{children}</h4>
 );
 
 const PERIOD_COLUMNS = [
-  { key: 'period', label: 'Period', sortable: false },
-  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
-  { key: 'clicks', label: 'Clicks', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'purchase_value', label: 'Purchase ₹', sortable: false, render: (value) => fmtMoney(value) },
-  { key: 'roas', label: 'ROAS', sortable: false, render: (value) => fmtRoas(value) },
+  { key: 'period', label: 'Period' },
+  { key: 'spend', label: 'Spend', render: (row) => fmtMoney(row.spend) },
+  { key: 'clicks', label: 'Clicks', render: (row) => fmtNum(row.clicks) },
+  { key: 'add_to_cart', label: 'ATC', render: (row) => fmtNum(row.add_to_cart) },
+  { key: 'purchases', label: 'Purchases', render: (row) => fmtNum(row.purchases) },
+  { key: 'purchase_value', label: 'Purchase ₹', render: (row) => fmtMoney(row.purchase_value) },
+  { key: 'roas', label: 'ROAS', render: (row) => fmtRoas(row.roas) },
 ];
 
 const flattenPeriodRows = (rows = []) =>
@@ -125,56 +138,53 @@ const flattenPeriodRows = (rows = []) =>
   });
 
 const PeriodTable = ({ rows = [], title }) => (
-  <Box sx={{ mb: 2 }}>
+  <div className="mb-4">
     {title && <SectionTitle>{title}</SectionTitle>}
-    <ReportTable
+    <AgentsPagedTable
       columns={PERIOD_COLUMNS}
-      data={flattenPeriodRows(rows)}
-      emptyMessage="No period buckets"
+      rows={flattenPeriodRows(rows)}
+      emptyLabel="No period buckets"
     />
-  </Box>
+  </div>
 );
 
 const GENDER_COLUMNS = [
-  { key: 'segment', label: 'Gender', sortable: false },
-  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
-  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'segment', label: 'Gender' },
+  { key: 'spend', label: 'Spend', render: (row) => fmtMoney(row.spend) },
+  { key: 'add_to_cart', label: 'ATC', render: (row) => fmtNum(row.add_to_cart) },
+  { key: 'purchases', label: 'Purchases', render: (row) => fmtNum(row.purchases) },
 ];
 
 const AD_SET_COLUMNS = [
   {
     key: 'ad_set_name',
     label: 'Ad set',
-    sortable: false,
-    render: (value, row) => (
-      <Box>
-        <Typography variant="body2">{value || '—'}</Typography>
-        <Typography variant="caption" sx={{ color: '#6b7280' }}>
-          {row.status || '—'}
-        </Typography>
-      </Box>
+    render: (row) => (
+      <div>
+        <p className="text-sm">{row.ad_set_name || '—'}</p>
+        <p className="text-xs text-[var(--color-muted-foreground)]">{row.status || '—'}</p>
+      </div>
     ),
   },
-  { key: 'audience_label', label: 'Audience', sortable: false },
-  { key: 'spend', label: 'Spend', sortable: false, render: (value) => fmtMoney(value) },
-  { key: 'add_to_cart', label: 'ATC', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'purchases', label: 'Purchases', sortable: false, render: (value) => fmtNum(value) },
+  { key: 'audience_label', label: 'Audience' },
+  { key: 'spend', label: 'Spend', render: (row) => fmtMoney(row.spend) },
+  { key: 'add_to_cart', label: 'ATC', render: (row) => fmtNum(row.add_to_cart) },
+  { key: 'purchases', label: 'Purchases', render: (row) => fmtNum(row.purchases) },
 ];
 
 const CREATIVE_COLUMNS = [
-  { key: 'ad_name', label: 'Ad', sortable: false },
-  { key: 'format', label: 'Format', sortable: false },
-  { key: 'headline', label: 'Headline', sortable: false },
-  { key: 'call_to_action', label: 'CTA', sortable: false },
+  { key: 'ad_name', label: 'Ad' },
+  { key: 'format', label: 'Format' },
+  { key: 'headline', label: 'Headline' },
+  { key: 'call_to_action', label: 'CTA' },
 ];
 
 const SHOPIFY_PRODUCT_COLUMNS = [
-  { key: 'focus_lane_label', label: 'Lane', sortable: false },
-  { key: 'product_name', label: 'Product', sortable: false },
-  { key: 'sku', label: 'SKU', sortable: false },
-  { key: 'units_sold', label: 'Units', sortable: false, render: (value) => fmtNum(value) },
-  { key: 'revenue_inr', label: 'Revenue', sortable: false, render: (value) => fmtMoney(value) },
+  { key: 'focus_lane_label', label: 'Lane' },
+  { key: 'product_name', label: 'Product' },
+  { key: 'sku', label: 'SKU' },
+  { key: 'units_sold', label: 'Units', render: (row) => fmtNum(row.units_sold) },
+  { key: 'revenue_inr', label: 'Revenue', render: (row) => fmtMoney(row.revenue_inr) },
 ];
 
 export const MetaMarketingPage = () => {
@@ -339,6 +349,7 @@ export const MetaMarketingPage = () => {
   useEffect(() => {
     loadCampaigns(false);
     loadRecentRuns(canViewAllRuns ? historyScope : 'mine');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const campaignPickerRows = useMemo(
@@ -386,11 +397,10 @@ export const MetaMarketingPage = () => {
             ariaLabel="Select all filtered campaigns"
           />
         ),
-        sortable: false,
-        render: (_value, row) => (
+        render: (row) => (
           <input
             type="checkbox"
-            className="agents-table-checkbox"
+            className="h-4 w-4 rounded border border-[var(--color-input)] accent-[var(--color-primary)]"
             checked={selectedCampaignIds.includes(row.campaign_id)}
             onChange={() => toggleCampaign(row.campaign_id)}
             onClick={(event) => event.stopPropagation()}
@@ -398,68 +408,69 @@ export const MetaMarketingPage = () => {
           />
         ),
       },
-      { key: 'name', label: 'Campaign', sortable: false },
+      { key: 'name', label: 'Campaign' },
       {
         key: 'funnel',
         label: 'Funnel',
-        sortable: false,
-        render: (value) => (
-          <span className={`agents-chip funnel-${String(value).toLowerCase()}`}>{value}</span>
-        ),
+        render: (row) => <Badge variant="sapphire">{row.funnel}</Badge>,
       },
-      { key: 'status', label: 'Status', sortable: false },
-      { key: 'objective', label: 'Objective', sortable: false },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (row) => <Badge variant={statusBadgeVariant(row.status)}>{row.status}</Badge>,
+      },
+      { key: 'objective', label: 'Objective' },
     ],
     [selectedCampaignIds, allFilteredSelected, someFilteredSelected]
   );
 
   const historyColumns = useMemo(() => {
-    const columns = [
-      { key: 'id', label: 'Run', sortable: false, render: (value) => `#${value}` },
-    ];
+    const columns = [{ key: 'id', label: 'Run', render: (row) => `#${row.id}` }];
     if (historyScope === 'all') {
       columns.push({
         key: 'created_by_email',
         label: 'User',
-        sortable: false,
-        render: (value) => value || '—',
+        render: (row) => row.created_by_email || '—',
       });
     }
     columns.push(
       {
         key: 'window',
         label: 'Window',
-        sortable: false,
-        render: (_value, row) =>
+        render: (row) =>
           `${row.since || row.since_date || '—'} → ${row.until || row.until_date || '—'}`,
       },
-      { key: 'resolution', label: 'Resolution', sortable: false },
+      { key: 'resolution', label: 'Resolution' },
       {
         key: 'campaign_count',
         label: 'Campaigns',
-        sortable: false,
-        render: (value, row) => value ?? (row.campaign_ids || []).length,
+        render: (row) => row.campaign_count ?? (row.campaign_ids || []).length,
       },
-      { key: 'status', label: 'Status', sortable: false },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (row) => <Badge variant={statusBadgeVariant(row.status)}>{row.status || '—'}</Badge>,
+      },
       {
         key: 'actions',
         label: '',
-        sortable: false,
-        render: (_value, row) => (
-          <button
+        render: (row) => (
+          <Button
             type="button"
-            className="agents-btn secondary"
+            variant="outline"
+            size="sm"
             onClick={(event) => {
               event.stopPropagation();
               openRun(row.id);
             }}
           >
             Open
-          </button>
+          </Button>
         ),
       }
     );
     return columns;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyScope]);
 
   const shopify = activeRun?.shopify || null;
@@ -474,334 +485,391 @@ export const MetaMarketingPage = () => {
   }));
 
   return (
-    <div className="screen-container agents-page">
+    <div className="minaki-ui mx-auto max-w-7xl px-4 py-6 pb-16 sm:px-6">
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.marketing} />
-      <div className="agents-header">
-        <div>
-          <h1>Meta Marketing</h1>
-          <p>
-            Meta Portfolio Performance — multi-select campaigns, day/week/month buckets, store-wide
-            Shopify appendix. Runs are saved to your history.
-          </p>
-        </div>
-      </div>
+      <h1 className="mb-1 text-2xl font-semibold sm:text-3xl">Meta Marketing</h1>
+      <p className="mb-5 text-sm text-[var(--color-muted-foreground)]">
+        Meta Portfolio Performance — multi-select campaigns, day/week/month buckets, store-wide
+        Shopify appendix. Runs are saved to your history.
+      </p>
 
       {!schemaReady && (
-        <p className="agents-hint">
+        <Alert variant="warning" className="mb-5">
           Portfolio runs table missing or file-fallback active. Apply{' '}
           <code>api/scripts/migrations/minaki_marketing_portfolio_runs.sql</code> when ready.
-        </p>
+        </Alert>
       )}
 
-      {errorMessage && <ErrorMessage message={errorMessage} />}
+      {errorMessage && (
+        <Alert variant="destructive" className="mb-5">
+          {errorMessage}
+        </Alert>
+      )}
 
-      <div className="agents-card agents-form-stack meta-marketing-form">
-        <div className="agents-form-row meta-marketing-dates">
-          <label>
-            Since
-            <input type="date" value={since} onChange={(event) => setSince(event.target.value)} />
-          </label>
-          <label>
-            Until
-            <input type="date" value={until} onChange={(event) => setUntil(event.target.value)} />
-          </label>
-          <label>
-            Resolution
-            <select value={resolution} onChange={(event) => setResolution(event.target.value)}>
-              {RESOLUTION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+      <Card className="mb-5">
+        <CardContent className="space-y-4 pt-5">
+          <h2 className="text-sm font-semibold">Run parameters</h2>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-since">Since</Label>
+              <Input
+                id="meta-since"
+                type="date"
+                value={since}
+                onChange={(event) => setSince(event.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-until">Until</Label>
+              <Input
+                id="meta-until"
+                type="date"
+                value={until}
+                onChange={(event) => setUntil(event.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Resolution</Label>
+              <Select value={resolution} onValueChange={setResolution}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RESOLUTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <div className="agents-form-row meta-marketing-toggles">
-          <label className="agents-checkbox">
-            <input
-              type="checkbox"
-              checked={includeCreatives}
-              onChange={(event) => setIncludeCreatives(event.target.checked)}
-            />
-            <span>Include creatives</span>
-          </label>
-          <label className="agents-checkbox">
-            <input
-              type="checkbox"
-              checked={includeShopify}
-              onChange={(event) => setIncludeShopify(event.target.checked)}
-            />
-            <span>Include Shopify appendix</span>
-          </label>
-          <label className="agents-checkbox">
-            <input
-              type="checkbox"
-              checked={sendEmail}
-              onChange={(event) => setSendEmail(event.target.checked)}
-            />
-            <span>Email digest</span>
-          </label>
-        </div>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="meta-include-creatives"
+                checked={includeCreatives}
+                onCheckedChange={(checked) => setIncludeCreatives(Boolean(checked))}
+              />
+              <Label htmlFor="meta-include-creatives" className="font-normal">
+                Include creatives
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="meta-include-shopify"
+                checked={includeShopify}
+                onCheckedChange={(checked) => setIncludeShopify(Boolean(checked))}
+              />
+              <Label htmlFor="meta-include-shopify" className="font-normal">
+                Include Shopify appendix
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="meta-send-email"
+                checked={sendEmail}
+                onCheckedChange={(checked) => setSendEmail(Boolean(checked))}
+              />
+              <Label htmlFor="meta-send-email" className="font-normal">
+                Email digest
+              </Label>
+            </div>
+          </div>
 
-        <div className="agents-form-row meta-marketing-filters">
-          <label>
-            Status
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value={ALL_FILTER_VALUE}>All statuses</option>
-              {statusFilterOptions.map((statusValue) => (
-                <option key={statusValue} value={statusValue}>
-                  {statusValue}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Funnel
-            <select value={funnelFilter} onChange={(event) => setFunnelFilter(event.target.value)}>
-              <option value={ALL_FILTER_VALUE}>All funnels</option>
-              {funnelFilterOptions.map((funnelValue) => (
-                <option key={funnelValue} value={funnelValue}>
-                  {funnelValue}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Objective
-            <select
-              value={objectiveFilter}
-              onChange={(event) => setObjectiveFilter(event.target.value)}
-            >
-              <option value={ALL_FILTER_VALUE}>All objectives</option>
-              {objectiveFilterOptions.map((objectiveValue) => (
-                <option key={objectiveValue} value={objectiveValue}>
-                  {objectiveValue}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Search
-            <input
-              type="search"
-              value={campaignFilter}
-              onChange={(event) => setCampaignFilter(event.target.value)}
-              placeholder="Name or campaign ID"
-            />
-          </label>
-        </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>All statuses</SelectItem>
+                  {statusFilterOptions.map((statusValue) => (
+                    <SelectItem key={statusValue} value={statusValue}>
+                      {statusValue}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Funnel</Label>
+              <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>All funnels</SelectItem>
+                  {funnelFilterOptions.map((funnelValue) => (
+                    <SelectItem key={funnelValue} value={funnelValue}>
+                      {funnelValue}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Objective</Label>
+              <Select value={objectiveFilter} onValueChange={setObjectiveFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>All objectives</SelectItem>
+                  {objectiveFilterOptions.map((objectiveValue) => (
+                    <SelectItem key={objectiveValue} value={objectiveValue}>
+                      {objectiveValue}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="meta-search">Search</Label>
+              <Input
+                id="meta-search"
+                type="search"
+                value={campaignFilter}
+                onChange={(event) => setCampaignFilter(event.target.value)}
+                placeholder="Name or campaign ID"
+                className="w-[220px]"
+              />
+            </div>
+          </div>
 
-        <div className="agents-inline-actions meta-marketing-filter-actions">
-          <button type="button" className="agents-btn secondary" onClick={() => loadCampaigns(true)}>
-            Refresh from Meta
-          </button>
-          <button type="button" className="agents-btn secondary" onClick={selectFiltered}>
-            Select filtered
-          </button>
-          <button type="button" className="agents-btn secondary" onClick={clearSelection}>
-            Clear
-          </button>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => loadCampaigns(true)}>
+              Refresh from Meta
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={selectFiltered}>
+              Select filtered
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
 
-        <div className="meta-marketing-campaign-picker">
-          <div className="meta-marketing-campaign-picker__header">
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#2c2416' }}>
+          <div>
+            <p className="mb-2 text-sm font-semibold">
               Campaigns ({selectedCampaignIds.length} selected
               {loadingCampaigns ? ', loading…' : ` · ${campaignPickerRows.length} shown`})
-            </Typography>
+            </p>
+            <AgentsPagedTable
+              columns={campaignPickerColumns}
+              rows={campaignPickerRows}
+              onRowClick={(row) => toggleCampaign(row.campaign_id)}
+              emptyLabel={loadingCampaigns ? 'Loading campaigns…' : 'No campaigns match these filters'}
+            />
           </div>
-          <ReportTable
-            columns={campaignPickerColumns}
-            data={campaignPickerRows}
-            loading={loadingCampaigns}
-            emptyMessage="No campaigns match these filters"
-            onRowClick={(row) => toggleCampaign(row.campaign_id)}
-          />
-        </div>
 
-        <button
-          type="button"
-          className="agents-btn primary"
-          disabled={isSubmitting || !selectedCampaignIds.length}
-          onClick={createPortfolioRun}
-        >
-          {isSubmitting ? 'Running portfolio…' : 'Run Meta Portfolio Performance'}
-        </button>
-      </div>
+          <Button
+            type="button"
+            disabled={isSubmitting || !selectedCampaignIds.length}
+            onClick={createPortfolioRun}
+          >
+            {isSubmitting ? 'Running portfolio…' : 'Run Meta Portfolio Performance'}
+          </Button>
+        </CardContent>
+      </Card>
 
       {isSubmitting && !activeRun && <LoadingSpinner />}
 
       {activeRun && (
-        <div className="agents-card agents-result-stack">
-          <div className="agents-inline-actions">
-            <h2>
+        <Card className="mb-5">
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-3">
+            <CardTitle>
               Run #{activeRun.runId} · {activeRun.since} → {activeRun.until} ·{' '}
               {activeRun.resolutionLabel || activeRun.resolution}
-            </h2>
-            <span className="agents-chip">{activeRun.status}</span>
-          </div>
-          {activeRun.error && <ErrorMessage message={activeRun.error} />}
-          {(activeRun.notes || []).map((note) => (
-            <p key={note} className="agents-hint">
-              {note}
-            </p>
-          ))}
+            </CardTitle>
+            <Badge variant={statusBadgeVariant(activeRun.status)}>{activeRun.status}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {activeRun.error && <Alert variant="destructive">{activeRun.error}</Alert>}
+            {(activeRun.notes || []).map((note) => (
+              <p key={note} className="text-sm text-[var(--color-muted-foreground)]">
+                {note}
+              </p>
+            ))}
 
-          <h3>1) Portfolio overall</h3>
-          <MetricsStrip metrics={activeRun.portfolioOverall} />
-
-          <PeriodTable
-            title={`2) Portfolio by ${activeRun.resolutionLabel || 'period'}`}
-            rows={activeRun.portfolioByPeriod}
-          />
-
-          <h3>3) Campaigns</h3>
-          {(activeRun.campaigns || []).map((campaign) => {
-            const isOpen = expandedCampaignId === campaign.campaign_id;
-            const funnel = campaign.funnel_mode || {};
-            const genderRows = (campaign.audience?.by_gender || []).map((row) => ({
-              id: row.segment,
-              ...row,
-            }));
-            const adSetRows = (campaign.ad_sets || []).map((adSet) => {
-              const audience = adSet.audience || {};
-              const metrics = adSet.metrics || {};
-              return {
-                id: adSet.ad_set_id || adSet.ad_set_name,
-                ad_set_name: adSet.ad_set_name,
-                status: adSet.status,
-                audience_label: `${audience.genders || '—'}; ages ${audience.age_range || '—'}; ${audience.countries || '—'}`,
-                spend: metrics.spend,
-                add_to_cart: metrics.add_to_cart,
-                purchases: metrics.purchases,
-              };
-            });
-            const creativeRows = (campaign.creatives || []).map((creative, creativeIndex) => ({
-              id: `${creative.ad_id || 'ad'}-${creativeIndex}`,
-              ad_name: creative.ad_name || '—',
-              format: creative.format || '—',
-              headline: creative.headline || '—',
-              call_to_action: creative.call_to_action || '—',
-            }));
-
-            return (
-              <div key={campaign.campaign_id} className="agents-card agents-nested-card">
-                <button
-                  type="button"
-                  className="agents-accordion-toggle"
-                  onClick={() =>
-                    setExpandedCampaignId(isOpen ? null : campaign.campaign_id)
-                  }
-                >
-                  <span>
-                    {campaign.campaign_name}{' '}
-                    <span className="agents-chip">{funnel.mode || 'MOF'}</span>
-                  </span>
-                  <span>{isOpen ? 'Hide' : 'Show'}</span>
-                </button>
-                {isOpen && (
-                  <div className="agents-form-stack">
-                    <p className="agents-hint">
-                      {funnel.label || 'Funnel mode'} · Objective {campaign.objective || '—'} ·{' '}
-                      {campaign.status || '—'}
-                    </p>
-                    <MetricsStrip metrics={campaign.overall || {}} />
-                    <PeriodTable
-                      title={`By ${activeRun.resolutionLabel || 'period'}`}
-                      rows={campaign.by_period || []}
-                    />
-
-                    {genderRows.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <SectionTitle>Audience — gender</SectionTitle>
-                        <ReportTable columns={GENDER_COLUMNS} data={genderRows} />
-                      </Box>
-                    )}
-
-                    {adSetRows.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <SectionTitle>Ad sets</SectionTitle>
-                        <ReportTable columns={AD_SET_COLUMNS} data={adSetRows} />
-                      </Box>
-                    )}
-
-                    {creativeRows.length > 0 && (
-                      <Box sx={{ mb: 2 }}>
-                        <SectionTitle>Creatives</SectionTitle>
-                        <ReportTable columns={CREATIVE_COLUMNS} data={creativeRows} />
-                      </Box>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {shopify && (
-            <div className="agents-card agents-nested-card">
-              <h3>4) Shopify appendix (store-wide)</h3>
-              <p className="agents-hint">{shopify.note || 'Store-wide context — not per campaign.'}</p>
-              <MetricsStrip
-                metrics={{
-                  spend: null,
-                  clicks: null,
-                  add_to_cart: shopify.funnel?.unique_abandoned_checkouts,
-                  purchases: shopify.funnel?.paid_orders || shopify.paid_orders_count,
-                  purchase_value: shopify.funnel?.order_revenue,
-                  roas: shopify.funnel?.checkout_to_order_rate_pct != null
-                    ? `${shopify.funnel.checkout_to_order_rate_pct}% checkout→order`
-                    : null,
-                }}
-              />
-              <Box sx={{ mb: 2 }}>
-                <SectionTitle>Top focus products</SectionTitle>
-                <ReportTable
-                  columns={SHOPIFY_PRODUCT_COLUMNS}
-                  data={shopifyProductRows}
-                  emptyMessage="No focus products"
-                />
-              </Box>
+            <div>
+              <h3 className="mb-2 text-base font-semibold">1) Portfolio overall</h3>
+              <MetricsStrip metrics={activeRun.portfolioOverall} />
             </div>
-          )}
-        </div>
+
+            <PeriodTable
+              title={`2) Portfolio by ${activeRun.resolutionLabel || 'period'}`}
+              rows={activeRun.portfolioByPeriod}
+            />
+
+            <div>
+              <h3 className="mb-3 text-base font-semibold">3) Campaigns</h3>
+              <div className="space-y-3">
+                {(activeRun.campaigns || []).map((campaign) => {
+                  const isOpen = expandedCampaignId === campaign.campaign_id;
+                  const funnel = campaign.funnel_mode || {};
+                  const genderRows = (campaign.audience?.by_gender || []).map((row) => ({
+                    id: row.segment,
+                    ...row,
+                  }));
+                  const adSetRows = (campaign.ad_sets || []).map((adSet) => {
+                    const audience = adSet.audience || {};
+                    const metrics = adSet.metrics || {};
+                    return {
+                      id: adSet.ad_set_id || adSet.ad_set_name,
+                      ad_set_name: adSet.ad_set_name,
+                      status: adSet.status,
+                      audience_label: `${audience.genders || '—'}; ages ${audience.age_range || '—'}; ${audience.countries || '—'}`,
+                      spend: metrics.spend,
+                      add_to_cart: metrics.add_to_cart,
+                      purchases: metrics.purchases,
+                    };
+                  });
+                  const creativeRows = (campaign.creatives || []).map((creative, creativeIndex) => ({
+                    id: `${creative.ad_id || 'ad'}-${creativeIndex}`,
+                    ad_name: creative.ad_name || '—',
+                    format: creative.format || '—',
+                    headline: creative.headline || '—',
+                    call_to_action: creative.call_to_action || '—',
+                  }));
+
+                  return (
+                    <Card key={campaign.campaign_id}>
+                      <CardContent className="space-y-4 pt-5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setExpandedCampaignId(isOpen ? null : campaign.campaign_id)}
+                          className="flex w-full items-center justify-between"
+                        >
+                          <span className="flex items-center gap-2">
+                            {campaign.campaign_name}
+                            <Badge variant="sapphire">{funnel.mode || 'MOF'}</Badge>
+                          </span>
+                          <span>{isOpen ? 'Hide' : 'Show'}</span>
+                        </Button>
+                        {isOpen && (
+                          <div className="space-y-4">
+                            <p className="text-sm text-[var(--color-muted-foreground)]">
+                              {funnel.label || 'Funnel mode'} · Objective {campaign.objective || '—'} ·{' '}
+                              {campaign.status || '—'}
+                            </p>
+                            <MetricsStrip metrics={campaign.overall || {}} />
+                            <PeriodTable
+                              title={`By ${activeRun.resolutionLabel || 'period'}`}
+                              rows={campaign.by_period || []}
+                            />
+
+                            {genderRows.length > 0 && (
+                              <div>
+                                <SectionTitle>Audience — gender</SectionTitle>
+                                <AgentsPagedTable columns={GENDER_COLUMNS} rows={genderRows} />
+                              </div>
+                            )}
+
+                            {adSetRows.length > 0 && (
+                              <div>
+                                <SectionTitle>Ad sets</SectionTitle>
+                                <AgentsPagedTable columns={AD_SET_COLUMNS} rows={adSetRows} />
+                              </div>
+                            )}
+
+                            {creativeRows.length > 0 && (
+                              <div>
+                                <SectionTitle>Creatives</SectionTitle>
+                                <AgentsPagedTable columns={CREATIVE_COLUMNS} rows={creativeRows} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {shopify && (
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <h3 className="text-base font-semibold">4) Shopify appendix (store-wide)</h3>
+                  <p className="text-sm text-[var(--color-muted-foreground)]">
+                    {shopify.note || 'Store-wide context — not per campaign.'}
+                  </p>
+                  <MetricsStrip
+                    metrics={{
+                      spend: null,
+                      clicks: null,
+                      add_to_cart: shopify.funnel?.unique_abandoned_checkouts,
+                      purchases: shopify.funnel?.paid_orders || shopify.paid_orders_count,
+                      purchase_value: shopify.funnel?.order_revenue,
+                      roas:
+                        shopify.funnel?.checkout_to_order_rate_pct != null
+                          ? `${shopify.funnel.checkout_to_order_rate_pct}% checkout→order`
+                          : null,
+                    }}
+                  />
+                  <div>
+                    <SectionTitle>Top focus products</SectionTitle>
+                    <AgentsPagedTable
+                      columns={SHOPIFY_PRODUCT_COLUMNS}
+                      rows={shopifyProductRows}
+                      emptyLabel="No focus products"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <div className="agents-card">
-        <div className="agents-inline-actions">
-          <h3>{historyScope === 'all' ? 'All portfolio runs' : 'Your portfolio history'}</h3>
-          {canViewAllRuns && (
-            <label className="agents-history-scope">
-              Scope
-              <select
-                value={historyScope}
-                onChange={(event) => {
-                  const nextScope = event.target.value;
-                  setHistoryScope(nextScope);
-                  loadRecentRuns(nextScope);
-                }}
-              >
-                <option value="mine">My runs</option>
-                <option value="all">All users</option>
-              </select>
-            </label>
-          )}
-          <button type="button" className="agents-btn secondary" onClick={() => loadRecentRuns()}>
-            Refresh
-          </button>
-        </div>
-        <p className="agents-hint">
-          {recentRunsTotal} run{recentRunsTotal === 1 ? '' : 's'}
-          {canViewAllRuns ? ' · Admin/manager can switch scope.' : ''}
-        </p>
-        <ReportTable
-          columns={historyColumns}
-          data={recentRuns}
-          loading={recentRunsLoading}
-          emptyMessage="No saved portfolio runs yet"
-        />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{historyScope === 'all' ? 'All portfolio runs' : 'Your portfolio history'}</CardTitle>
+          <CardDescription>
+            {recentRunsTotal} run{recentRunsTotal === 1 ? '' : 's'}
+            {canViewAllRuns ? ' · Admin/manager can switch scope.' : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {canViewAllRuns && (
+              <div className="flex items-center gap-2">
+                <Label className="font-normal">Scope</Label>
+                <Select
+                  value={historyScope}
+                  onValueChange={(nextScope) => {
+                    setHistoryScope(nextScope);
+                    loadRecentRuns(nextScope);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mine">My runs</SelectItem>
+                    <SelectItem value="all">All users</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button type="button" variant="outline" size="sm" onClick={() => loadRecentRuns()}>
+              Refresh
+            </Button>
+          </div>
+          <AgentsPagedTable
+            columns={historyColumns}
+            rows={recentRuns}
+            emptyLabel={recentRunsLoading ? 'Loading…' : 'No saved portfolio runs yet'}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 };

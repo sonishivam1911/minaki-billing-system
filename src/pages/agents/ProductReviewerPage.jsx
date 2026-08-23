@@ -1,21 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  Link,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Button } from '../../components/ui/button';
+import { Alert } from '../../components/ui/alert';
 
 const CUSTOMER_STORAGE_KEY = 'minaki.productReviewer.customerId';
 const DEFAULT_REVIEW_COUNT = 12;
@@ -108,6 +102,7 @@ export const ProductReviewerPage = () => {
 
   useEffect(() => {
     loadQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectProduct = async (row) => {
@@ -176,205 +171,206 @@ export const ProductReviewerPage = () => {
     }
   };
 
-  const existingReviews = useMemo(
-    () => writeContext?.reviews || [],
-    [writeContext]
-  );
+  const existingReviews = useMemo(() => writeContext?.reviews || [], [writeContext]);
   const canGenerate = Boolean(selectedProduct) && !writing && !loadingContext;
 
   return (
-    <Box className="screen-container agents-page" sx={{ pb: 4 }}>
+    <div className="minaki-ui mx-auto max-w-5xl px-4 py-6 pb-16 sm:px-6">
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.reviewer} />
-      <Typography variant="h5" sx={{ mb: 0.5 }}>
-        Product Reviewer
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        In-stock products live on the website{facebookOnly ? ' and Facebook' : ''}.
-        Select a row, then generate reviews.
-      </Typography>
+      <h1 className="mb-1 text-2xl font-semibold sm:text-3xl">Product Reviewer</h1>
+      <p className="mb-5 text-sm text-[var(--color-muted-foreground)]">
+        In-stock products live on the website{facebookOnly ? ' and Facebook' : ''}. Select a row, then
+        generate reviews.
+      </p>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle1">Filters</Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-            <TextField
-              size="small"
-              fullWidth
-              label="Search title, SKU, handle"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && loadQueue()}
-            />
-            <TextField
-              size="small"
-              fullWidth
-              label="Category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-            />
-            <TextField
-              size="small"
-              fullWidth
-              label="Subcategory"
-              value={subCategory}
-              onChange={(event) => setSubCategory(event.target.value)}
-            />
-          </Stack>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            alignItems={{ sm: 'center' }}
-          >
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={facebookOnly}
-                  onChange={(event) => setFacebookOnly(event.target.checked)}
-                />
-              }
-              label="Facebook / Meta only"
-            />
+      <Card className="mb-5">
+        <CardContent className="space-y-4 pt-5">
+          <h2 className="text-sm font-semibold">Filters</h2>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="pr-search">Search title, SKU, handle</Label>
+              <Input
+                id="pr-search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && loadQueue()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pr-category">Category</Label>
+              <Input id="pr-category" value={category} onChange={(e) => setCategory(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pr-subcategory">Subcategory</Label>
+              <Input
+                id="pr-subcategory"
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="pr-facebook-only"
+                checked={facebookOnly}
+                onCheckedChange={(checked) => setFacebookOnly(Boolean(checked))}
+              />
+              <Label htmlFor="pr-facebook-only" className="font-normal">
+                Facebook / Meta only
+              </Label>
+            </div>
             <Button
-              variant="outlined"
+              variant="outline"
               onClick={loadQueue}
               disabled={loadingQueue}
-              fullWidth
-              sx={{ maxWidth: { sm: 200 } }}
+              className="w-full sm:w-auto sm:max-w-[200px]"
             >
               {loadingQueue ? 'Loading…' : 'Refresh queue'}
             </Button>
-          </Stack>
+          </div>
           {summary && (
-            <Typography variant="body2" color="text.secondary">
+            <p className="text-sm text-[var(--color-muted-foreground)]">
               Missing: {summary.missing_count ?? missingReviews.length} · With reviews:{' '}
               {summary.with_reviews_count ?? withReviews.length}
-            </Typography>
+            </p>
           )}
-        </Stack>
-      </Paper>
+        </CardContent>
+      </Card>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert variant="destructive" className="mb-5">
           {error}
         </Alert>
       )}
 
-      <Stack spacing={2} sx={{ mb: 2 }}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Missing reviews ({missingReviews.length})
-          </Typography>
-          <AgentsPagedTable
-            columns={PRODUCT_COLUMNS}
-            rows={missingReviews}
-            selectedRowId={selectedProductId}
-            getRowId={numericProductId}
-            onRowClick={selectProduct}
-            emptyLabel={loadingQueue ? 'Loading catalog…' : 'No matching products without reviews.'}
-          />
-        </Paper>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            With reviews ({withReviews.length})
-          </Typography>
-          <AgentsPagedTable
-            columns={PRODUCT_COLUMNS}
-            rows={withReviews}
-            selectedRowId={selectedProductId}
-            getRowId={numericProductId}
-            onRowClick={selectProduct}
-            emptyLabel={loadingQueue ? 'Loading catalog…' : 'No matching products with reviews yet.'}
-          />
-        </Paper>
-      </Stack>
-
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Write reviews
-        </Typography>
-        {!selectedProduct ? (
-          <Typography variant="body2" color="text.secondary">
-            Select a product from either table.
-          </Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            <Typography>
-              <strong>{selectedProduct.title}</strong>
-              {selectedProduct.product_url ? (
-                <>
-                  {' · '}
-                  <Link href={selectedProduct.product_url} target="_blank" rel="noreferrer">
-                    Open on site
-                  </Link>
-                </>
-              ) : null}
-            </Typography>
-            {loadingContext && (
-              <Typography variant="body2" color="text.secondary">
-                Loading existing reviews…
-              </Typography>
-            )}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-              <TextField
-                size="small"
-                type="number"
-                label="Review count"
-                value={reviewCount}
-                onChange={(event) => setReviewCount(event.target.value)}
-                inputProps={{ min: 1, max: 24 }}
-                sx={{ width: { xs: '100%', md: 140 } }}
-              />
-              <TextField
-                size="small"
-                fullWidth
-                label="Customer GID (optional if reviews/env already have one)"
-                value={customerId}
-                onChange={(event) => handleCustomerChange(event.target.value)}
-              />
-            </Stack>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={publishToShopify}
-                  onChange={(event) => setPublishToShopify(event.target.checked)}
-                />
-              }
-              label="Publish to Shopify (ACTIVE)"
-            />
-            <Button
-              variant="contained"
-              onClick={handleWriteReviews}
-              disabled={!canGenerate}
-              fullWidth
-              sx={{ maxWidth: { md: 280 } }}
-            >
-              {writing ? 'Writing…' : publishToShopify ? 'Generate + publish' : 'Generate only'}
-            </Button>
-
-            <Typography variant="subtitle2">
-              Existing reviews ({existingReviews.length})
-            </Typography>
+      <div className="mb-5 space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Missing reviews ({missingReviews.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
             <AgentsPagedTable
-              columns={REVIEW_COLUMNS}
-              rows={existingReviews}
-              getRowId={(row) => row.metaobject_id || row.handle}
-              emptyLabel="No reviews on this product yet."
+              columns={PRODUCT_COLUMNS}
+              rows={missingReviews}
+              selectedRowId={selectedProductId}
+              getRowId={numericProductId}
+              onRowClick={selectProduct}
+              emptyLabel={loadingQueue ? 'Loading catalog…' : 'No matching products without reviews.'}
             />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">With reviews ({withReviews.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AgentsPagedTable
+              columns={PRODUCT_COLUMNS}
+              rows={withReviews}
+              selectedRowId={selectedProductId}
+              getRowId={numericProductId}
+              onRowClick={selectProduct}
+              emptyLabel={loadingQueue ? 'Loading catalog…' : 'No matching products with reviews yet.'}
+            />
+          </CardContent>
+        </Card>
+      </div>
 
-            {lastResult && (
-              <Alert severity={lastResult.success ? 'success' : 'warning'}>
-                {lastResult.message}
-                {Array.isArray(lastResult.reviews) && lastResult.reviews.length > 0
-                  ? ` · batch ${lastResult.reviews.length}${
-                      lastResult.shopify_write ? ' · published' : ''
-                    }`
-                  : ''}
-              </Alert>
-            )}
-          </Stack>
-        )}
-      </Paper>
-    </Box>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Write reviews</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!selectedProduct ? (
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              Select a product from either table.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm">
+                <strong className="font-semibold">{selectedProduct.title}</strong>
+                {selectedProduct.product_url ? (
+                  <>
+                    {' · '}
+                    <a
+                      href={selectedProduct.product_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--color-primary)] underline underline-offset-2"
+                    >
+                      Open on site
+                    </a>
+                  </>
+                ) : null}
+              </p>
+              {loadingContext && (
+                <p className="text-sm text-[var(--color-muted-foreground)]">Loading existing reviews…</p>
+              )}
+              <div className="grid gap-3 md:grid-cols-[140px_1fr]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pr-review-count">Review count</Label>
+                  <Input
+                    id="pr-review-count"
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={reviewCount}
+                    onChange={(e) => setReviewCount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pr-customer-id">
+                    Customer GID (optional if reviews/env already have one)
+                  </Label>
+                  <Input
+                    id="pr-customer-id"
+                    value={customerId}
+                    onChange={(e) => handleCustomerChange(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="pr-publish"
+                  checked={publishToShopify}
+                  onCheckedChange={(checked) => setPublishToShopify(Boolean(checked))}
+                />
+                <Label htmlFor="pr-publish" className="font-normal">
+                  Publish to Shopify (ACTIVE)
+                </Label>
+              </div>
+              <Button
+                onClick={handleWriteReviews}
+                disabled={!canGenerate}
+                className="w-full md:w-auto md:max-w-[280px]"
+              >
+                {writing ? 'Writing…' : publishToShopify ? 'Generate + publish' : 'Generate only'}
+              </Button>
+
+              <h3 className="text-sm font-semibold">Existing reviews ({existingReviews.length})</h3>
+              <AgentsPagedTable
+                columns={REVIEW_COLUMNS}
+                rows={existingReviews}
+                getRowId={(row) => row.metaobject_id || row.handle}
+                emptyLabel="No reviews on this product yet."
+              />
+
+              {lastResult && (
+                <Alert variant={lastResult.success ? 'success' : 'warning'}>
+                  {lastResult.message}
+                  {Array.isArray(lastResult.reviews) && lastResult.reviews.length > 0
+                    ? ` · batch ${lastResult.reviews.length}${
+                        lastResult.shopify_write ? ' · published' : ''
+                      }`
+                    : ''}
+                </Alert>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };

@@ -3,15 +3,52 @@ import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner, ErrorMessage } from '../../components';
+import { AgentsPagedTable } from '../../components/agents/AgentsPagedTable';
+import { LoadingSpinner } from '../../components';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
+import { Label } from '../../components/ui/label';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+import { Alert } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
 import {
-  approvalStatusClass,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../../components/ui/select';
+import {
   collectHttpImageUrls,
   normalizeCampaignRunForDisplay,
 } from './campaignCreativeRun';
 
 const RECENT_RUNS_LIMIT = 15;
 const POSTS_PER_WEEK_OPTIONS = [3, 5, 7, 14];
+
+const RECENT_RUNS_COLUMNS = [
+  { key: 'id', label: 'ID' },
+  { key: 'brand_kit_id', label: 'Kit', render: (row) => row.brand_kit_id || '—' },
+  { key: 'status', label: 'Status' },
+  {
+    key: 'created_at',
+    label: 'Created',
+    render: (row) => (row.created_at ? String(row.created_at).slice(0, 19) : '—'),
+  },
+];
+
+const approvalBadgeVariant = (status) => {
+  switch (status) {
+    case 'approved':
+      return 'success';
+    case 'rejected':
+      return 'destructive';
+    case 'needs_review':
+      return 'warning';
+    default:
+      return 'default';
+  }
+};
 
 export const CampaignCreativePage = () => {
   const [brandKits, setBrandKits] = useState([]);
@@ -195,334 +232,334 @@ export const CampaignCreativePage = () => {
   const themes = activeRun?.themes || [];
 
   return (
-    <div className="screen-container agents-page">
-      <div className="screen-header">
-        <div>
-          <h1 className="screen-title">Campaign Creative</h1>
-          <p className="screen-subtitle">
-            Plan Instagram UGC campaigns, approve themes, produce assets, and download ZIP packs
-          </p>
-        </div>
-      </div>
+    <div className="minaki-ui mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6">
+      <header className="mb-2">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Campaign Creative</h1>
+        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+          Plan Instagram UGC campaigns, approve themes, produce assets, and download ZIP packs
+        </p>
+      </header>
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.campaign} />
       {errorMessage && (
-        <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />
+        <Alert variant="destructive" title="Something went wrong" className="mb-4">
+          {errorMessage}
+        </Alert>
       )}
 
       {!schemaReady && (
-        <div className="agents-card agents-alert">
-          <p>
-            Campaign creative runs table is missing. Apply{' '}
-            <code>homelab-contabo/scripts/migrations/minaki_agents_campaign_creative_pod.sql</code>{' '}
-            on Postgres.
-          </p>
-        </div>
+        <Alert variant="warning" title="Campaign creative runs table is missing" className="mb-4">
+          Apply <code>homelab-contabo/scripts/migrations/minaki_agents_campaign_creative_pod.sql</code> on
+          Postgres.
+        </Alert>
       )}
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">New campaign run</h2>
-        <div className="agents-form-stack">
-          <label>
-            Brand kit
-            <select value={brandKitId} onChange={(event) => setBrandKitId(event.target.value)}>
-              {brandKits.map((kit) => (
-                <option key={kit.id} value={kit.id}>
-                  {kit.label} — {kit.description}
-                </option>
-              ))}
-              {!brandKits.length && (
-                <>
-                  <option value="modern">Modern</option>
-                  <option value="traditional">Traditional</option>
-                </>
-              )}
-            </select>
-          </label>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>New campaign run</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Brand kit</Label>
+              <Select value={brandKitId} onValueChange={setBrandKitId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {brandKits.map((kit) => (
+                    <SelectItem key={kit.id} value={kit.id}>
+                      {kit.label} — {kit.description}
+                    </SelectItem>
+                  ))}
+                  {!brandKits.length && (
+                    <>
+                      <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="traditional">Traditional</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <label>
-            Campaign goal
-            <input
-              value={campaignGoal}
-              onChange={(event) => setCampaignGoal(event.target.value)}
-              placeholder="e.g. awareness, gifting season, everyday wear"
-            />
-          </label>
+            <div className="space-y-1.5">
+              <Label htmlFor="campaign-goal">Campaign goal</Label>
+              <Input
+                id="campaign-goal"
+                value={campaignGoal}
+                onChange={(event) => setCampaignGoal(event.target.value)}
+                placeholder="e.g. awareness, gifting season, everyday wear"
+              />
+            </div>
 
-          <label>
-            Posts per week
-            <select
-              value={postsPerWeek}
-              onChange={(event) => setPostsPerWeek(Number(event.target.value))}
-            >
-              {POSTS_PER_WEEK_OPTIONS.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="space-y-1.5">
+              <Label>Posts per week</Label>
+              <Select
+                value={String(postsPerWeek)}
+                onValueChange={(value) => setPostsPerWeek(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {POSTS_PER_WEEK_OPTIONS.map((value) => (
+                    <SelectItem key={value} value={String(value)}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <label>
-            Horizon (days)
-            <input
-              type="number"
-              min={7}
-              max={28}
-              value={horizonDays}
-              onChange={(event) => setHorizonDays(Number(event.target.value))}
-            />
-          </label>
+            <div className="space-y-1.5">
+              <Label htmlFor="horizon-days">Horizon (days)</Label>
+              <Input
+                id="horizon-days"
+                type="number"
+                min={7}
+                max={28}
+                value={horizonDays}
+                onChange={(event) => setHorizonDays(Number(event.target.value))}
+              />
+            </div>
 
-          <label>
-            Notify emails (comma-separated)
-            <input
-              value={notifyEmails}
-              onChange={(event) => setNotifyEmails(event.target.value)}
-              placeholder="you@minaki.com, team@minaki.com"
-            />
-          </label>
-
-          <div className="agents-actions-row">
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={createCampaignRun}
-              disabled={isSubmitting || !schemaReady}
-            >
-              {isSubmitting ? 'Generating plan…' : 'Create campaign plan'}
-            </button>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="notify-emails">Notify emails (comma-separated)</Label>
+              <Input
+                id="notify-emails"
+                value={notifyEmails}
+                onChange={(event) => setNotifyEmails(event.target.value)}
+                placeholder="you@minaki.com, team@minaki.com"
+              />
+            </div>
           </div>
-        </div>
-        {isSubmitting && (
-          <p className="agents-muted-inline">LLM is building your 2-week theme calendar. Keep this tab open.</p>
-        )}
-      </section>
+
+          <Button onClick={createCampaignRun} disabled={isSubmitting || !schemaReady}>
+            {isSubmitting ? 'Generating plan…' : 'Create campaign plan'}
+          </Button>
+          {isSubmitting && (
+            <p className="text-sm text-[var(--color-muted-foreground)]">
+              LLM is building your 2-week theme calendar. Keep this tab open.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {activeRun && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">
-            Run #{activeRun.runId} — {activeRun.status}
-          </h2>
-          {activeRun.errorMessage && (
-            <p className="agents-status-err">{activeRun.errorMessage}</p>
-          )}
-          {activeRun.strategySummary && (
-            <p className="agents-lead">{activeRun.strategySummary}</p>
-          )}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>
+              Run #{activeRun.runId} — {activeRun.status}
+            </CardTitle>
+            {activeRun.strategySummary && <CardDescription>{activeRun.strategySummary}</CardDescription>}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {activeRun.errorMessage && <Alert variant="destructive">{activeRun.errorMessage}</Alert>}
 
-          <div className="agents-actions-row compact">
-            <button
-              type="button"
-              className="agents-btn secondary"
-              onClick={produceAllApproved}
-              disabled={isSubmitting}
-            >
-              Produce all approved themes
-            </button>
-            <button
-              type="button"
-              className="agents-btn primary"
-              onClick={finalizeCampaign}
-              disabled={isSubmitting}
-            >
-              Finalize &amp; email ZIP
-            </button>
-            {activeRun.zipUrl && (
-              <a className="agents-btn secondary" href={activeRun.zipUrl} target="_blank" rel="noreferrer">
-                Download ZIP
-              </a>
-            )}
-          </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary" onClick={produceAllApproved} disabled={isSubmitting}>
+                Produce all approved themes
+              </Button>
+              <Button onClick={finalizeCampaign} disabled={isSubmitting}>
+                Finalize &amp; email ZIP
+              </Button>
+              {activeRun.zipUrl && (
+                <Button variant="secondary" asChild>
+                  <a href={activeRun.zipUrl} target="_blank" rel="noreferrer">
+                    Download ZIP
+                  </a>
+                </Button>
+              )}
+            </div>
 
-          <label>
-            Regenerate hint (optional, applies to next theme regen)
-            <input
-              value={regenerateHint}
-              onChange={(event) => setRegenerateHint(event.target.value)}
-              placeholder="e.g. more gifting angle, less product-forward"
-            />
-          </label>
+            <div className="max-w-md space-y-1.5">
+              <Label htmlFor="regenerate-hint">Regenerate hint (optional, applies to next theme regen)</Label>
+              <Input
+                id="regenerate-hint"
+                value={regenerateHint}
+                onChange={(event) => setRegenerateHint(event.target.value)}
+                placeholder="e.g. more gifting angle, less product-forward"
+              />
+            </div>
 
-          {themes.map((theme) => {
-            const frameUrls = collectHttpImageUrls(theme.ugc_package?.frames || []);
-            return (
-              <div key={theme.theme_key} className="agents-copy-block">
-                <h3>
-                  {theme.name || theme.theme_key}{' '}
-                  <span className={approvalStatusClass(theme.approval_status)}>
-                    ({theme.approval_status || 'pending'})
-                  </span>
-                </h3>
-                <p className="agents-muted">
-                  {theme.scheduled_date} · {theme.angle}
-                </p>
-                {theme.hook && <p><strong>Hook:</strong> {theme.hook}</p>}
-                {theme.caption_draft && (
-                  <p className="agents-lead">{theme.caption_draft}</p>
-                )}
-                {(theme.qc_issues || []).length > 0 && (
-                  <p className="agents-validation">QC: {theme.qc_issues.join('; ')}</p>
-                )}
+            <div className="space-y-4">
+              {themes.map((theme) => {
+                const frameUrls = collectHttpImageUrls(theme.ugc_package?.frames || []);
+                return (
+                  <Card key={theme.theme_key}>
+                    <CardHeader>
+                      <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                        {theme.name || theme.theme_key}
+                        <Badge variant={approvalBadgeVariant(theme.approval_status)}>
+                          {theme.approval_status || 'pending'}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        {theme.scheduled_date} · {theme.angle}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {theme.hook && (
+                        <p className="text-sm">
+                          <strong className="font-semibold">Hook:</strong> {theme.hook}
+                        </p>
+                      )}
+                      {theme.caption_draft && <p className="text-sm italic">{theme.caption_draft}</p>}
+                      {(theme.qc_issues || []).length > 0 && (
+                        <Alert variant="warning" title="QC">
+                          {theme.qc_issues.join('; ')}
+                        </Alert>
+                      )}
 
-                <div className="agents-actions-row compact">
-                  <button
-                    type="button"
-                    className="agents-btn secondary"
-                    onClick={() => approveTheme(theme.theme_key, 'approved')}
-                    disabled={isSubmitting}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className="agents-btn secondary"
-                    onClick={() => approveTheme(theme.theme_key, 'rejected')}
-                    disabled={isSubmitting}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    className="agents-btn secondary"
-                    onClick={() => regenerateTheme(theme.theme_key)}
-                    disabled={isSubmitting}
-                  >
-                    Regenerate
-                  </button>
-                  <button
-                    type="button"
-                    className="agents-btn primary"
-                    onClick={() => produceTheme(theme.theme_key)}
-                    disabled={isSubmitting || theme.approval_status !== 'approved'}
-                  >
-                    Produce UGC
-                  </button>
-                </div>
-
-                {frameUrls.length > 0 && (
-                  <div className="agents-banner-grid">
-                    {frameUrls.map((imageUrl) => (
-                      <a
-                        key={imageUrl}
-                        href={imageUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="agents-banner-cell"
-                      >
-                        <img src={imageUrl} alt="UGC frame" loading="lazy" />
-                      </a>
-                    ))}
-                  </div>
-                )}
-
-                {theme.ugc_package && (
-                  <div className="agents-copy-block nested">
-                    <h4>Asset review</h4>
-                    {theme.ugc_package.caption && (
-                      <div className="agents-actions-row compact">
-                        <span className={approvalStatusClass(theme.ugc_package.caption.approval_status)}>
-                          Caption ({theme.ugc_package.caption.approval_status || 'pending'})
-                        </span>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, 'caption', 'approved')}
-                          disabled={isSubmitting}
-                        >
-                          Approve caption
-                        </button>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, 'caption', 'rejected')}
-                          disabled={isSubmitting}
-                        >
-                          Reject caption
-                        </button>
-                      </div>
-                    )}
-                    {(theme.ugc_package.frames || []).map((frame) => (
-                      <div key={frame.asset_id} className="agents-actions-row compact">
-                        <span className={approvalStatusClass(frame.approval_status)}>
-                          {frame.asset_id} ({frame.approval_status || 'pending'})
-                        </span>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'approved')}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => approveTheme(theme.theme_key, 'approved')}
                           disabled={isSubmitting}
                         >
                           Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="agents-btn secondary"
-                          onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'rejected')}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => approveTheme(theme.theme_key, 'rejected')}
                           disabled={isSubmitting}
                         >
                           Reject
-                        </button>
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => regenerateTheme(theme.theme_key)}
+                          disabled={isSubmitting}
+                        >
+                          Regenerate
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => produceTheme(theme.theme_key)}
+                          disabled={isSubmitting || theme.approval_status !== 'approved'}
+                        >
+                          Produce UGC
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </section>
+
+                      {frameUrls.length > 0 && (
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                          {frameUrls.map((imageUrl) => (
+                            <a
+                              key={imageUrl}
+                              href={imageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block overflow-hidden rounded-md border border-[var(--color-border)]"
+                            >
+                              <img src={imageUrl} alt="UGC frame" loading="lazy" className="h-full w-full object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {theme.ugc_package && (
+                        <div className="space-y-3 border-t border-[var(--color-border)] pt-4">
+                          <h4 className="text-sm font-semibold">Asset review</h4>
+                          {theme.ugc_package.caption && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={approvalBadgeVariant(theme.ugc_package.caption.approval_status)}>
+                                Caption ({theme.ugc_package.caption.approval_status || 'pending'})
+                              </Badge>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => approveAsset(theme.theme_key, 'caption', 'approved')}
+                                disabled={isSubmitting}
+                              >
+                                Approve caption
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => approveAsset(theme.theme_key, 'caption', 'rejected')}
+                                disabled={isSubmitting}
+                              >
+                                Reject caption
+                              </Button>
+                            </div>
+                          )}
+                          {(theme.ugc_package.frames || []).map((frame) => (
+                            <div key={frame.asset_id} className="flex flex-wrap items-center gap-2">
+                              <Badge variant={approvalBadgeVariant(frame.approval_status)}>
+                                {frame.asset_id} ({frame.approval_status || 'pending'})
+                              </Badge>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'approved')}
+                                disabled={isSubmitting}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => approveAsset(theme.theme_key, frame.asset_id, 'rejected')}
+                                disabled={isSubmitting}
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">Recent runs</h2>
-        <div className="agents-actions-row compact">
-          <button
-            type="button"
-            className="agents-btn secondary"
-            onClick={loadRecentRuns}
-            disabled={recentRunsLoading}
-          >
-            Refresh
-          </button>
-        </div>
-        {recentRunsLoading ? (
-          <LoadingSpinner message="Loading runs…" />
-        ) : (
-          <div className="agents-table-wrap">
-            <p className="agents-preview-skus">{recentRunsTotal} total runs</p>
-            <table className="agents-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Kit</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {recentRuns.map((runRow) => (
-                  <tr key={runRow.id}>
-                    <td>{runRow.id}</td>
-                    <td>{runRow.brand_kit_id || '—'}</td>
-                    <td>{runRow.status}</td>
-                    <td>{runRow.created_at ? String(runRow.created_at).slice(0, 19) : '—'}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="agents-link-btn"
-                        onClick={() => viewRunDetails(runRow.id)}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent runs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={loadRecentRuns} disabled={recentRunsLoading}>
+              Refresh
+            </Button>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{recentRunsTotal} total runs</p>
           </div>
-        )}
-      </section>
+          {recentRunsLoading ? (
+            <LoadingSpinner message="Loading runs…" />
+          ) : (
+            <AgentsPagedTable
+              columns={[
+                ...RECENT_RUNS_COLUMNS,
+                {
+                  key: 'view',
+                  label: '',
+                  render: (row) => (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => viewRunDetails(row.id)}
+                    >
+                      View
+                    </Button>
+                  ),
+                },
+              ]}
+              rows={recentRuns}
+              getRowId={(row) => row.id}
+              emptyLabel="No campaign runs yet."
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
