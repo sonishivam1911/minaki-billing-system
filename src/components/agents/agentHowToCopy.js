@@ -59,6 +59,16 @@ export const AGENT_HOW_TO = {
       'Download the ZIP when production is done.',
     ],
   },
+  settings: {
+    title: 'Agent Settings',
+    what: 'This sets the defaults that Collection Builder, Creative Pod, and Campaign Creative start from on every new run — the vertical, scene, and models they pre-fill. Changing something here changes what those agents generate from now on, not just this run.',
+    steps: [
+      'Open a card for the pipeline you want to change (they don’t share settings, even if some fields look the same).',
+      'Pick the vertical, scene, and models you want as the default. Leave a field blank to keep auto-classifying from the brief instead.',
+      'Save defaults. You’ll see exactly what changed before it takes effect.',
+      'Runs already in progress are not affected — this only changes what new runs start from.',
+    ],
+  },
   banners: {
     title: 'Banner Generation',
     what: 'This makes ad or website banners from a product photo. You brief it in normal language, then tweak.',
