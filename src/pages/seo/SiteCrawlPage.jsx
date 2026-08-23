@@ -33,8 +33,8 @@ export const SiteCrawlPage = () => {
   const [pageDetail, setPageDetail] = useState(null);
   const [pageDetailLoading, setPageDetailLoading] = useState(false);
 
-  const [extractBatchSize, setExtractBatchSize] = useState(25);
-  const [extracting, setExtracting] = useState(false);
+  const [extractingAll, setExtractingAll] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState(null);
 
   const [keywordReport, setKeywordReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -78,6 +78,28 @@ export const SiteCrawlPage = () => {
     const timer = setInterval(refreshCrawl, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [selectedId, crawl?.status, refreshCrawl]);
+
+  const loadExtractionStatus = useCallback(async () => {
+    if (!selectedId) return;
+    try {
+      setExtractionStatus(await seoApi.getSiteCrawlKeywordExtractionStatus(selectedId));
+    } catch (e) {
+      setError(e.message);
+    }
+  }, [selectedId]);
+
+  useEffect(() => {
+    loadExtractionStatus();
+  }, [loadExtractionStatus]);
+
+  // Same auto-refresh idea as the crawl status above, but keyed off
+  // extraction's own in_progress flag — extraction can still be running
+  // (self-requeuing batches) well after the crawl itself shows 'completed'.
+  useEffect(() => {
+    if (!selectedId || !extractionStatus?.in_progress) return undefined;
+    const timer = setInterval(loadExtractionStatus, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [selectedId, extractionStatus?.in_progress, loadExtractionStatus]);
 
   const loadPages = useCallback(async () => {
     if (!selectedId) return;
@@ -140,18 +162,17 @@ export const SiteCrawlPage = () => {
     }
   };
 
-  const runExtraction = async () => {
-    setExtracting(true);
+  const extractAllKeywords = async () => {
+    setExtractingAll(true);
     setError(null);
     try {
-      await seoApi.extractSiteCrawlKeywords(selectedId, {
-        batch_size: Math.max(1, Math.min(200, Number(extractBatchSize) || 25)),
-      });
+      await seoApi.extractSiteCrawlKeywords(selectedId, {});
     } catch (e) {
       setError(e.message);
     } finally {
-      setExtracting(false);
+      setExtractingAll(false);
       setTimeout(() => {
+        loadExtractionStatus();
         refreshCrawl();
         loadPages();
       }, 1500);
@@ -204,6 +225,7 @@ export const SiteCrawlPage = () => {
     setSelectedPageUrl(null);
     setPageDetail(null);
     setKeywordReport(null);
+    setExtractionStatus(null);
   };
 
   return (
@@ -317,21 +339,31 @@ export const SiteCrawlPage = () => {
           <section className="agents-card">
             <h2 className="agents-section-title">Extract keywords</h2>
             <p className="agents-preview-skus">
-              Processes pending pages (any type) in batches — call repeatedly to work through the whole crawl.
+              Runs automatically once the crawl finishes. Use Extract all to (re)start it by hand, or to
+              force a retry of anything still pending.
             </p>
-            <label>
-              Batch size
-              <input
-                type="number"
-                min={1}
-                max={200}
-                value={extractBatchSize}
-                onChange={(e) => setExtractBatchSize(e.target.value)}
-              />
-            </label>
+            {extractionStatus && (
+              <table className="agents-table">
+                <tbody>
+                  <tr>
+                    <td>Status</td>
+                    <td>{extractionStatus.in_progress ? 'Extracting… (auto-refreshing)' : 'Idle'}</td>
+                  </tr>
+                  <tr><td>Percent complete</td><td>{extractionStatus.percent_complete}%</td></tr>
+                  <tr><td>Pending</td><td>{extractionStatus.pending}</td></tr>
+                  <tr><td>Done</td><td>{extractionStatus.done}</td></tr>
+                  <tr><td>Failed</td><td>{extractionStatus.failed}</td></tr>
+                  <tr><td>Keywords stored</td><td>{extractionStatus.keywords_stored}</td></tr>
+                  <tr><td>Distinct keywords</td><td>{extractionStatus.distinct_keywords}</td></tr>
+                </tbody>
+              </table>
+            )}
             <div className="agents-actions">
-              <button type="button" className="agents-btn primary" onClick={runExtraction} disabled={extracting}>
-                {extracting ? 'Starting…' : 'Extract next batch'}
+              <button type="button" className="agents-btn primary" onClick={extractAllKeywords} disabled={extractingAll}>
+                {extractingAll ? 'Starting…' : 'Extract all'}
+              </button>
+              <button type="button" className="agents-btn secondary" onClick={loadExtractionStatus}>
+                Refresh status
               </button>
               <button type="button" className="agents-btn secondary" onClick={loadKeywordReport} disabled={reportLoading}>
                 {reportLoading ? 'Loading…' : 'View keyword report'}
