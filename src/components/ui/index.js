@@ -26,3 +26,6 @@ export * from './use-toast';
 export * from './separator';
 export * from './skeleton';
 export * from './breadcrumb';
+export * from './collapsible';
+export * from './accordion';
+export * from './agent';

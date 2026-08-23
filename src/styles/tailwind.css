@@ -225,4 +225,50 @@
   @media (prefers-reduced-motion: reduce) {
     .skeleton-shimmer { animation: none; }
   }
+
+  /*
+   * AI/Agent motion language: a running agent gets a slow sapphire pulse
+   * (sapphire = Agents/AI per the gemstone accent mapping), not a spinner —
+   * reads as "working" from across the room without demanding attention.
+   */
+  .status-pulse-dot {
+    position: relative;
+  }
+  .status-pulse-dot::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.35;
+    animation: status-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes status-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.35; }
+    50% { transform: scale(1.8); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status-pulse-dot::before { animation: none; opacity: 0; }
+  }
+
+  /* Staggered reveal for generation-result grids — each tile settles in with a
+     small delay driven by --stagger-index, set inline per item. */
+  .stagger-in {
+    opacity: 0;
+    animation: stagger-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    animation-delay: calc(var(--stagger-index, 0) * 70ms);
+  }
+  @keyframes stagger-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stagger-in { animation: none; opacity: 1; }
+  }
+
+  /* Prompt composer focus glow — a soft sapphire halo, not a hard outline. */
+  .prompt-glow:focus-within {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-sapphire) 22%, transparent), var(--shadow-showcase);
+    border-color: color-mix(in srgb, var(--color-sapphire) 55%, var(--color-input));
+  }
 }
