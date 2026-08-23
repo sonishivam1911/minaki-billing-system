@@ -12,12 +12,7 @@ import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { ShopifyProductPicker } from '../../components/agents/ShopifyProductPicker';
-import { LoadingSpinner } from '../../components';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Button } from '../../components/ui/button';
-import { Alert } from '../../components/ui/alert';
+import { LoadingSpinner, ErrorMessage } from '../../components';
 
 const TEMPLATE_SOURCE = {
   sku_only: 'sku_csv',
@@ -134,31 +129,23 @@ export const ProductWriterPage = () => {
   };
 
   if (!templates.length && !error) {
-    return (
-      <div className="minaki-ui mx-auto max-w-5xl px-4 py-6 pb-16 sm:px-6">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Product Writer</h1>
-        <AgentsSubnav />
-        <LoadingSpinner message="Loading writer templates..." />
-      </div>
-    );
+    return <LoadingSpinner message="Loading writer templates..." />;
   }
 
   return (
-    <div className="minaki-ui mx-auto max-w-5xl px-4 py-6 pb-16 sm:px-6">
-      <header className="mb-2">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Product Writer</h1>
-        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-          Upload SKUs or a product list — AI writes names, descriptions, and SEO
-        </p>
-      </header>
+    <div className="screen-container agents-page">
+      <div className="screen-header">
+        <div>
+          <h1 className="screen-title">Product Writer</h1>
+          <p className="screen-subtitle">
+            Upload SKUs or a product list — AI writes names, descriptions, and SEO
+          </p>
+        </div>
+      </div>
 
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.writer} />
-      {error && (
-        <Alert variant="destructive" title="Something went wrong" className="mb-4">
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
       <AgentsModeSelect
         label="Input"
@@ -171,119 +158,110 @@ export const ProductWriterPage = () => {
       />
 
       {inputMode === 'shopify' ? (
-        <Card className="mb-6">
-          <CardContent className="pt-5">
-            <ShopifyProductPicker selectedSkus={selectedSkus} onSelectionChange={setSelectedSkus} />
-          </CardContent>
-        </Card>
+        <section className="agents-card">
+          <ShopifyProductPicker selectedSkus={selectedSkus} onSelectionChange={setSelectedSkus} />
+        </section>
       ) : (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Upload your product list</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="template"
-                  className="h-4 w-4 accent-[var(--color-primary)]"
-                  checked={templateId === 'sku_only'}
-                  onChange={() => setTemplateId('sku_only')}
-                />
-                Simple SKU list
-              </label>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-              >
-                {showAdvanced ? 'Hide' : 'More file types…'}
-              </Button>
-            </div>
+      <section className="agents-card">
+        <h2 className="agents-section-title">Upload your product list</h2>
 
-            {showAdvanced && (
-              <div className="flex flex-wrap gap-4 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3">
-                {templates
-                  .filter((t) => t.id !== 'sku_only')
-                  .map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name="template"
-                        className="h-4 w-4 accent-[var(--color-primary)]"
-                        checked={templateId === t.id}
-                        onChange={() => setTemplateId(t.id)}
-                      />
-                      {t.label}
-                    </label>
-                  ))}
-              </div>
+        <div className="agents-template-row">
+          <label className="agents-radio">
+            <input
+              type="radio"
+              name="template"
+              checked={templateId === 'sku_only'}
+              onChange={() => setTemplateId('sku_only')}
+            />
+            Simple SKU list
+          </label>
+          <button
+            type="button"
+            className="agents-link-btn"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? 'Hide' : 'More file types…'}
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <div className="agents-template-advanced">
+            {templates
+              .filter((t) => t.id !== 'sku_only')
+              .map((t) => (
+                <label key={t.id} className="agents-radio">
+                  <input
+                    type="radio"
+                    name="template"
+                    checked={templateId === t.id}
+                    onChange={() => setTemplateId(t.id)}
+                  />
+                  {t.label}
+                </label>
+              ))}
+          </div>
+        )}
+
+        <CsvSchemaHelp template={activeTemplate} />
+        <CsvUploadZone file={file} onFileSelect={(f) => { setFile(f); setValidation(null); setResults([]); }} />
+
+        {validation && (
+          <div className="agents-validation">
+            <p>
+              <strong>{validation.valid_rows}</strong> products ready
+              {validation.errors?.length > 0 && (
+                <span className="agents-warn">
+                  {' '}
+                  · {validation.errors.length} row issue(s)
+                </span>
+              )}
+            </p>
+            {validation.preview_skus?.length > 0 && (
+              <p className="agents-preview-skus">
+                SKUs: {validation.preview_skus.slice(0, 8).join(', ')}
+                {validation.preview_skus.length > 8 ? '…' : ''}
+              </p>
             )}
+          </div>
+        )}
 
-            <CsvSchemaHelp template={activeTemplate} />
-            <CsvUploadZone file={file} onFileSelect={(f) => { setFile(f); setValidation(null); setResults([]); }} />
-
-            {validation && (
-              <div className="space-y-1 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3 text-sm">
-                <p>
-                  <strong>{validation.valid_rows}</strong> products ready
-                  {validation.errors?.length > 0 && (
-                    <span className="text-[var(--color-warning)]">
-                      {' '}
-                      · {validation.errors.length} row issue(s)
-                    </span>
-                  )}
-                </p>
-                {validation.preview_skus?.length > 0 && (
-                  <p className="text-[var(--color-muted-foreground)]">
-                    SKUs: {validation.preview_skus.slice(0, 8).join(', ')}
-                    {validation.preview_skus.length > 8 ? '…' : ''}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handleValidate}
-                disabled={!file || validating}
-              >
-                {validating ? 'Checking…' : 'Check file'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="agents-actions">
+          <button
+            type="button"
+            className="agents-btn secondary"
+            onClick={handleValidate}
+            disabled={!file || validating}
+          >
+            {validating ? 'Checking…' : 'Check file'}
+          </button>
+        </div>
+      </section>
       )}
 
-      <Card className="mb-6">
-        <CardContent className="space-y-4 pt-5">
-          <UpdateMaskCheckboxes value={updateMask} onChange={setUpdateMask} />
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="pw-dry-run"
-              checked={dryRun}
-              onCheckedChange={(checked) => setDryRun(Boolean(checked))}
-            />
-            <Label htmlFor="pw-dry-run" className="font-normal">
-              Preview only (do not change Shopify yet)
-            </Label>
-          </div>
-          <Button
+      <section className="agents-card">
+        <UpdateMaskCheckboxes value={updateMask} onChange={setUpdateMask} />
+        <label className="agents-check agents-dry-run">
+          <input
+            type="checkbox"
+            checked={dryRun}
+            onChange={() => setDryRun(!dryRun)}
+          />
+          <span>Preview only (do not change Shopify yet)</span>
+        </label>
+        <div className="agents-actions">
+          <button
+            type="button"
+            className="agents-btn primary"
             onClick={handleRun}
             disabled={(inputMode === 'csv' && !file) || running}
           >
             {running ? 'Running…' : dryRun ? 'Preview run' : 'Apply to Shopify'}
-          </Button>
-          {enrichmentRunId && (
-            <p className="text-sm text-[var(--color-muted-foreground)]">Enrichment run: {enrichmentRunId}</p>
-          )}
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+        {enrichmentRunId && (
+          <p className="agents-preview-skus">Enrichment run: {enrichmentRunId}</p>
+        )}
+      </section>
 
       {running && (
         <LoadingSpinner

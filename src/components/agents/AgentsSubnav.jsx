@@ -1,14 +1,15 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useIsMobile } from '../../hooks/use-media-query';
 import {
+  FormControl,
+  InputLabel,
+  MenuItem,
   Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '../ui/select';
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
+  Tabs,
+  Tab,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 
 export const AGENT_NAV_LINKS = [
   { to: '/agents/writer', label: 'Product Writer' },
@@ -25,41 +26,44 @@ export const AGENT_NAV_LINKS = [
 export const AgentsSubnav = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const currentPath = AGENT_NAV_LINKS.some((link) => link.to === location.pathname)
     ? location.pathname
     : AGENT_NAV_LINKS[0].to;
 
   if (isMobile) {
     return (
-      <div className="minaki-ui mb-4">
-        <Select value={currentPath} onValueChange={(value) => navigate(value)}>
-          <SelectTrigger aria-label="Agent">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {AGENT_NAV_LINKS.map((link) => (
-              <SelectItem key={link.to} value={link.to}>
-                {link.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
+      <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+        <InputLabel id="agents-nav-label">Agent</InputLabel>
+        <Select
+          labelId="agents-nav-label"
+          label="Agent"
+          value={currentPath}
+          onChange={(event) => navigate(event.target.value)}
+        >
+          {AGENT_NAV_LINKS.map((link) => (
+            <MenuItem key={link.to} value={link.to}>
+              {link.label}
+            </MenuItem>
+          ))}
         </Select>
-      </div>
+      </FormControl>
     );
   }
 
   return (
-    <div className="minaki-ui mb-4">
-      <Tabs value={currentPath} onValueChange={(value) => navigate(value)}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          {AGENT_NAV_LINKS.map((link) => (
-            <TabsTrigger key={link.to} value={link.to}>
-              {link.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-    </div>
+    <Tabs
+      value={currentPath}
+      onChange={(_event, value) => navigate(value)}
+      variant="scrollable"
+      scrollButtons="auto"
+      allowScrollButtonsMobile
+      sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+    >
+      {AGENT_NAV_LINKS.map((link) => (
+        <Tab key={link.to} value={link.to} label={link.label} />
+      ))}
+    </Tabs>
   );
 };

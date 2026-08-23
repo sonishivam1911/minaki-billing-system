@@ -3,21 +3,7 @@ import { agentsApi } from '../../services/agentsApi';
 import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner } from '../../components';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
-import { Button } from '../../components/ui/button';
-import { Alert } from '../../components/ui/alert';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '../../components/ui/select';
+import { LoadingSpinner, ErrorMessage } from '../../components';
 
 const EMPTY_TEAM_FORM = {
   display_name: '',
@@ -37,8 +23,6 @@ const TEAM_FORM_PLACEHOLDERS = {
 
 const NAME_BANK_PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
-const AUTO_CHANNEL_VALUE = '__auto__';
-const ALL_TEAMS_VALUE = '__all__';
 
 export const NamingTeamsPage = () => {
   const [teams, setTeams] = useState([]);
@@ -207,315 +191,254 @@ export const NamingTeamsPage = () => {
   }
 
   return (
-    <div className="minaki-ui mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6">
-      <header className="mb-2">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Naming Teams</h1>
-        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-          Preset and custom mythology / era packs for the name bank
-        </p>
-      </header>
+    <div className="screen-container agents-page">
+      <div className="screen-header">
+        <div>
+          <h1 className="screen-title">Naming Teams</h1>
+          <p className="screen-subtitle">Preset and custom mythology / era packs for the name bank</p>
+        </div>
+      </div>
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.naming} />
-      {errorMessage && (
-        <Alert variant="destructive" title="Something went wrong" className="mb-4">
-          {errorMessage}
-        </Alert>
-      )}
+      {errorMessage && <ErrorMessage message={errorMessage} onRetry={() => setErrorMessage(null)} />}
 
       {!teamsSchemaReady && (
-        <Alert variant="warning" title="Naming teams table not set up" className="mb-4">
-          Run <code>homelab-contabo/scripts/migrations/naming_theme_packs.sql</code> on Postgres.
-        </Alert>
+        <div className="agents-card agents-alert">
+          <p>
+            Naming teams database table is not set up yet. Run{' '}
+            <code>homelab-contabo/scripts/migrations/naming_theme_packs.sql</code> on Postgres.
+          </p>
+        </div>
       )}
 
       {!nameBankSchemaReady && (
-        <Alert variant="warning" title="Name bank tables missing" className="mb-4">
-          Run <code>real-time-minaki-poc/api/scripts/migrations/name_warehouse_minaki_agents.sql</code> on
-          Postgres before generating or browsing names.
-        </Alert>
+        <div className="agents-card agents-alert">
+          <p>
+            Name bank tables are missing. Run{' '}
+            <code>real-time-minaki-poc/api/scripts/migrations/name_warehouse_minaki_agents.sql</code>{' '}
+            on Postgres before generating or browsing names.
+          </p>
+        </div>
       )}
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Preset teams</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!presetTeams.length ? (
-            <p className="text-sm text-[var(--color-muted-foreground)]">No preset teams yet.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {presetTeams.map((team) => (
-                <Card key={team.id}>
-                  <CardHeader>
-                    <CardTitle className="text-base">{team.display_name}</CardTitle>
-                    <CardDescription>{team.description}</CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                    <Button variant="secondary" size="sm" onClick={() => openGeneratePanel(team.id)}>
-                      Generate names
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+      <section className="agents-card">
+        <h2 className="agents-section-title">Preset teams</h2>
+        {!presetTeams.length ? <p className="agents-muted">No preset teams yet.</p> : null}
+        <div className="agents-team-grid">
+          {presetTeams.map((team) => (
+            <div key={team.id} className="agents-team-card">
+              <h4>{team.display_name}</h4>
+              <p>{team.description}</p>
+              <button type="button" className="agents-btn secondary" onClick={() => openGeneratePanel(team.id)}>
+                Generate names
+              </button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </section>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>My teams</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {customTeams.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {customTeams.map((team) => (
-                <Card key={team.id}>
-                  <CardHeader>
-                    <CardTitle className="text-base">{team.display_name}</CardTitle>
-                    <CardDescription>{team.description || team.era_myth_prompt}</CardDescription>
-                  </CardHeader>
-                  <CardFooter className="flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => startEditingTeam(team)}>
-                      Edit
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => openGeneratePanel(team.id)}>
-                      Generate
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => deleteTeam(team.id)}>
-                      Delete
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
+      <section className="agents-card">
+        <h2 className="agents-section-title">My teams</h2>
+        <div className="agents-team-grid">
+          {customTeams.map((team) => (
+            <div key={team.id} className="agents-team-card">
+              <h4>{team.display_name}</h4>
+              <p>{team.description || team.era_myth_prompt}</p>
+              <div className="agents-actions">
+                <button type="button" className="agents-btn secondary" onClick={() => startEditingTeam(team)}>
+                  Edit
+                </button>
+                <button type="button" className="agents-btn secondary" onClick={() => openGeneratePanel(team.id)}>
+                  Generate
+                </button>
+                <button type="button" className="agents-btn secondary" onClick={() => deleteTeam(team.id)}>
+                  Delete
+                </button>
+              </div>
             </div>
-          )}
+          ))}
+        </div>
 
-          <div>
-            <h3 className="mb-3 text-sm font-semibold">
-              {editingTeamId ? 'Edit team' : 'Create custom team'}
-            </h3>
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="team-display-name">Display name</Label>
-                  <Input
-                    id="team-display-name"
-                    value={teamForm.display_name}
-                    placeholder={TEAM_FORM_PLACEHOLDERS.display_name}
-                    onChange={(event) => setTeamForm({ ...teamForm, display_name: event.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="team-description">Description (optional)</Label>
-                  <Input
-                    id="team-description"
-                    value={teamForm.description}
-                    placeholder={TEAM_FORM_PLACEHOLDERS.description}
-                    onChange={(event) => setTeamForm({ ...teamForm, description: event.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="team-era-myth">Naming flavor (mythology, era, mood)</Label>
-                <Textarea
-                  id="team-era-myth"
-                  rows={3}
-                  value={teamForm.era_myth_prompt}
-                  placeholder={TEAM_FORM_PLACEHOLDERS.era_myth_prompt}
-                  onChange={(event) => setTeamForm({ ...teamForm, era_myth_prompt: event.target.value })}
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Style preset</Label>
-                  <Select
-                    value={teamForm.naming_style_preset}
-                    onValueChange={(value) => setTeamForm({ ...teamForm, naming_style_preset: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="minimal">Minimal</SelectItem>
-                      <SelectItem value="short_elegant">Short elegant</SelectItem>
-                      <SelectItem value="balanced">Balanced</SelectItem>
-                      <SelectItem value="grand">Grand</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Product line (optional)</Label>
-                  <Select
-                    value={teamForm.channel_family || AUTO_CHANNEL_VALUE}
-                    onValueChange={(value) =>
-                      setTeamForm({
-                        ...teamForm,
-                        channel_family: value === AUTO_CHANNEL_VALUE ? '' : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={AUTO_CHANNEL_VALUE}>Auto from category</SelectItem>
-                      <SelectItem value="crystal_ad">Crystal</SelectItem>
-                      <SelectItem value="kundan">Kundan</SelectItem>
-                      <SelectItem value="temple">Temple</SelectItem>
-                      <SelectItem value="eleganza">Eleganza</SelectItem>
-                      <SelectItem value="lab_grown">Lab grown</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button onClick={saveTeam} disabled={isSubmitting}>
-                {editingTeamId ? 'Save changes' : 'Create team'}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <h3 className="agents-section-title">{editingTeamId ? 'Edit team' : 'Create custom team'}</h3>
+        <div className="agents-form">
+          <label>
+            Display name
+            <input
+              value={teamForm.display_name}
+              placeholder={TEAM_FORM_PLACEHOLDERS.display_name}
+              onChange={(event) => setTeamForm({ ...teamForm, display_name: event.target.value })}
+            />
+          </label>
+          <label>
+            Description (optional)
+            <input
+              value={teamForm.description}
+              placeholder={TEAM_FORM_PLACEHOLDERS.description}
+              onChange={(event) => setTeamForm({ ...teamForm, description: event.target.value })}
+            />
+          </label>
+          <label>
+            Naming flavor (mythology, era, mood)
+            <textarea
+              rows={3}
+              value={teamForm.era_myth_prompt}
+              placeholder={TEAM_FORM_PLACEHOLDERS.era_myth_prompt}
+              onChange={(event) => setTeamForm({ ...teamForm, era_myth_prompt: event.target.value })}
+            />
+          </label>
+          <label>
+            Style preset
+            <select
+              value={teamForm.naming_style_preset}
+              onChange={(event) => setTeamForm({ ...teamForm, naming_style_preset: event.target.value })}
+            >
+              <option value="minimal">Minimal</option>
+              <option value="short_elegant">Short elegant</option>
+              <option value="balanced">Balanced</option>
+              <option value="grand">Grand</option>
+            </select>
+          </label>
+          <label>
+            Product line (optional)
+            <select
+              value={teamForm.channel_family}
+              onChange={(event) => setTeamForm({ ...teamForm, channel_family: event.target.value })}
+            >
+              <option value="">Auto from category</option>
+              <option value="crystal_ad">Crystal</option>
+              <option value="kundan">Kundan</option>
+              <option value="temple">Temple</option>
+              <option value="eleganza">Eleganza</option>
+              <option value="lab_grown">Lab grown</option>
+            </select>
+          </label>
+          <button type="button" className="agents-btn primary" onClick={saveTeam} disabled={isSubmitting}>
+            {editingTeamId ? 'Save changes' : 'Create team'}
+          </button>
+        </div>
+      </section>
 
       {activeGenerateTeamId && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Generate — {activeGenerateTeam?.display_name || 'Team'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="max-w-sm space-y-1.5">
-              <Label htmlFor="generate-category">Category</Label>
-              <Input
-                id="generate-category"
-                value={generateCategory}
-                placeholder={TEAM_FORM_PLACEHOLDERS.generateCategory}
-                onChange={(event) => setGenerateCategory(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={runNameGeneration} disabled={isSubmitting}>
-                {isSubmitting ? 'Generating…' : 'Run once'}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setActiveGenerateTeamId(null);
-                  setGenerateResult(null);
-                  setNameBankTeamFilter('');
-                }}
-              >
-                Close
-              </Button>
-            </div>
-            {generateResult && (
-              <Alert variant="success">
-                Saved {generateResult.names_upserted ?? 0} names
-                {generateResult.generation_run_id ? ` (run #${generateResult.generation_run_id})` : ''}.
-                {generateResult.search_query ? ` Search: ${generateResult.search_query}` : ''}
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+        <section className="agents-card">
+          <h2 className="agents-section-title">
+            Generate — {activeGenerateTeam?.display_name || 'Team'}
+          </h2>
+          <label>
+            Category
+            <input
+              value={generateCategory}
+              placeholder={TEAM_FORM_PLACEHOLDERS.generateCategory}
+              onChange={(event) => setGenerateCategory(event.target.value)}
+            />
+          </label>
+          <div className="agents-actions">
+            <button type="button" className="agents-btn primary" onClick={runNameGeneration} disabled={isSubmitting}>
+              {isSubmitting ? 'Generating…' : 'Run once'}
+            </button>
+            <button
+              type="button"
+              className="agents-btn secondary"
+              onClick={() => {
+                setActiveGenerateTeamId(null);
+                setGenerateResult(null);
+                setNameBankTeamFilter('');
+              }}
+            >
+              Close
+            </button>
+          </div>
+          {generateResult && (
+            <p className="agents-validation">
+              Saved {generateResult.names_upserted ?? 0} names
+              {generateResult.generation_run_id ? ` (run #${generateResult.generation_run_id})` : ''}.
+              {generateResult.search_query ? ` Search: ${generateResult.search_query}` : ''}
+            </p>
+          )}
+        </section>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Name bank</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Input
-              placeholder="Search name or meaning…"
-              value={nameBankSearch}
-              onChange={(event) => setNameBankSearch(event.target.value)}
-              className="sm:max-w-xs"
-            />
-            <Input
-              placeholder="Filter category…"
-              value={nameBankCategoryFilter}
-              onChange={(event) => setNameBankCategoryFilter(event.target.value)}
-              className="sm:max-w-xs"
-            />
-            <Select
-              value={nameBankTeamFilter || ALL_TEAMS_VALUE}
-              onValueChange={(value) => setNameBankTeamFilter(value === ALL_TEAMS_VALUE ? '' : value)}
-            >
-              <SelectTrigger className="sm:max-w-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_TEAMS_VALUE}>All teams</SelectItem>
-                {teams.map((team) => (
-                  <SelectItem key={team.id} value={String(team.id)}>
-                    {team.display_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={loadNameBank} className="sm:ml-auto">
-              Refresh
-            </Button>
-          </div>
+      <section className="agents-card">
+        <h2 className="agents-section-title">Name bank</h2>
+        <div className="agents-search-row">
+          <input
+            placeholder="Search name or meaning…"
+            value={nameBankSearch}
+            onChange={(event) => setNameBankSearch(event.target.value)}
+          />
+          <input
+            placeholder="Filter category…"
+            value={nameBankCategoryFilter}
+            onChange={(event) => setNameBankCategoryFilter(event.target.value)}
+          />
+          <select value={nameBankTeamFilter} onChange={(event) => setNameBankTeamFilter(event.target.value)}>
+            <option value="">All teams</option>
+            {teams.map((team) => (
+              <option key={team.id} value={String(team.id)}>
+                {team.display_name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="agents-btn secondary" onClick={loadNameBank}>
+            Refresh
+          </button>
+        </div>
 
-          {nameBankLoading ? (
-            <LoadingSpinner message="Loading names…" />
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                Showing {nameBankRangeStart}–{nameBankRangeEnd} of {nameBankTotal}
-              </p>
-              {!nameBankRows.length ? (
-                <p className="text-sm text-[var(--color-muted-foreground)]">
-                  No names yet. Pick a team and run Generate above.
-                </p>
-              ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Meaning</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {nameBankRows.map((row) => (
-                        <TableRow key={row.id}>
-                          <TableCell className="font-medium">{row.name}</TableCell>
-                          <TableCell>{row.meaning}</TableCell>
-                          <TableCell>{row.category || '—'}</TableCell>
-                          <TableCell>{row.status || '—'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {nameBankTotal > NAME_BANK_PAGE_SIZE && (
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={nameBankPage === 0}
-                        onClick={() => setNameBankPage((page) => page - 1)}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={(nameBankPage + 1) * NAME_BANK_PAGE_SIZE >= nameBankTotal}
-                        onClick={() => setNameBankPage((page) => page + 1)}
-                      >
-                        Next
-                      </Button>
-                    </div>
-                  )}
-                </>
+        {nameBankLoading ? (
+          <LoadingSpinner message="Loading names…" />
+        ) : (
+          <div className="agents-table-wrap">
+            <p className="agents-preview-skus">
+              Showing {nameBankRangeStart}–{nameBankRangeEnd} of {nameBankTotal}
+            </p>
+            {!nameBankRows.length ? (
+              <p className="agents-muted">No names yet. Pick a team and run Generate above.</p>
+            ) : (
+              <>
+              <table className="agents-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Meaning</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nameBankRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.name}</td>
+                      <td>{row.meaning}</td>
+                      <td>{row.category || '—'}</td>
+                      <td>{row.status || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {nameBankTotal > NAME_BANK_PAGE_SIZE && (
+                <div className="agents-actions">
+                  <button
+                    type="button"
+                    className="agents-btn secondary"
+                    disabled={nameBankPage === 0}
+                    onClick={() => setNameBankPage((page) => page - 1)}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    className="agents-btn secondary"
+                    disabled={(nameBankPage + 1) * NAME_BANK_PAGE_SIZE >= nameBankTotal}
+                    onClick={() => setNameBankPage((page) => page + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 };

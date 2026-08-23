@@ -4,17 +4,9 @@ import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner } from '../../components';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { Input } from '../../components/ui/input';
-import { Textarea } from '../../components/ui/textarea';
-import { Button } from '../../components/ui/button';
-import { Alert } from '../../components/ui/alert';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
-import { Pagination } from '../../components/ui/pagination';
+import { LoadingSpinner, ErrorMessage } from '../../components';
 
-const DEFAULT_PAGE_SIZE = 10;
+const KEYWORDS_PAGE_SIZE = 40;
 const DEFAULT_MAX_PER_SEED = 40;
 const SIMILAR_KEYWORD_COUNT = 40;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -26,7 +18,6 @@ export const KeywordsPage = () => {
   const [keywords, setKeywords] = useState([]);
   const [total, setTotal] = useState(0);
   const [keywordPage, setKeywordPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [filterSeed, setFilterSeed] = useState('');
   const [searchQ, setSearchQ] = useState('');
   const [debouncedSearchQ, setDebouncedSearchQ] = useState('');
@@ -49,7 +40,7 @@ export const KeywordsPage = () => {
 
   useEffect(() => {
     setKeywordPage(0);
-  }, [tab, debouncedSearchQ, debouncedFilterSeed, pageSize]);
+  }, [tab, debouncedSearchQ, debouncedFilterSeed]);
 
   const loadKeywords = useCallback(async () => {
     if (tab === 'similar') {
@@ -58,12 +49,12 @@ export const KeywordsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const offset = keywordPage * pageSize;
+      const offset = keywordPage * KEYWORDS_PAGE_SIZE;
       const res = await agentsApi.listKeywords({
         q: debouncedSearchQ || undefined,
         source: tab === 'discover' ? 'dataforseo_expand' : undefined,
         seed: debouncedFilterSeed || undefined,
-        limit: pageSize,
+        limit: KEYWORDS_PAGE_SIZE,
         offset,
       });
       setKeywords(res.items || []);
@@ -73,7 +64,7 @@ export const KeywordsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [tab, debouncedSearchQ, debouncedFilterSeed, keywordPage, pageSize]);
+  }, [tab, debouncedSearchQ, debouncedFilterSeed, keywordPage]);
 
   useEffect(() => {
     loadKeywords();
@@ -139,145 +130,153 @@ export const KeywordsPage = () => {
 
   const tableRows = tab === 'similar' ? similar : keywords;
   const tableTotal = tab === 'similar' ? similar.length : total;
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const rangeStart = tab === 'similar'
+    ? (tableRows.length ? 1 : 0)
+    : (total === 0 ? 0 : keywordPage * KEYWORDS_PAGE_SIZE + 1);
+  const rangeEnd = tab === 'similar'
+    ? tableRows.length
+    : Math.min(keywordPage * KEYWORDS_PAGE_SIZE + keywords.length, total);
 
   return (
-    <div className="minaki-ui mx-auto max-w-5xl px-4 py-6 sm:px-6">
-      <header className="mb-2">
-        <h1 className="text-2xl font-semibold sm:text-3xl">Keywords</h1>
-        <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-          Discover similar keywords via DataForSEO and browse your warehouse
-        </p>
-      </header>
+    <div className="screen-container agents-page">
+      <div className="screen-header">
+        <div>
+          <h1 className="screen-title">Keywords</h1>
+          <p className="screen-subtitle">Discover similar keywords via DataForSEO and browse your warehouse</p>
+        </div>
+      </div>
       <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.keywords} />
-      {error && (
-        <Alert variant="destructive" title="Something went wrong" className="mb-4">
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Seed keywords</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            rows={4}
-            placeholder="crystal choker, bridal jhumka, kundan necklace set"
-            value={seedsText}
-            onChange={(e) => setSeedsText(e.target.value)}
+      <section className="agents-card">
+        <h2 className="agents-section-title">Seed keywords</h2>
+        <textarea
+          rows={4}
+          placeholder="crystal choker, bridal jhumka, kundan necklace set"
+          value={seedsText}
+          onChange={(e) => setSeedsText(e.target.value)}
+          className="agents-seeds-input"
+        />
+        <label>
+          Top K results per seed
+          <input
+            type="number"
+            min={1}
+            max={200}
+            value={maxPerSeed}
+            onChange={(e) => setMaxPerSeed(e.target.value)}
           />
-          <div className="max-w-xs space-y-1.5">
-            <Label htmlFor="max-per-seed">Top K results per seed</Label>
-            <Input
-              id="max-per-seed"
-              type="number"
-              min={1}
-              max={200}
-              value={maxPerSeed}
-              onChange={(e) => setMaxPerSeed(e.target.value)}
-            />
-          </div>
-          <Button onClick={runExpand} disabled={loading}>
+        </label>
+        <div className="agents-actions">
+          <button type="button" className="agents-btn primary" onClick={runExpand} disabled={loading}>
             Fetch and save
-          </Button>
-          {expandResult && (
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              Fetched {expandResult.keywords_fetched} keywords, upserted {expandResult.keywords_upserted} from{' '}
-              {expandResult.seeds?.length} seed(s) (top{' '}
-              {Math.max(1, Math.min(200, Number(maxPerSeed) || DEFAULT_MAX_PER_SEED))} per seed)
-            </p>
-          )}
-        </CardContent>
-      </Card>
+          </button>
+        </div>
+        {expandResult && (
+          <p className="agents-validation">
+            Fetched {expandResult.keywords_fetched} keywords, upserted {expandResult.keywords_upserted} from{' '}
+            {expandResult.seeds?.length} seed(s) (top {Math.max(1, Math.min(200, Number(maxPerSeed) || DEFAULT_MAX_PER_SEED))} per seed)
+          </p>
+        )}
+      </section>
 
-      <Card>
-        <CardContent className="space-y-4 pt-5">
-          <AgentsModeSelect
-            label="Keyword view"
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: 'discover', label: 'DataForSEO results' },
-              { value: 'bank', label: 'All in warehouse' },
-              ...(tab === 'similar'
-                ? [{ value: 'similar', label: `Similar to ${similarFor?.keyword || 'keyword'}` }]
-                : []),
-            ]}
+      <section className="agents-card">
+        <AgentsModeSelect
+          label="Keyword view"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'discover', label: 'DataForSEO results' },
+            { value: 'bank', label: 'All in warehouse' },
+            ...(tab === 'similar'
+              ? [{ value: 'similar', label: `Similar to ${similarFor?.keyword || 'keyword'}` }]
+              : []),
+          ]}
+        />
+
+        <div className="agents-search-row">
+          <input
+            placeholder="Filter keywords…"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            disabled={tab === 'similar'}
           />
+          <input
+            placeholder="Filter by seed…"
+            value={filterSeed}
+            onChange={(e) => setFilterSeed(e.target.value)}
+            disabled={tab === 'similar'}
+          />
+          <button type="button" className="agents-btn secondary" onClick={refreshTable}>
+            Refresh
+          </button>
+        </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              placeholder="Filter keywords…"
-              value={searchQ}
-              onChange={(e) => setSearchQ(e.target.value)}
-              disabled={tab === 'similar'}
-              className="sm:max-w-xs"
-            />
-            <Input
-              placeholder="Filter by seed…"
-              value={filterSeed}
-              onChange={(e) => setFilterSeed(e.target.value)}
-              disabled={tab === 'similar'}
-              className="sm:max-w-xs"
-            />
-            <Button variant="outline" onClick={refreshTable} className="sm:ml-auto">
-              Refresh
-            </Button>
+        {loading ? (
+          <LoadingSpinner message="Loading keywords…" />
+        ) : (
+          <div className="agents-table-wrap">
+            <p className="agents-preview-skus">
+              {tab === 'similar'
+                ? `${tableTotal} similar keyword(s)`
+                : `Showing ${rangeStart}–${rangeEnd} of ${tableTotal}`}
+            </p>
+            <table className="agents-table">
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Seed</th>
+                  <th>Volume</th>
+                  <th>Competition</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((row) => (
+                  <tr key={row.id || row.keyword_id || row.keyword}>
+                    <td>{row.keyword}</td>
+                    <td>{row.seed_keyword || '—'}</td>
+                    <td>{row.avg_monthly_searches ?? '—'}</td>
+                    <td>{row.competition ?? '—'}</td>
+                    <td>
+                      {tab !== 'similar' && row.id && (
+                        <button
+                          type="button"
+                          className="agents-link-btn"
+                          onClick={() => showSimilar(row)}
+                        >
+                          Similar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {tab !== 'similar' && total > KEYWORDS_PAGE_SIZE && (
+              <div className="agents-actions">
+                <button
+                  type="button"
+                  className="agents-btn secondary"
+                  disabled={keywordPage === 0}
+                  onClick={() => setKeywordPage((page) => page - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="agents-btn secondary"
+                  disabled={(keywordPage + 1) * KEYWORDS_PAGE_SIZE >= total}
+                  onClick={() => setKeywordPage((page) => page + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
-
-          {loading ? (
-            <LoadingSpinner message="Loading keywords…" />
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-[var(--color-muted-foreground)]">
-                {tab === 'similar'
-                  ? `${tableTotal} similar keyword(s)`
-                  : `${tableTotal} keyword(s) total`}
-              </p>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Keyword</TableHead>
-                    <TableHead>Seed</TableHead>
-                    <TableHead>Volume</TableHead>
-                    <TableHead>Competition</TableHead>
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tableRows.map((row) => (
-                    <TableRow key={row.id || row.keyword_id || row.keyword}>
-                      <TableCell className="font-medium">{row.keyword}</TableCell>
-                      <TableCell>{row.seed_keyword || '—'}</TableCell>
-                      <TableCell className="tabular-nums">{row.avg_monthly_searches ?? '—'}</TableCell>
-                      <TableCell className="tabular-nums">{row.competition ?? '—'}</TableCell>
-                      <TableCell>
-                        {tab !== 'similar' && row.id && (
-                          <Button variant="link" size="sm" className="h-auto p-0" onClick={() => showSimilar(row)}>
-                            Similar
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {tab !== 'similar' && (
-                <Pagination
-                  page={keywordPage + 1}
-                  pageCount={pageCount}
-                  pageSize={pageSize}
-                  onPageChange={(page) => setKeywordPage(page - 1)}
-                  onPageSizeChange={setPageSize}
-                  totalItems={total}
-                />
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </section>
     </div>
   );
 };

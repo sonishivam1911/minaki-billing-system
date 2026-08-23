@@ -6,7 +6,6 @@ import App from './App';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import theme from './theme/theme';
-import './styles/tailwind.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <ThemeProvider theme={theme}>
