@@ -75,6 +75,27 @@
 
   --shadow-showcase: 0 6px 20px rgba(23, 18, 14, 0.10), 0 1px 3px rgba(23, 18, 14, 0.08);
   --shadow-vault: 0 20px 50px rgba(23, 18, 14, 0.28), 0 4px 14px rgba(23, 18, 14, 0.18);
+
+  /*
+   * Semantic token API (MINAKI Component Library Spec §13). New components
+   * consume these, never the literal palette above or raw hex. Existing
+   * components predate this layer and still reference the names directly
+   * above (--color-foreground, --color-muted-foreground, etc) — those are
+   * kept as-is to avoid a blast-radius rename across already-shipped pages;
+   * both layers resolve to the same design, just named per the spec here.
+   */
+  --color-surface-elevated: var(--color-card);
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: #5a5042;
+  --color-text-muted: #948a76;
+  --color-border-default: var(--color-border);
+  --color-border-subtle: #ece3cc;
+  --color-accent-primary: var(--color-primary);
+  --color-accent-secondary: var(--color-secondary);
+  --color-status-success: var(--color-success);
+  --color-status-warning: var(--color-warning);
+  --color-status-danger: var(--color-destructive);
+  --color-status-info: var(--color-info);
 }
 
 .dark {
@@ -117,6 +138,20 @@
   --color-popover-foreground: var(--color-parchment);
 
   --shadow-vault: 0 24px 60px rgba(0, 0, 0, 0.55), 0 6px 16px rgba(0, 0, 0, 0.4);
+
+  /* Semantic token API — dark values, see :root for the naming rationale. */
+  --color-surface-elevated: var(--color-card);
+  --color-text-primary: var(--color-parchment);
+  --color-text-secondary: #c9bb9a;
+  --color-text-muted: #8d8266;
+  --color-border-default: var(--color-border);
+  --color-border-subtle: #2c2418;
+  --color-accent-primary: var(--color-primary);
+  --color-accent-secondary: var(--color-secondary);
+  --color-status-success: var(--color-success);
+  --color-status-warning: var(--color-warning);
+  --color-status-danger: var(--color-destructive);
+  --color-status-info: var(--color-info);
 }
 
 @layer base {
