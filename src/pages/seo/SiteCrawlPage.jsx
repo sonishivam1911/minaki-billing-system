@@ -231,6 +231,19 @@ export const SiteCrawlPage = () => {
     return () => clearInterval(timer);
   }, [selectedId, schemaStatus?.in_progress, loadSchemaStatus]);
 
+  // Debounced rather than Enter-gated: a background poll re-render
+  // landing between keystrokes and an Enter keydown shouldn't be able
+  // to silently drop the search (confirmed happening in practice —
+  // Enter-only wiring left the field showing typed text with the table
+  // never actually re-querying).
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPagesPage(0);
+      setPagesSearch(pagesSearchInput);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [pagesSearchInput]);
+
   const loadPages = useCallback(async () => {
     if (!selectedId) return;
     setPagesLoading(true);
@@ -618,12 +631,6 @@ export const SiteCrawlPage = () => {
                     placeholder="Search URL or title…"
                     value={pagesSearchInput}
                     onChange={(e) => setPagesSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setPagesPage(0);
-                        setPagesSearch(pagesSearchInput);
-                      }
-                    }}
                     InputProps={{ startAdornment: <Search size={16} style={{ marginRight: 6, opacity: 0.5 }} /> }}
                     sx={{ minWidth: 220 }}
                   />
