@@ -34,6 +34,9 @@ export { CustomOrdersPage } from './CustomOrdersPage';
 export { CustomProductsPage } from './CustomProductsPage';
 export { WhatsAppCrmPage } from './WhatsAppCrmPage';
 export { ShopifyWinbackPage } from './ShopifyWinbackPage';
+export { WhatsappTemplatesPage } from './WhatsappTemplatesPage';
+export { CrmSegmentsPage } from './CrmSegmentsPage';
+export { CrmCampaignsPage } from './CrmCampaignsPage';
 // HR Management (recent UI: Dashboard + Weekly Schedule)
 export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';
 export { ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, AgentSettingsPage } from './agents';
