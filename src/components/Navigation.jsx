@@ -185,6 +185,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/whatsapp-crm', label: 'WhatsApp CRM', icon: MessageCircle },
     { path: '/shopify-winback', label: 'Abandoned Checkout Winback', icon: RotateCcw },
     { path: '/whatsapp-templates', label: 'WhatsApp Templates', icon: MessageSquare },
+    { path: '/crm-segments', label: 'CRM Segments', icon: Users },
     { path: '/customers', label: 'Customers', icon: User },
     { path: '/walk-ins', label: 'Walk-ins', icon: UserPlus },
     { path: '/custom-products', label: 'Custom Products', icon: ShoppingBag },
