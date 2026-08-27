@@ -26,6 +26,7 @@ export const CrmCampaignsPage = () => {
   const [sendsTarget, setSendsTarget] = useState(null);
   const [sends, setSends] = useState([]);
   const [sendsLoading, setSendsLoading] = useState(false);
+  const [refreshingStatus, setRefreshingStatus] = useState(false);
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
@@ -96,6 +97,22 @@ export const CrmCampaignsPage = () => {
     }
   }, []);
 
+  const handleRefreshStatus = useCallback(async () => {
+    if (!sendsTarget) return;
+    setRefreshingStatus(true);
+    try {
+      const result = await crmCampaignsApi.refreshStatus(sendsTarget.id);
+      const data = await crmCampaignsApi.getSends(sendsTarget.id, { limit: 200 });
+      setSends(Array.isArray(data) ? data : []);
+      setSnackbar({ severity: 'success', message: `Checked ${result.checked}, updated ${result.updated}` });
+      fetchCampaigns();
+    } catch (err) {
+      setSnackbar({ severity: 'error', message: err.message || 'Failed to refresh status' });
+    } finally {
+      setRefreshingStatus(false);
+    }
+  }, [sendsTarget, fetchCampaigns]);
+
   const screen = useMemo(
     () => new CrmCampaignsScreen({ onStart: handleStart, onCancel: handleCancel, onViewSends: handleViewSends, actingCampaignId }),
     [handleStart, handleCancel, handleViewSends, actingCampaignId],
@@ -132,7 +149,12 @@ export const CrmCampaignsPage = () => {
       />
 
       <Dialog open={Boolean(sendsTarget)} onClose={() => setSendsTarget(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Sends: {sendsTarget?.name}</DialogTitle>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Sends: {sendsTarget?.name}
+          <Button size="small" variant="outlined" disabled={refreshingStatus} onClick={handleRefreshStatus}>
+            {refreshingStatus ? 'Refreshing...' : 'Refresh Status'}
+          </Button>
+        </DialogTitle>
         <DialogContent dividers>
           {billingUiBuilder.table({
             columns: SEND_COLUMNS,

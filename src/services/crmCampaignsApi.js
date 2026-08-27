@@ -31,6 +31,8 @@ export const crmCampaignsApi = {
   },
 
   getStats: async (campaignId) => apiRequest('GET', `${BASE_PATH}/${campaignId}/stats`),
+
+  refreshStatus: async (campaignId) => apiRequest('POST', `${BASE_PATH}/${campaignId}/refresh-status`),
 };
 
 export default crmCampaignsApi;
