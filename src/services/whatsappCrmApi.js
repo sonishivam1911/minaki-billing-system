@@ -65,6 +65,22 @@ export const whatsappCrmApi = {
     return apiRequest('POST', `${BASE_PATH}/send`, payload);
   },
 
+  sendMedia: async ({ toPhone, caption, file }) => {
+    const form = new FormData();
+    form.append('to_phone', toPhone);
+    if (caption) form.append('caption', caption);
+    form.append('file', file);
+    return apiRequest('POST', `${BASE_PATH}/send-media`, form);
+  },
+
+  sendProduct: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-product`, payload);
+  },
+
+  sendProductList: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-product-list`, payload);
+  },
+
   broadcast: async (payload) => {
     return apiRequest('POST', `${BASE_PATH}/broadcast`, payload);
   },
