@@ -85,6 +85,35 @@ export const whatsappCrmApi = {
     return apiRequest('POST', `${BASE_PATH}/send-catalog`, payload);
   },
 
+  sendButtons: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-buttons`, payload);
+  },
+
+  sendList: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-list`, payload);
+  },
+
+  sendLocation: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-location`, payload);
+  },
+
+  sendContact: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-contact`, payload);
+  },
+
+  sendReaction: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-reaction`, payload);
+  },
+
+  getConversationOrders: async (conversationId) => {
+    try {
+      const data = await apiRequest('GET', `${BASE_PATH}/conversations/${conversationId}/orders`);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  },
+
   broadcast: async (payload) => {
     return apiRequest('POST', `${BASE_PATH}/broadcast`, payload);
   },
