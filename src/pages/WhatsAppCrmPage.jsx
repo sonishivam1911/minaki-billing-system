@@ -24,12 +24,19 @@ import {
   Chip,
   Tooltip,
   Alert,
+  Menu,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Popover,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import {
   MessageCircle, Search, Send, User, Plus, Megaphone, FileText, ArrowLeft, UserCheck,
   Check, CheckCheck, AlertTriangle, Paperclip, Package, X, FileIcon, Image as ImageIcon,
+  MapPin, Contact, MousePointerClick, List as ListIcon, SmilePlus, MoreVertical, ShoppingBag,
 } from 'lucide-react';
 import { whatsappCrmApi } from '../services/whatsappCrmApi';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
@@ -100,6 +107,15 @@ export function WhatsAppCrmPage() {
   const [newConvModalOpen, setNewConvModalOpen] = useState(false);
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [agents, setAgents] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [quickActionsAnchor, setQuickActionsAnchor] = useState(null);
+  const [openDialog, setOpenDialog] = useState(null); // null | 'location' | 'contact' | 'buttons' | 'list'
+  const [locationForm, setLocationForm] = useState({ latitude: '', longitude: '', name: '', address: '' });
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', email: '' });
+  const [buttonsForm, setButtonsForm] = useState({ bodyText: '', buttons: ['', '', ''] });
+  const [listForm, setListForm] = useState({ bodyText: '', buttonText: 'Options', rows: [{ title: '', description: '' }] });
+  const [reactionAnchor, setReactionAnchor] = useState(null);
+  const [reactionTargetWamid, setReactionTargetWamid] = useState(null);
   const selectedIdRef = useRef(selectedId);
   const mediaInputRef = useRef(null);
   selectedIdRef.current = selectedId;
@@ -166,9 +182,12 @@ export function WhatsAppCrmPage() {
     setMediaCaption('');
     setProductRetailerId('');
     setProductBodyText('');
+    setOpenDialog(null);
+    setReactionAnchor(null);
     if (!selectedId) {
       setMessages([]);
       setProfile(null);
+      setOrders([]);
       return;
     }
     setMessagesLoading(true);
@@ -181,6 +200,7 @@ export function WhatsAppCrmPage() {
       setProfile(p);
       setProfileLoading(false);
     }).catch(() => setProfileLoading(false));
+    whatsappCrmApi.getConversationOrders(selectedId).then(setOrders).catch(() => setOrders([]));
     whatsappCrmApi.markConversationRead(selectedId).catch(() => {});
   }, [selectedId]);
 
@@ -329,6 +349,117 @@ export function WhatsAppCrmPage() {
     }
   };
 
+  const handleSendLocation = async () => {
+    if (!selectedConversation?.phone) return;
+    const lat = parseFloat(locationForm.latitude);
+    const lng = parseFloat(locationForm.longitude);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      setSendError({ message: 'Latitude and longitude must be numbers', label: null, code: null });
+      return;
+    }
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendLocation({
+        to_phone: selectedConversation.phone,
+        latitude: lat,
+        longitude: lng,
+        name: locationForm.name.trim() || undefined,
+        address: locationForm.address.trim() || undefined,
+      });
+      setLocationForm({ latitude: '', longitude: '', name: '', address: '' });
+      setOpenDialog(null);
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendContact = async () => {
+    if (!selectedConversation?.phone || !contactForm.name.trim() || !contactForm.phone.trim()) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendContact({
+        to_phone: selectedConversation.phone,
+        contact_name: contactForm.name.trim(),
+        contact_phone: contactForm.phone.trim(),
+        contact_email: contactForm.email.trim() || undefined,
+      });
+      setContactForm({ name: '', phone: '', email: '' });
+      setOpenDialog(null);
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendButtons = async () => {
+    const buttons = buttonsForm.buttons.map((t) => t.trim()).filter(Boolean).map((title) => ({ title }));
+    if (!selectedConversation?.phone || !buttonsForm.bodyText.trim() || buttons.length === 0) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendButtons({
+        to_phone: selectedConversation.phone,
+        body_text: buttonsForm.bodyText.trim(),
+        buttons,
+      });
+      setButtonsForm({ bodyText: '', buttons: ['', '', ''] });
+      setOpenDialog(null);
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendList = async () => {
+    const rows = listForm.rows.filter((r) => r.title.trim());
+    if (!selectedConversation?.phone || !listForm.bodyText.trim() || rows.length === 0) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendList({
+        to_phone: selectedConversation.phone,
+        body_text: listForm.bodyText.trim(),
+        button_text: listForm.buttonText.trim() || 'Options',
+        sections: [{ title: 'Options', rows }],
+      });
+      setListForm({ bodyText: '', buttonText: 'Options', rows: [{ title: '', description: '' }] });
+      setOpenDialog(null);
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '🙏', '👏'];
+
+  const handleSendReaction = async (emoji) => {
+    const targetWamid = reactionTargetWamid;
+    setReactionAnchor(null);
+    if (!selectedConversation?.phone || !targetWamid) return;
+    try {
+      await whatsappCrmApi.sendReaction({ to_phone: selectedConversation.phone, target_wamid: targetWamid, emoji });
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    }
+  };
+
   const handleMediaFileChange = (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -409,6 +540,45 @@ export function WhatsAppCrmPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Package size={18} color="#128C7E" />
           <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'order') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ShoppingBag size={18} color="#128C7E" />
+          <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'location') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <MapPin size={18} color="#128C7E" />
+          <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'contact') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Contact size={18} color="#128C7E" />
+          <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'button' || m.type === 'list') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {m.type === 'button' ? <MousePointerClick size={16} color="#128C7E" /> : <ListIcon size={16} color="#128C7E" />}
+          <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'button_reply' || m.type === 'list_reply') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Chip label={m.body} size="small" sx={{ backgroundColor: '#e6f4ea', color: '#1b7f3a' }} />
         </Box>
       );
     }
@@ -769,20 +939,66 @@ export function WhatsAppCrmPage() {
                       }}
                     >
                       <Box
+                        className="wa-bubble-group"
                         sx={{
+                          position: 'relative',
                           maxWidth: '65%',
-                          p: 1.5,
-                          borderRadius: '8px',
-                          borderTopRightRadius: m.direction === 'outbound' ? '2px' : '8px',
-                          borderTopLeftRadius: m.direction === 'outbound' ? '8px' : '2px',
-                          backgroundColor: m.direction === 'outbound' ? '#d9fdd3' : '#fff',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          '&:hover .wa-react-btn': { opacity: 1 },
                         }}
                       >
-                        {renderBubbleContent(m)}
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                          {renderTick(m)}
+                        <Box
+                          sx={{
+                            p: 1.5,
+                            borderRadius: '8px',
+                            borderTopRightRadius: m.direction === 'outbound' ? '2px' : '8px',
+                            borderTopLeftRadius: m.direction === 'outbound' ? '8px' : '2px',
+                            backgroundColor: m.direction === 'outbound' ? '#d9fdd3' : '#fff',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          }}
+                        >
+                          {renderBubbleContent(m)}
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                            {renderTick(m)}
+                          </Box>
                         </Box>
+                        {m.wamid && (
+                          <IconButton
+                            className="wa-react-btn"
+                            size="small"
+                            onClick={(e) => { setReactionTargetWamid(m.wamid); setReactionAnchor(e.currentTarget); }}
+                            sx={{
+                              position: 'absolute',
+                              top: -12,
+                              [m.direction === 'outbound' ? 'left' : 'right']: -12,
+                              opacity: 0,
+                              transition: 'opacity 0.15s',
+                              backgroundColor: '#fff',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              width: 24,
+                              height: 24,
+                              '&:hover': { backgroundColor: '#f0f2f5' },
+                            }}
+                          >
+                            <SmilePlus size={13} color="#667781" />
+                          </IconButton>
+                        )}
+                        {m.reaction_emoji && (
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              bottom: -10,
+                              [m.direction === 'outbound' ? 'left' : 'right']: -6,
+                              backgroundColor: '#fff',
+                              borderRadius: '10px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              px: 0.5,
+                              fontSize: '0.85rem',
+                              lineHeight: '18px',
+                            }}
+                          >
+                            {m.reaction_emoji}
+                          </Box>
+                        )}
                       </Box>
                     </Box>
                   ))
@@ -823,6 +1039,25 @@ export function WhatsAppCrmPage() {
                       Product
                     </ToggleButton>
                   </ToggleButtonGroup>
+                  <Tooltip title="More: location, contact, buttons, list">
+                    <IconButton size="small" onClick={(e) => setQuickActionsAnchor(e.currentTarget)} sx={{ border: '1px solid #e9edef', backgroundColor: '#fff' }}>
+                      <MoreVertical size={16} />
+                    </IconButton>
+                  </Tooltip>
+                  <Menu anchorEl={quickActionsAnchor} open={!!quickActionsAnchor} onClose={() => setQuickActionsAnchor(null)}>
+                    <MenuItem onClick={() => { setOpenDialog('location'); setQuickActionsAnchor(null); }}>
+                      <MapPin size={16} style={{ marginRight: 8 }} /> Location
+                    </MenuItem>
+                    <MenuItem onClick={() => { setOpenDialog('contact'); setQuickActionsAnchor(null); }}>
+                      <Contact size={16} style={{ marginRight: 8 }} /> Contact card
+                    </MenuItem>
+                    <MenuItem onClick={() => { setOpenDialog('buttons'); setQuickActionsAnchor(null); }}>
+                      <MousePointerClick size={16} style={{ marginRight: 8 }} /> Quick-reply buttons
+                    </MenuItem>
+                    <MenuItem onClick={() => { setOpenDialog('list'); setQuickActionsAnchor(null); }}>
+                      <ListIcon size={16} style={{ marginRight: 8 }} /> List picker
+                    </MenuItem>
+                  </Menu>
                 </Box>
                 {chatMessageType === 'text' && (
                   <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 }, alignItems: 'flex-end', width: '100%' }}>
@@ -988,6 +1223,105 @@ export function WhatsAppCrmPage() {
                   </Box>
                 )}
               </Box>
+
+              <Popover
+                open={!!reactionAnchor}
+                anchorEl={reactionAnchor}
+                onClose={() => setReactionAnchor(null)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+              >
+                <Box sx={{ display: 'flex', gap: 0.5, p: 0.75 }}>
+                  {QUICK_REACTIONS.map((emoji) => (
+                    <IconButton key={emoji} size="small" onClick={() => handleSendReaction(emoji)}>
+                      <span style={{ fontSize: '1.1rem' }}>{emoji}</span>
+                    </IconButton>
+                  ))}
+                </Box>
+              </Popover>
+
+              <Dialog open={openDialog === 'location'} onClose={() => setOpenDialog(null)} fullWidth maxWidth="xs">
+                <DialogTitle>Send location</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                  <TextField size="small" label="Latitude" value={locationForm.latitude} onChange={(e) => setLocationForm((f) => ({ ...f, latitude: e.target.value }))} />
+                  <TextField size="small" label="Longitude" value={locationForm.longitude} onChange={(e) => setLocationForm((f) => ({ ...f, longitude: e.target.value }))} />
+                  <TextField size="small" label="Name (optional)" value={locationForm.name} onChange={(e) => setLocationForm((f) => ({ ...f, name: e.target.value }))} />
+                  <TextField size="small" label="Address (optional)" value={locationForm.address} onChange={(e) => setLocationForm((f) => ({ ...f, address: e.target.value }))} />
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setOpenDialog(null)}>Cancel</Button>
+                  <Button variant="contained" onClick={handleSendLocation} disabled={sending} sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}>
+                    {sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Send'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+
+              <Dialog open={openDialog === 'contact'} onClose={() => setOpenDialog(null)} fullWidth maxWidth="xs">
+                <DialogTitle>Send contact card</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                  <TextField size="small" label="Name" value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} />
+                  <TextField size="small" label="Phone" value={contactForm.phone} onChange={(e) => setContactForm((f) => ({ ...f, phone: e.target.value }))} />
+                  <TextField size="small" label="Email (optional)" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} />
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setOpenDialog(null)}>Cancel</Button>
+                  <Button variant="contained" onClick={handleSendContact} disabled={sending} sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}>
+                    {sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Send'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+
+              <Dialog open={openDialog === 'buttons'} onClose={() => setOpenDialog(null)} fullWidth maxWidth="xs">
+                <DialogTitle>Send quick-reply buttons</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                  <TextField size="small" label="Message" value={buttonsForm.bodyText} onChange={(e) => setButtonsForm((f) => ({ ...f, bodyText: e.target.value }))} />
+                  {buttonsForm.buttons.map((b, i) => (
+                    <TextField
+                      key={i}
+                      size="small"
+                      label={`Button ${i + 1}${i === 0 ? '' : ' (optional)'}`}
+                      value={b}
+                      inputProps={{ maxLength: 20 }}
+                      helperText={`${b.length}/20`}
+                      onChange={(e) => setButtonsForm((f) => ({ ...f, buttons: f.buttons.map((x, j) => (j === i ? e.target.value : x)) }))}
+                    />
+                  ))}
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setOpenDialog(null)}>Cancel</Button>
+                  <Button variant="contained" onClick={handleSendButtons} disabled={sending} sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}>
+                    {sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Send'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
+
+              <Dialog open={openDialog === 'list'} onClose={() => setOpenDialog(null)} fullWidth maxWidth="xs">
+                <DialogTitle>Send list picker</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                  <TextField size="small" label="Message" value={listForm.bodyText} onChange={(e) => setListForm((f) => ({ ...f, bodyText: e.target.value }))} />
+                  <TextField size="small" label="Button label" inputProps={{ maxLength: 20 }} value={listForm.buttonText} onChange={(e) => setListForm((f) => ({ ...f, buttonText: e.target.value }))} />
+                  {listForm.rows.map((row, i) => (
+                    <Box key={i} sx={{ display: 'flex', gap: 1 }}>
+                      <TextField size="small" label={`Option ${i + 1}`} value={row.title} inputProps={{ maxLength: 24 }} onChange={(e) => setListForm((f) => ({ ...f, rows: f.rows.map((r, j) => (j === i ? { ...r, title: e.target.value } : r)) }))} />
+                      <TextField size="small" label="Description (optional)" value={row.description} inputProps={{ maxLength: 72 }} onChange={(e) => setListForm((f) => ({ ...f, rows: f.rows.map((r, j) => (j === i ? { ...r, description: e.target.value } : r)) }))} />
+                      {listForm.rows.length > 1 && (
+                        <IconButton size="small" onClick={() => setListForm((f) => ({ ...f, rows: f.rows.filter((_, j) => j !== i) }))}>
+                          <X size={14} />
+                        </IconButton>
+                      )}
+                    </Box>
+                  ))}
+                  <Button size="small" onClick={() => setListForm((f) => ({ ...f, rows: [...f.rows, { title: '', description: '' }] }))}>
+                    + Add option
+                  </Button>
+                </DialogContent>
+                <DialogActions>
+                  <Button onClick={() => setOpenDialog(null)}>Cancel</Button>
+                  <Button variant="contained" onClick={handleSendList} disabled={sending} sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}>
+                    {sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : 'Send'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
             </>
           )}
         </Paper>
@@ -1074,6 +1408,26 @@ export function WhatsAppCrmPage() {
                       ))}
                     </Box>
                   )}
+                </>
+              )}
+              {orders.length > 0 && (
+                <>
+                  <Divider sx={{ my: 1.5, borderColor: '#e9edef' }} />
+                  <Typography variant="overline" sx={{ color: '#667781', fontSize: '0.7rem', letterSpacing: 1, mb: 1, display: 'block' }}>
+                    WhatsApp Orders
+                  </Typography>
+                  {orders.map((o) => (
+                    <Box key={o.id} sx={{ mb: 1, p: 1, backgroundColor: '#f5f1e8', borderRadius: '8px' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#2c2416' }}>
+                        {o.items.length} item(s) · {o.currency || ''} {o.total_amount != null ? Number(o.total_amount).toFixed(2) : '-'}
+                      </Typography>
+                      {o.buyer_note && (
+                        <Typography variant="caption" sx={{ color: '#667781', display: 'block' }}>
+                          “{o.buyer_note}”
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
                 </>
               )}
               <Button
