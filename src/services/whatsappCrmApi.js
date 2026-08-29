@@ -11,10 +11,25 @@ export const whatsappCrmApi = {
     const qs = new URLSearchParams();
     if (params.search) qs.set('search', params.search);
     if (params.filter) qs.set('filter', params.filter);
+    if (params.status) qs.set('status', params.status);
+    if (params.assignedUserId != null) qs.set('assigned_user_id', params.assignedUserId);
     if (params.limit != null) qs.set('limit', params.limit);
     if (params.offset != null) qs.set('offset', params.offset);
     const query = qs.toString();
     return apiRequest('GET', `${BASE_PATH}/conversations${query ? `?${query}` : ''}`);
+  },
+
+  updateConversation: async (conversationId, payload) => {
+    return apiRequest('PATCH', `${BASE_PATH}/conversations/${conversationId}`, payload);
+  },
+
+  getAgents: async () => {
+    try {
+      const data = await apiRequest('GET', `${BASE_PATH}/agents`);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
   },
 
   getMessages: async (conversationId, params = {}) => {
