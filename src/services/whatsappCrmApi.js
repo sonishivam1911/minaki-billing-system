@@ -81,6 +81,10 @@ export const whatsappCrmApi = {
     return apiRequest('POST', `${BASE_PATH}/send-product-list`, payload);
   },
 
+  sendCatalog: async (payload) => {
+    return apiRequest('POST', `${BASE_PATH}/send-catalog`, payload);
+  },
+
   broadcast: async (payload) => {
     return apiRequest('POST', `${BASE_PATH}/broadcast`, payload);
   },
