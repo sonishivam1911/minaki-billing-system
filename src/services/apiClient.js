@@ -121,7 +121,12 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
       // Try to parse error response
       try {
         const errorData = await response.json();
-        errorMessage = errorData.detail || errorData.message || errorMessage;
+        // detail is usually a string, but some endpoints (e.g. WhatsApp send)
+        // return a structured {message, error_code, ...} object instead -
+        // fall back to its .message so callers relying on e.message as plain
+        // text (the overwhelming majority) don't get "[object Object]".
+        const detail = errorData.detail;
+        errorMessage = (typeof detail === 'string' ? detail : detail?.message) || errorData.message || errorMessage;
         errorDetails = errorData;
       } catch (parseError) {
         // If response isn't JSON, use status text
