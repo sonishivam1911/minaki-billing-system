@@ -41,7 +41,22 @@ import { useAuth } from '../context/AuthContext';
 const STATUS_OPTIONS = ['open', 'pending', 'resolved'];
 const STATUS_LABELS = { open: 'Open', pending: 'Pending', resolved: 'Resolved' };
 const POLL_INTERVAL_MS = 6000;
-const MEDIA_ACCEPT = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
+// Meta's actual supported set per message type (WhatsApp Cloud API media
+// docs) - previously this only accepted pdf/doc/docx/xls/xlsx, silently
+// excluding ppt/pptx/txt and every other document type Meta itself allows.
+const SUPPORTED_MEDIA_MIME_TYPES = [
+  'image/jpeg', 'image/png',
+  'video/mp4', 'video/3gpp',
+  'audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg',
+  'text/plain', 'application/pdf',
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+const MEDIA_ACCEPT = [
+  ...SUPPORTED_MEDIA_MIME_TYPES,
+  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.pdf',
+].join(',');
 const MEDIA_MAX_SIZE_MB = 16;
 
 // Known Meta failure codes worth a specific, non-generic explanation -
@@ -274,6 +289,25 @@ export function WhatsAppCrmPage() {
     }
   };
 
+  const handleSendCatalog = async () => {
+    if (!selectedConversation?.phone) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendCatalog({
+        to_phone: selectedConversation.phone,
+        body_text: productBodyText.trim() || 'Browse our full catalog',
+      });
+      setProductBodyText('');
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleSendProduct = async () => {
     if (!selectedConversation?.phone || !productRetailerId.trim()) return;
     setSending(true);
@@ -299,6 +333,10 @@ export function WhatsAppCrmPage() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (file.type && !SUPPORTED_MEDIA_MIME_TYPES.includes(file.type)) {
+      setSendError({ message: `${file.name} (${file.type}) isn’t a format WhatsApp supports. Allowed: images (jpg/png), video (mp4/3gpp), audio (aac/mp4/mpeg/amr/ogg), and documents (pdf/doc/docx/xls/xlsx/ppt/pptx/txt).`, label: null, code: null });
+      return;
+    }
     const sizeMB = file.size / (1024 * 1024);
     if (sizeMB > MEDIA_MAX_SIZE_MB) {
       setSendError({ message: `${file.name} is ${sizeMB.toFixed(1)}MB, over the ${MEDIA_MAX_SIZE_MB}MB limit`, label: null, code: null });
@@ -935,6 +973,18 @@ export function WhatsAppCrmPage() {
                         Send
                       </Button>
                     </Box>
+                    <Divider sx={{ my: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">or</Typography>
+                    </Divider>
+                    <Button
+                      variant="outlined"
+                      onClick={handleSendCatalog}
+                      disabled={sending}
+                      startIcon={sending ? <CircularProgress size={16} /> : <Package size={16} />}
+                      sx={{ borderColor: '#25D366', color: '#128C7E' }}
+                    >
+                      Send whole catalog instead
+                    </Button>
                   </Box>
                 )}
               </Box>
