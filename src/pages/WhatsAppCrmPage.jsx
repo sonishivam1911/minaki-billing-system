@@ -22,10 +22,15 @@ import {
   MenuItem,
   FormControl,
   Chip,
+  Tooltip,
+  Alert,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { MessageCircle, Search, Send, User, Plus, Megaphone, FileText, ArrowLeft, UserCheck } from 'lucide-react';
+import {
+  MessageCircle, Search, Send, User, Plus, Megaphone, FileText, ArrowLeft, UserCheck,
+  Check, CheckCheck, AlertTriangle, Paperclip, Package, X, FileIcon, Image as ImageIcon,
+} from 'lucide-react';
 import { whatsappCrmApi } from '../services/whatsappCrmApi';
 import { formatPhoneForDisplay } from '../utils/phoneValidation';
 import { NewConversationModal } from '../components/NewConversationModal';
@@ -36,6 +41,18 @@ import { useAuth } from '../context/AuthContext';
 const STATUS_OPTIONS = ['open', 'pending', 'resolved'];
 const STATUS_LABELS = { open: 'Open', pending: 'Pending', resolved: 'Resolved' };
 const POLL_INTERVAL_MS = 6000;
+const MEDIA_ACCEPT = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
+const MEDIA_MAX_SIZE_MB = 16;
+
+// Known Meta failure codes worth a specific, non-generic explanation -
+// everything else falls back to Meta's own error_title/error_detail so an
+// unmapped code is still legible instead of silently "failed".
+const KNOWN_ERROR_CODES = {
+  131047: { label: 'Outside 24h window', hint: 'The customer hasn’t messaged in the last 24 hours — send a template instead of free text.' },
+  131026: { label: 'Not on WhatsApp', hint: 'This number isn’t reachable on WhatsApp.' },
+  131053: { label: 'Media error', hint: 'Meta couldn’t process this media file.' },
+  132000: { label: 'Template error', hint: 'The template parameters didn’t match what the approved template expects.' },
+};
 
 export function WhatsAppCrmPage() {
   const theme = useTheme();
@@ -45,6 +62,7 @@ export function WhatsAppCrmPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [myConversationsOnly, setMyConversationsOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -59,10 +77,16 @@ export function WhatsAppCrmPage() {
   const [chatHeaderMediaUrl, setChatHeaderMediaUrl] = useState('');
   const [chatTemplateComponents, setChatTemplateComponents] = useState([]);
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState(null);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaCaption, setMediaCaption] = useState('');
+  const [productRetailerId, setProductRetailerId] = useState('');
+  const [productBodyText, setProductBodyText] = useState('');
   const [newConvModalOpen, setNewConvModalOpen] = useState(false);
   const [broadcastModalOpen, setBroadcastModalOpen] = useState(false);
   const [agents, setAgents] = useState([]);
   const selectedIdRef = useRef(selectedId);
+  const mediaInputRef = useRef(null);
   selectedIdRef.current = selectedId;
 
   useEffect(() => {
@@ -76,6 +100,7 @@ export function WhatsAppCrmPage() {
         search: search || undefined,
         filter: unreadOnly ? 'unread' : 'all',
         status: statusFilter === 'all' ? undefined : statusFilter,
+        assignedUserId: myConversationsOnly ? userInfo?.id : undefined,
         limit: 50,
         offset: 0,
       });
@@ -86,7 +111,7 @@ export function WhatsAppCrmPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [search, unreadOnly, statusFilter]);
+  }, [search, unreadOnly, statusFilter, myConversationsOnly, userInfo?.id]);
 
   useEffect(() => {
     fetchConversations();
@@ -118,6 +143,14 @@ export function WhatsAppCrmPage() {
   const selectedConversation = conversations.find((c) => c.id === selectedId);
 
   useEffect(() => {
+    // Reset composer state on conversation switch - a media file or error
+    // banner left over from the previous thread has no business showing up
+    // here.
+    setSendError(null);
+    setMediaFile(null);
+    setMediaCaption('');
+    setProductRetailerId('');
+    setProductBodyText('');
     if (!selectedId) {
       setMessages([]);
       setProfile(null);
@@ -159,16 +192,42 @@ export function WhatsAppCrmPage() {
     );
   };
 
+  // Structured error (from apiClient's error.response.data.detail, populated
+  // by the backend's _parse_meta_error) instead of a raw alert() dump - falls
+  // back to e.message when the backend didn't return the structured shape.
+  const describeSendError = (e) => {
+    const detail = e?.response?.data?.detail;
+    if (detail && typeof detail === 'object') {
+      const known = KNOWN_ERROR_CODES[detail.error_code];
+      return {
+        message: known?.hint || detail.error_detail || detail.message || 'Send failed',
+        label: known?.label || detail.error_title || null,
+        code: detail.error_code || null,
+      };
+    }
+    return { message: e?.message || 'Send failed', label: null, code: null };
+  };
+
+  const refreshAfterSend = async () => {
+    const targetId = selectedId;
+    const data = await whatsappCrmApi.getMessages(targetId, { limit: 100 });
+    // Guard against the conversation having changed while the request was
+    // in flight (was previously unguarded, unlike the polling effect above).
+    if (selectedIdRef.current === targetId) setMessages(Array.isArray(data) ? data : []);
+    fetchConversations({ silent: true });
+  };
+
   const handleSend = async () => {
     if (!selectedConversation?.phone) return;
     const isTemplate = chatMessageType === 'template';
     if (isTemplate && !chatTemplateName.trim()) {
-      alert('Please select or enter a template name');
+      setSendError({ message: 'Please select or enter a template name', label: null, code: null });
       return;
     }
     if (!isTemplate && !messageInput.trim()) return;
 
     setSending(true);
+    setSendError(null);
     try {
       const payload = isTemplate
         ? {
@@ -189,22 +248,134 @@ export function WhatsAppCrmPage() {
         setChatTemplateVars('');
         setChatHeaderMediaUrl('');
       }
-      const data = await whatsappCrmApi.getMessages(selectedId, { limit: 100 });
-      setMessages(Array.isArray(data) ? data : []);
+      await refreshAfterSend();
     } catch (e) {
       console.error(e);
-      alert(e.message || 'Failed to send');
+      setSendError(describeSendError(e));
     } finally {
       setSending(false);
     }
   };
 
+  const handleSendMedia = async () => {
+    if (!selectedConversation?.phone || !mediaFile) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendMedia({ toPhone: selectedConversation.phone, caption: mediaCaption.trim() || undefined, file: mediaFile });
+      setMediaFile(null);
+      setMediaCaption('');
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendProduct = async () => {
+    if (!selectedConversation?.phone || !productRetailerId.trim()) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      await whatsappCrmApi.sendProduct({
+        to_phone: selectedConversation.phone,
+        product_retailer_id: productRetailerId.trim(),
+        body_text: productBodyText.trim() || undefined,
+      });
+      setProductRetailerId('');
+      setProductBodyText('');
+      await refreshAfterSend();
+    } catch (e) {
+      console.error(e);
+      setSendError(describeSendError(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleMediaFileChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const sizeMB = file.size / (1024 * 1024);
+    if (sizeMB > MEDIA_MAX_SIZE_MB) {
+      setSendError({ message: `${file.name} is ${sizeMB.toFixed(1)}MB, over the ${MEDIA_MAX_SIZE_MB}MB limit`, label: null, code: null });
+      return;
+    }
+    setSendError(null);
+    setMediaFile(file);
+  };
+
   const canSend =
     selectedConversation?.phone &&
-    (chatMessageType === 'text' ? !!messageInput.trim() : !!chatTemplateName.trim());
+    (chatMessageType === 'text' ? !!messageInput.trim()
+      : chatMessageType === 'template' ? !!chatTemplateName.trim()
+      : chatMessageType === 'media' ? !!mediaFile
+      : chatMessageType === 'product' ? !!productRetailerId.trim()
+      : false);
 
   const displayName = (c) =>
     c?.contact_name || c?.display_name || c?.phone || 'Unknown';
+
+  // WhatsApp-style delivery ticks. failed gets a color/label taken from the
+  // error taxonomy instead of looking identical to every other failure -
+  // yellow specifically for "outside the 24h window" since that's the one
+  // agents hit constantly and needs a different response (send a template)
+  // than a genuine error does.
+  const renderTick = (m) => {
+    if (m.direction !== 'outbound') return null;
+    if (m.status === 'failed') {
+      const known = KNOWN_ERROR_CODES[m.error_code];
+      const color = m.error_code === 131047 ? '#e6a417' : '#e74c3c';
+      const label = known?.label || m.error_title || 'Failed';
+      const detail = known?.hint || m.error_detail || m.error_title || 'Message failed to send.';
+      return (
+        <Tooltip title={`${label}: ${detail}`} arrow placement="top">
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, cursor: 'help' }}>
+            <AlertTriangle size={13} color={color} />
+          </Box>
+        </Tooltip>
+      );
+    }
+    if (m.status === 'read') return <CheckCheck size={15} color="#53bdeb" />;
+    if (m.status === 'delivered') return <CheckCheck size={15} color="#8696a0" />;
+    if (m.status === 'sent') return <Check size={15} color="#8696a0" />;
+    return null;
+  };
+
+  const renderBubbleContent = (m) => {
+    if (m.media_url && (m.type === 'image' || m.type === 'video')) {
+      return (
+        <Box>
+          {m.type === 'image' ? (
+            <Box component="img" src={m.media_url} alt="" sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: '6px', display: 'block' }} />
+          ) : (
+            <Box component="video" src={m.media_url} controls sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: '6px', display: 'block' }} />
+          )}
+          {m.body && <Typography variant="body2" sx={{ color: '#111b21', mt: 0.75 }}>{m.body}</Typography>}
+        </Box>
+      );
+    }
+    if (m.media_url && (m.type === 'document' || m.type === 'audio')) {
+      return (
+        <Box component="a" href={m.media_url} target="_blank" rel="noopener noreferrer" sx={{ display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', color: '#111b21' }}>
+          <FileIcon size={20} />
+          <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>{m.body || (m.type === 'audio' ? 'Audio message' : 'Document')}</Typography>
+        </Box>
+      );
+    }
+    if (m.type === 'product') {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Package size={18} color="#128C7E" />
+          <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body}</Typography>
+        </Box>
+      );
+    }
+    return <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body || '(media)'}</Typography>;
+  };
 
   const handleNewConversationSuccess = async (phone) => {
     const data = await whatsappCrmApi.getConversations({ filter: 'all', limit: 100, offset: 0 });
@@ -360,6 +531,19 @@ export function WhatsAppCrmPage() {
                 cursor: 'pointer',
               }}
             />
+            {userInfo?.id && (
+              <Chip
+                label="Mine"
+                size="small"
+                onClick={() => setMyConversationsOnly((v) => !v)}
+                sx={{
+                  backgroundColor: myConversationsOnly ? 'rgba(37, 211, 102, 0.18)' : '#f0f2f5',
+                  color: myConversationsOnly ? '#128C7E' : '#667781',
+                  fontWeight: myConversationsOnly ? 600 : 500,
+                  cursor: 'pointer',
+                }}
+              />
+            )}
           </Box>
           <List sx={{ overflow: 'auto', flex: 1, py: 0 }}>
             {loading ? (
@@ -557,16 +741,26 @@ export function WhatsAppCrmPage() {
                           boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
                         }}
                       >
-                        <Typography variant="body2" sx={{ color: '#111b21' }}>{m.body || '(media)'}</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', textAlign: 'right', mt: 0.5 }}>
-                          {m.status || ''}
-                        </Typography>
+                        {renderBubbleContent(m)}
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                          {renderTick(m)}
+                        </Box>
                       </Box>
                     </Box>
                   ))
                 )}
               </List>
               <Box sx={{ p: { xs: 1, sm: 1.5 }, borderTop: '1px solid #e9edef', backgroundColor: '#f0f2f5' }}>
+                {sendError && (
+                  <Alert
+                    severity={sendError.code === 131047 ? 'warning' : 'error'}
+                    onClose={() => setSendError(null)}
+                    sx={{ mb: 1, borderRadius: '8px' }}
+                  >
+                    {sendError.label ? <strong>{sendError.label}: </strong> : null}
+                    {sendError.message}
+                  </Alert>
+                )}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
                   <ToggleButtonGroup
                     value={chatMessageType}
@@ -582,9 +776,17 @@ export function WhatsAppCrmPage() {
                       <FileText size={14} style={{ marginRight: 4 }} />
                       Template
                     </ToggleButton>
+                    <ToggleButton value="media">
+                      <Paperclip size={14} style={{ marginRight: 4 }} />
+                      Media
+                    </ToggleButton>
+                    <ToggleButton value="product">
+                      <Package size={14} style={{ marginRight: 4 }} />
+                      Product
+                    </ToggleButton>
                   </ToggleButtonGroup>
                 </Box>
-                {chatMessageType === 'text' ? (
+                {chatMessageType === 'text' && (
                   <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 1 }, alignItems: 'flex-end', width: '100%' }}>
                     <TextField
                       fullWidth
@@ -594,11 +796,11 @@ export function WhatsAppCrmPage() {
                       onChange={(e) => setMessageInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                       disabled={sending}
-                      sx={{ 
+                      sx={{
                         flex: 1,
                         minWidth: 0,
-                        '& .MuiOutlinedInput-root': { 
-                          borderRadius: '24px', 
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '24px',
                           backgroundColor: '#fff',
                           minHeight: { xs: 44, sm: 48 },
                           '& fieldset': { borderColor: '#e9edef' },
@@ -609,9 +811,9 @@ export function WhatsAppCrmPage() {
                       variant="contained"
                       onClick={handleSend}
                       disabled={!canSend || sending}
-                      sx={{ 
-                        minWidth: { xs: 44, sm: 48 }, 
-                        height: { xs: 44, sm: 48 }, 
+                      sx={{
+                        minWidth: { xs: 44, sm: 48 },
+                        height: { xs: 44, sm: 48 },
                         borderRadius: '50%',
                         flexShrink: 0,
                         backgroundColor: '#25D366',
@@ -619,10 +821,11 @@ export function WhatsAppCrmPage() {
                         '&:disabled': { backgroundColor: '#aebac1', color: '#fff' },
                       }}
                     >
-                      <Send size={isMobile ? 18 : 20} />
+                      {sending ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <Send size={isMobile ? 18 : 20} />}
                     </Button>
                   </Box>
-                ) : (
+                )}
+                {chatMessageType === 'template' && (
                   <Box sx={{ maxHeight: 360, overflowY: 'auto' }}>
                     <TemplateSelector
                       value={chatTemplateName}
@@ -642,10 +845,94 @@ export function WhatsAppCrmPage() {
                         variant="contained"
                         onClick={handleSend}
                         disabled={!canSend || sending}
-                        startIcon={<Send size={18} />}
+                        startIcon={sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Send size={18} />}
                         sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' } }}
                       >
                         Send template
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+                {chatMessageType === 'media' && (
+                  <Box>
+                    <input
+                      ref={mediaInputRef}
+                      type="file"
+                      accept={MEDIA_ACCEPT}
+                      onChange={handleMediaFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    {mediaFile ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, p: 1, backgroundColor: '#fff', borderRadius: '8px' }}>
+                        {mediaFile.type.startsWith('image/') ? <ImageIcon size={20} color="#128C7E" /> : <FileIcon size={20} color="#128C7E" />}
+                        <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {mediaFile.name} ({(mediaFile.size / 1024 / 1024).toFixed(1)}MB)
+                        </Typography>
+                        <IconButton size="small" onClick={() => setMediaFile(null)} disabled={sending}>
+                          <X size={16} />
+                        </IconButton>
+                      </Box>
+                    ) : (
+                      <Button
+                        variant="outlined"
+                        startIcon={<Paperclip size={16} />}
+                        onClick={() => mediaInputRef.current?.click()}
+                        sx={{ mb: 1, borderColor: '#25D366', color: '#128C7E' }}
+                      >
+                        Attach file
+                      </Button>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Caption (optional)"
+                        value={mediaCaption}
+                        onChange={(e) => setMediaCaption(e.target.value)}
+                        disabled={sending}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#fff' } }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleSendMedia}
+                        disabled={!canSend || sending}
+                        startIcon={sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Send size={16} />}
+                        sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' }, flexShrink: 0 }}
+                      >
+                        Send
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+                {chatMessageType === 'product' && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      label="Product retailer ID"
+                      helperText="From the connected catalog (Shopify variant ID) - format unverified, confirm with a test send"
+                      value={productRetailerId}
+                      onChange={(e) => setProductRetailerId(e.target.value)}
+                      disabled={sending}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#fff' } }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Message (optional)"
+                        value={productBodyText}
+                        onChange={(e) => setProductBodyText(e.target.value)}
+                        disabled={sending}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', backgroundColor: '#fff' } }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleSendProduct}
+                        disabled={!canSend || sending}
+                        startIcon={sending ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <Send size={16} />}
+                        sx={{ backgroundColor: '#25D366', '&:hover': { backgroundColor: '#20bd5a' }, flexShrink: 0 }}
+                      >
+                        Send
                       </Button>
                     </Box>
                   </Box>

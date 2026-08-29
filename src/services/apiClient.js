@@ -67,9 +67,13 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
     url += `?${queryString}`;
   }
 
-  // Default headers
+  const isFormData = data instanceof FormData;
+
+  // Default headers - omit Content-Type for FormData so the browser sets
+  // multipart/form-data with the correct boundary itself; setting it
+  // manually here would drop the boundary and break the upload.
   const defaultHeaders = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...headers
   };
 
@@ -93,7 +97,7 @@ export const apiRequest = async (method, path, data = null, options = {}) => {
 
   // Add body for methods that support it
   if (data && ['POST', 'PATCH', 'PUT'].includes(method)) {
-    fetchOptions.body = JSON.stringify(data);
+    fetchOptions.body = isFormData ? data : JSON.stringify(data);
   }
 
   try {
