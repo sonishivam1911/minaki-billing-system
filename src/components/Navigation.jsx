@@ -184,7 +184,8 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   }, [sidebarOpen, isMobile]);
 
   const navigationItems = [
-    { path: '/catalog', label: 'Home', icon: Home },
+    { path: '/', label: 'Home', icon: Home },
+    { path: '/catalog', label: 'Catalog', icon: ShoppingBag },
     { path: '/inventory', label: 'Inventory', icon: Package },
     { path: '/invoices', label: 'Invoices', icon: FileText },
     { path: '/store-locator', label: 'Store Locator', icon: MapPin },

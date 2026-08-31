@@ -4,7 +4,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Box, CircularProgress } from '@mui/material';
 import { Navigation, DrawerCart, Breadcrumbs } from './components';
-import { CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, ShopifyWinbackPage, WhatsappTemplatesPage, CrmSegmentsPage, CrmCampaignsPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, AgentSettingsPage, DrivePage, SiteCrawlPage, KeywordPlannerPage, RankTrackerPage, BacklinksPage, LocalSeoPage, AiVisibilityPage, SerpResultsPage } from './pages';
+import { HomePage, CatalogPage, InventoryPage, CartPage, CheckoutPage, CustomersPage, InvoicesPage, ProductDetailPage, StoreLocatorPage, StoreManagementPage, StorageTypeDetailPage, LoginPage, ResetPasswordPage, UserManagementPage, PermissionManagementPage, ReportsPage, WalkInPage, CustomOrdersPage, CustomProductsPage, WhatsAppCrmPage, ShopifyWinbackPage, WhatsappTemplatesPage, CrmSegmentsPage, CrmCampaignsPage, HrDashboardPage, HrWeeklySchedulePage, OnboardingPage, ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, AgentSettingsPage, DrivePage, SiteCrawlPage, KeywordPlannerPage, RankTrackerPage, BacklinksPage, LocalSeoPage, AiVisibilityPage, SerpResultsPage } from './pages';
 import { InventoryReportPage } from './pages/reports/InventoryReportPage';
 import { DailySalesReportPage } from './pages/reports/DailySalesReportPage';
 import { SalesPerformanceReportPage } from './pages/reports/SalesPerformanceReportPage';
@@ -102,9 +102,16 @@ function App() {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 
-                {/* Default to catalog */}
-                <Route path="/" element={<Navigate to="/catalog" replace />} />
-                
+                {/* Landing hub */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <HomePage />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* Protected routes - require authentication */}
                 <Route 
                   path="/catalog" 
