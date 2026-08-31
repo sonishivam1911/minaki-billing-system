@@ -1,4 +1,5 @@
 // Export all pages from a single file for easy imports
+export { HomePage } from './HomePage';
 export { CatalogPage } from './CatalogPage';
 export { DrivePage } from './drive';
 export { InventoryPage } from './InventoryPage';
