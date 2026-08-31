@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { seoApi } from '../../services/seoApi';
 import { SeoSubnav } from '../../components/seo/SeoSubnav';
 import { AgentsModeSelect } from '../../components/agents/AgentsModeSelect';
@@ -17,6 +17,65 @@ export const BacklinksPage = () => {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [spendStatus, setSpendStatus] = useState(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState(null);
+  const [snapshots, setSnapshots] = useState(null);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+
+  const loadSpendStatus = async () => {
+    try {
+      setSpendStatus(await seoApi.getDataForSeoSpendStatus());
+    } catch (e) {
+      setSpendStatus(null);
+    }
+  };
+
+  // Gated, cache-first, cost-guardrailed — "the real deal where money
+  // goes." Deliberately requires an explicit click; nothing on this page
+  // (or anywhere else) auto-triggers it.
+  const runBacklinkCheck = async () => {
+    if (!target.trim()) {
+      setError('Enter a domain or URL');
+      return;
+    }
+    setChecking(true);
+    setError(null);
+    try {
+      setCheckResult(await seoApi.checkBacklinks({ target: target.trim() }));
+      await loadSpendStatus();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const toggleSnapshots = async () => {
+    if (showSnapshots) {
+      setShowSnapshots(false);
+      return;
+    }
+    if (!target.trim()) {
+      setError('Enter a domain or URL');
+      return;
+    }
+    setShowSnapshots(true);
+    setSnapshotsLoading(true);
+    try {
+      setSnapshots(await seoApi.getBacklinksSnapshots({ target: target.trim() }));
+    } catch (e) {
+      setSnapshots(null);
+    } finally {
+      setSnapshotsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSpendStatus();
+  }, []);
 
   const run = async (nextTab = tab, nextPage = page) => {
     if (!target.trim()) {
@@ -69,6 +128,65 @@ export const BacklinksPage = () => {
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
       <section className="agents-card">
+        <h2 className="agents-section-title">Gated check (persisted, cost-guardrailed)</h2>
+        <p className="agents-validation">
+          The real deal where money goes — never runs automatically. Cache-first: reuses a recent
+          snapshot before ever making a paid call.
+        </p>
+        {spendStatus && (
+          <p className="agents-validation">
+            DataForSEO spend this month: ${spendStatus.current_month_spend_usd.toFixed(2)} / $
+            {spendStatus.monthly_cap_usd.toFixed(2)}
+            {!spendStatus.budget_available && ' — cap reached, check will fall back to cache'}
+          </p>
+        )}
+        <div className="agents-actions">
+          <button type="button" className="agents-btn primary" onClick={runBacklinkCheck} disabled={checking}>
+            {checking ? 'Checking…' : 'Run backlink check'}
+          </button>
+          <button type="button" className="agents-link-btn" onClick={toggleSnapshots}>
+            {showSnapshots ? 'Hide history' : 'View history'}
+          </button>
+        </div>
+        {checkResult && (
+          <p className="agents-validation">
+            {checkResult.ok === false
+              ? `Failed: ${checkResult.error}`
+              : `${checkResult.cache_hit ? `Cached${checkResult.stale ? ' (stale)' : ''}` : 'Freshly fetched'} — ${
+                  checkResult.summary?.backlinks ?? '—'
+                } backlinks, ${checkResult.summary?.referring_domains ?? '—'} referring domains`}
+          </p>
+        )}
+        {showSnapshots && (
+          snapshotsLoading ? (
+            <LoadingSpinner message="Loading history…" />
+          ) : snapshots?.snapshots?.length ? (
+            <table className="agents-table">
+              <thead>
+                <tr>
+                  <th>Fetched at</th>
+                  <th>Cost</th>
+                  <th>Requested by</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshots.snapshots.map((s, i) => (
+                  <tr key={s.id || i}>
+                    <td>{s.fetched_at ? new Date(s.fetched_at).toLocaleString() : '—'}</td>
+                    <td>{s.cost != null ? `$${Number(s.cost).toFixed(4)}` : '—'}</td>
+                    <td>{s.requested_by_email || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="agents-validation">No check history yet for this target.</p>
+          )
+        )}
+      </section>
+
+      <section className="agents-card">
+        <h2 className="agents-section-title">Always-live lookup (uncached, no spend cap)</h2>
         <div className="agents-search-row">
           <input placeholder="Domain or URL (minaki.me)" value={target} onChange={(e) => setTarget(e.target.value)} />
           <button type="button" className="agents-btn primary" onClick={() => run()} disabled={loading}>
