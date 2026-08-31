@@ -12,7 +12,16 @@ export const SerpResultsPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchResults = async () => {
+  const [history, setHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const [spendStatus, setSpendStatus] = useState(null);
+
+  // Persisted, cache-first store (same one the site-crawl SERP-lookup pass
+  // writes to) — replaces the always-live call this page used before.
+  // force_refresh bypasses the cache for one call only.
+  const fetchResults = async (forceRefresh = false) => {
     if (!keyword.trim()) {
       setError('Enter a keyword');
       return;
@@ -21,11 +30,28 @@ export const SerpResultsPage = () => {
     setError(null);
     setResult(null);
     try {
-      setResult(await seoApi.getSerpResults({ keyword: keyword.trim(), device }));
+      setResult(await seoApi.getSerpSnapshot({ keyword: keyword.trim(), device, force_refresh: forceRefresh }));
+      seoApi.getDataForSeoSpendStatus().then(setSpendStatus).catch(() => {});
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleHistory = async () => {
+    if (showHistory) {
+      setShowHistory(false);
+      return;
+    }
+    setShowHistory(true);
+    setHistoryLoading(true);
+    try {
+      setHistory(await seoApi.getSerpHistory({ keyword: keyword.trim(), device }));
+    } catch (e) {
+      setHistory(null);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -48,13 +74,65 @@ export const SerpResultsPage = () => {
             <option value="mobile">Mobile</option>
             <option value="desktop">Desktop</option>
           </select>
-          <button type="button" className="agents-btn primary" onClick={fetchResults} disabled={loading}>
+          <button type="button" className="agents-btn primary" onClick={() => fetchResults(false)} disabled={loading}>
             Fetch
           </button>
+          <button type="button" className="agents-btn secondary" onClick={() => fetchResults(true)} disabled={loading}>
+            Force refresh
+          </button>
+          <button type="button" className="agents-link-btn" onClick={toggleHistory} disabled={!keyword.trim()}>
+            {showHistory ? 'Hide history' : 'View history'}
+          </button>
         </div>
+        {spendStatus && (
+          <p className="agents-validation">
+            DataForSEO spend this month: ${spendStatus.current_month_spend_usd.toFixed(2)} / $
+            {spendStatus.monthly_cap_usd.toFixed(2)}
+            {!spendStatus.budget_available && ' — cap reached, force refresh will fall back to cache'}
+          </p>
+        )}
       </section>
 
+      {showHistory && (
+        <section className="agents-card">
+          <h2 className="agents-section-title">Fetch history</h2>
+          {historyLoading ? (
+            <LoadingSpinner message="Loading history…" />
+          ) : history?.snapshots?.length ? (
+            <table className="agents-table">
+              <thead>
+                <tr>
+                  <th>Fetched at</th>
+                  <th>Cost</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.snapshots.map((s, i) => (
+                  <tr key={s.id || i}>
+                    <td>{s.fetched_at ? new Date(s.fetched_at).toLocaleString() : '—'}</td>
+                    <td>{s.cost != null ? `$${Number(s.cost).toFixed(4)}` : '—'}</td>
+                    <td>{s.error || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="agents-validation">No fetch history yet for this keyword.</p>
+          )}
+        </section>
+      )}
+
       {loading && <LoadingSpinner message="Fetching SERP…" />}
+
+      {result && (
+        <section className="agents-card">
+          <p className="agents-validation">
+            {result.cache_hit ? `Cached result${result.stale ? ' (stale — budget cap reached)' : ''}` : 'Freshly fetched'}
+            {result.fetched_at && ` — ${new Date(result.fetched_at).toLocaleString()}`}
+          </p>
+        </section>
+      )}
 
       {result && (
         <>

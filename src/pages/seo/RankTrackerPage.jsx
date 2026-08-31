@@ -1,41 +1,89 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Chip,
+  LinearProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Collapse,
+  Stack,
+  IconButton,
+} from '@mui/material';
+import { Download, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { seoApi } from '../../services/seoApi';
 import { SeoSubnav } from '../../components/seo/SeoSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
-import { LoadingSpinner, ErrorMessage } from '../../components';
+import { ErrorMessage } from '../../components';
+import { usePolling } from '../../hooks/usePolling';
+import { downloadCsv } from '../../utils/csv';
+
+const BRAND_COLOR = '#8b6f47';
+// checkRankTracker is a FastAPI BackgroundTask, not an RQ job — no status
+// endpoint to poll, unlike the site-crawl pipelines. Results just get
+// reloaded once after a short delay, same idiom SiteCrawlPage uses for
+// its own no-status-endpoint actions (extractAllKeywords/checkAllSchema).
+const CHECK_RESULT_DELAY_MS = 4000;
 
 export const RankTrackerPage = () => {
   const [trackers, setTrackers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [trackersLoading, setTrackersLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [name, setName] = useState('');
-  const [targetDomain, setTargetDomain] = useState('minaki.me');
+  const [targetDomain, setTargetDomain] = useState('minaki.shop');
   const [keywordsText, setKeywordsText] = useState('');
   const [device, setDevice] = useState('mobile');
   const [creating, setCreating] = useState(false);
 
   const [selected, setSelected] = useState(null);
   const [results, setResults] = useState([]);
+  const [resultsLoading, setResultsLoading] = useState(false);
   const [checking, setChecking] = useState(false);
 
+  const [expandedKeyword, setExpandedKeyword] = useState(null);
+  const [fullSerp, setFullSerp] = useState(null);
+  const [fullSerpLoading, setFullSerpLoading] = useState(false);
+
   const loadTrackers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setTrackersLoading(true);
     try {
       const res = await seoApi.listRankTrackers({ limit: 50 });
       setTrackers(res.items || res || []);
     } catch (e) {
       setError(e.message);
     } finally {
-      setLoading(false);
+      setTrackersLoading(false);
     }
   }, []);
+  usePolling(loadTrackers);
 
-  useEffect(() => {
-    loadTrackers();
-  }, [loadTrackers]);
+  const loadResults = useCallback(async (tracker) => {
+    if (!tracker) return;
+    setResultsLoading(true);
+    try {
+      const res = await seoApi.getRankTrackerResults(tracker.id, { limit: 200 });
+      setResults(res.items || res || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setResultsLoading(false);
+    }
+  }, []);
 
   const createTracker = async () => {
     const keywords = keywordsText
@@ -65,19 +113,12 @@ export const RankTrackerPage = () => {
     }
   };
 
-  const openTracker = async (tracker) => {
+  const openTracker = (tracker) => {
     setSelected(tracker);
     setResults([]);
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await seoApi.getRankTrackerResults(tracker.id, { limit: 200 });
-      setResults(res.items || res || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
+    setExpandedKeyword(null);
+    setFullSerp(null);
+    loadResults(tracker);
   };
 
   const runCheck = async () => {
@@ -90,6 +131,29 @@ export const RankTrackerPage = () => {
       setError(e.message);
     } finally {
       setChecking(false);
+      setTimeout(() => loadResults(selected), CHECK_RESULT_DELAY_MS);
+    }
+  };
+
+  const toggleFullSerp = async (keyword) => {
+    if (expandedKeyword === keyword) {
+      setExpandedKeyword(null);
+      setFullSerp(null);
+      return;
+    }
+    setExpandedKeyword(keyword);
+    setFullSerp(null);
+    setFullSerpLoading(true);
+    try {
+      // Cache-first, persisted SERP store — same one the site-crawl
+      // SERP-lookup pass writes to, deliberately kept separate from this
+      // page's own configs/results model (a manually-configured recurring
+      // watchlist, not the crawl-driven final-keyword validation).
+      setFullSerp(await seoApi.getSerpSnapshot({ keyword, device: selected?.device || 'mobile' }));
+    } catch (e) {
+      setFullSerp(null);
+    } finally {
+      setFullSerpLoading(false);
     }
   };
 
@@ -105,102 +169,227 @@ export const RankTrackerPage = () => {
       <AgentsHowTo {...AGENT_HOW_TO.rankTracker} />
       {error && <ErrorMessage message={error} onRetry={() => setError(null)} />}
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">New tracker</h2>
-        <input placeholder="Tracker name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input
-          placeholder="Target domain (minaki.me)"
-          value={targetDomain}
-          onChange={(e) => setTargetDomain(e.target.value)}
-        />
-        <textarea
-          rows={3}
-          placeholder="One keyword per line"
-          value={keywordsText}
-          onChange={(e) => setKeywordsText(e.target.value)}
-          className="agents-seeds-input"
-        />
-        <label>
-          Device
-          <select value={device} onChange={(e) => setDevice(e.target.value)}>
-            <option value="mobile">Mobile</option>
-            <option value="desktop">Desktop</option>
-          </select>
-        </label>
-        <div className="agents-actions">
-          <button type="button" className="agents-btn primary" onClick={createTracker} disabled={creating}>
-            {creating ? 'Creating…' : 'Create tracker'}
-          </button>
-        </div>
-      </section>
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+            New tracker
+          </Typography>
+          <Stack spacing={1.5}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <TextField
+                size="small"
+                label="Tracker name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                sx={{ minWidth: 220 }}
+              />
+              <TextField
+                size="small"
+                label="Target domain"
+                placeholder="minaki.shop"
+                value={targetDomain}
+                onChange={(e) => setTargetDomain(e.target.value)}
+                sx={{ minWidth: 220 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Device</InputLabel>
+                <Select label="Device" value={device} onChange={(e) => setDevice(e.target.value)}>
+                  <MenuItem value="mobile">Mobile</MenuItem>
+                  <MenuItem value="desktop">Desktop</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              multiline
+              minRows={3}
+              placeholder="One keyword per line"
+              value={keywordsText}
+              onChange={(e) => setKeywordsText(e.target.value)}
+            />
+            <Box>
+              <Button
+                variant="contained"
+                sx={{ bgcolor: BRAND_COLOR, '&:hover': { bgcolor: BRAND_COLOR } }}
+                onClick={createTracker}
+                disabled={creating}
+              >
+                {creating ? 'Creating…' : 'Create tracker'}
+              </Button>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
 
-      <section className="agents-card">
-        <h2 className="agents-section-title">Trackers</h2>
-        {loading && !selected ? (
-          <LoadingSpinner message="Loading trackers…" />
-        ) : (
-          <table className="agents-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Domain</th>
-                <th>Keywords</th>
-                <th>Device</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {trackers.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.name}</td>
-                  <td>{t.target_domain}</td>
-                  <td>{(t.keywords || []).length}</td>
-                  <td>{t.device}</td>
-                  <td>
-                    <button type="button" className="agents-link-btn" onClick={() => openTracker(t)}>
-                      Open
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography variant="subtitle1" fontWeight={700}>
+              Trackers
+            </Typography>
+            <IconButton onClick={loadTrackers} title="Refresh">
+              <RefreshCw size={18} />
+            </IconButton>
+          </Stack>
+          {trackersLoading && !selected ? (
+            <LinearProgress />
+          ) : (
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Domain</TableCell>
+                    <TableCell>Keywords</TableCell>
+                    <TableCell>Device</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {trackers.map((t) => (
+                    <TableRow key={t.id} hover selected={selected?.id === t.id}>
+                      <TableCell>{t.name}</TableCell>
+                      <TableCell>{t.target_domain}</TableCell>
+                      <TableCell>{(t.keywords || []).length}</TableCell>
+                      <TableCell sx={{ textTransform: 'capitalize' }}>{t.device}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => openTracker(t)}>
+                          {selected?.id === t.id ? 'Selected' : 'Open'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {trackers.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                        No trackers yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {selected && (
-        <section className="agents-card">
-          <h2 className="agents-section-title">{selected.name} — results</h2>
-          <div className="agents-actions">
-            <button type="button" className="agents-btn secondary" onClick={runCheck} disabled={checking}>
-              {checking ? 'Checking…' : 'Check now'}
-            </button>
-          </div>
-          {loading ? (
-            <LoadingSpinner message="Loading results…" />
-          ) : (
-            <table className="agents-table">
-              <thead>
-                <tr>
-                  <th>Keyword</th>
-                  <th>Rank</th>
-                  <th>Checked at</th>
-                  <th>Error</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((r, i) => (
-                  <tr key={r.id || i}>
-                    <td>{r.keyword}</td>
-                    <td>{r.rank ?? 'Not in top results'}</td>
-                    <td>{r.checked_at ? new Date(r.checked_at).toLocaleString() : '—'}</td>
-                    <td>{r.error || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
+        <Card variant="outlined">
+          <CardContent>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                {selected.name} — results
+              </Typography>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  variant="contained"
+                  sx={{ bgcolor: BRAND_COLOR, '&:hover': { bgcolor: BRAND_COLOR } }}
+                  onClick={runCheck}
+                  disabled={checking}
+                >
+                  {checking ? 'Checking…' : 'Check now'}
+                </Button>
+                <Button size="small" variant="outlined" startIcon={<RefreshCw size={16} />} onClick={() => loadResults(selected)}>
+                  Refresh
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Download size={16} />}
+                  onClick={() =>
+                    downloadCsv(`${selected.name}-rank-results.csv`, results, [
+                      { label: 'Keyword', value: (r) => r.keyword },
+                      { label: 'Rank', value: (r) => r.rank },
+                      { label: 'Checked at', value: (r) => r.checked_at },
+                      { label: 'Error', value: (r) => r.error },
+                    ])
+                  }
+                  disabled={!results.length}
+                >
+                  Export
+                </Button>
+              </Stack>
+            </Stack>
+
+            {resultsLoading ? (
+              <LinearProgress />
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Keyword</TableCell>
+                      <TableCell>Rank</TableCell>
+                      <TableCell>Checked at</TableCell>
+                      <TableCell>Error</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {results.map((r, i) => (
+                      <React.Fragment key={r.id || i}>
+                        <TableRow hover>
+                          <TableCell>{r.keyword}</TableCell>
+                          <TableCell>
+                            {r.rank != null ? (
+                              <Chip size="small" color={r.rank <= 10 ? 'success' : 'default'} label={`#${r.rank}`} />
+                            ) : (
+                              <Chip size="small" variant="outlined" label="Not in top results" />
+                            )}
+                          </TableCell>
+                          <TableCell>{r.checked_at ? new Date(r.checked_at).toLocaleString() : '—'}</TableCell>
+                          <TableCell>{r.error || '—'}</TableCell>
+                          <TableCell align="right">
+                            <Button size="small" onClick={() => toggleFullSerp(r.keyword)}>
+                              Full SERP {expandedKeyword === r.keyword ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
+                            <Collapse in={expandedKeyword === r.keyword}>
+                              <Box sx={{ p: 2, bgcolor: 'action.hover' }}>
+                                {fullSerpLoading ? (
+                                  <LinearProgress />
+                                ) : fullSerp ? (
+                                  <Stack spacing={1}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                      <Typography variant="caption" color="text.secondary">
+                                        {fullSerp.cache_hit ? `Cached${fullSerp.stale ? ' (stale)' : ''}` : 'Freshly fetched'}
+                                      </Typography>
+                                    </Stack>
+                                    <Typography variant="body2" fontWeight={700}>Top organic results</Typography>
+                                    {(fullSerp.organic || []).slice(0, 10).map((o, idx) => (
+                                      <Typography key={idx} variant="body2" color="text.secondary">
+                                        #{o.rank_group} — {o.domain} — {o.title}
+                                      </Typography>
+                                    ))}
+                                    {!fullSerp.organic?.length && (
+                                      <Typography variant="body2" color="text.secondary">No organic results.</Typography>
+                                    )}
+                                  </Stack>
+                                ) : (
+                                  <Typography variant="body2" color="text.secondary">Unavailable.</Typography>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
+                      </React.Fragment>
+                    ))}
+                    {results.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                          No results yet — run a check.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
