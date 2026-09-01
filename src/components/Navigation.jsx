@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe, Settings, RotateCcw, MessageSquare, Send } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe, Settings, RotateCcw, MessageSquare, Send, Server } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -747,6 +747,43 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                 })}
               </List>
             </Collapse>
+            {isAdmin() && (
+              <>
+                <Divider sx={{ my: 2, mx: 2 }} />
+                <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
+                  <ListItemButton
+                    component={Link}
+                    to="/infra"
+                    selected={isActive('/infra')}
+                    onClick={closeSidebar}
+                    sx={{
+                      borderRadius: '8px',
+                      mx: 0.5,
+                      '&.Mui-selected': {
+                        backgroundColor: '#f5f1e8',
+                        color: '#8b6f47',
+                        '&:hover': { backgroundColor: '#f5f1e8' },
+                        '& .MuiListItemIcon-root': { color: '#8b6f47' },
+                      },
+                      '&:hover': { backgroundColor: '#f8f6f0' },
+                      py: { xs: 1.25, sm: 1.25 },
+                      px: { xs: 1.5, sm: 1.5 },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isActive('/infra') ? '#8b6f47' : 'inherit' }}>
+                      <Server size={isMobile ? 22 : 20} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Infra"
+                      primaryTypographyProps={{
+                        fontWeight: isActive('/infra') ? 600 : 500,
+                        fontSize: { xs: '0.95rem', sm: '0.9rem' },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              </>
+            )}
           </List>
         </Box>
       </Drawer>

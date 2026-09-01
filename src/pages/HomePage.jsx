@@ -7,8 +7,9 @@ import { SECTIONS } from '../config/sections';
 
 export const HomePage = () => {
   const navigate = useNavigate();
-  const { userInfo } = useAuth();
+  const { userInfo, isAdmin } = useAuth();
   const firstName = userInfo?.name?.split(' ')[0] || userInfo?.email?.split('@')[0];
+  const visibleSections = SECTIONS.filter((section) => !section.adminOnly || isAdmin());
 
   return billingUiBuilder.page({
     title: firstName ? `Welcome back, ${firstName}` : 'Welcome back',
@@ -25,7 +26,7 @@ export const HomePage = () => {
           gap: { xs: 2, sm: 2.5 },
         }}
       >
-        {SECTIONS.map((section) => {
+        {visibleSections.map((section) => {
           const Icon = section.icon;
           return (
             <Card key={section.key} sx={{ height: '100%' }}>
