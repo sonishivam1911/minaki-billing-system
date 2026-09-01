@@ -1,4 +1,4 @@
-import { ShoppingBag, MessageCircle, Sparkles, TrendingUp, Users } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Sparkles, TrendingUp, Users, Server } from 'lucide-react';
 
 /**
  * Single source of truth for the app's top-level sections.
@@ -65,5 +65,15 @@ export const SECTIONS = [
       '/seo/site-crawl', '/seo/keyword-planner', '/seo/rank-tracker',
       '/seo/backlinks', '/seo/local-seo', '/seo/ai-visibility', '/seo/serp-results',
     ],
+  },
+  {
+    key: 'infra',
+    label: 'Infra',
+    description: 'AI/tool spend tracking and quick access to Supabase, Infisical, and other infra dashboards.',
+    path: '/infra',
+    icon: Server,
+    color: '#455a64',
+    routes: ['/infra'],
+    adminOnly: true,
   },
 ];

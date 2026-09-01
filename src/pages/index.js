@@ -42,3 +42,4 @@ export { CrmCampaignsPage } from './CrmCampaignsPage';
 export { HrDashboardPage, HrWeeklySchedulePage, OnboardingPage } from './hr';
 export { ProductWriterPage, ProductReviewerPage, KeywordsPage, NamingTeamsPage, CollectionBuilderPage, CampaignCreativePage, CreativePodPage, MetaMarketingPage, AgentSettingsPage } from './agents';
 export { SiteCrawlPage, KeywordPlannerPage, RankTrackerPage, BacklinksPage, LocalSeoPage, AiVisibilityPage, SerpResultsPage } from './seo';
+export { InfraPage } from './InfraPage';
