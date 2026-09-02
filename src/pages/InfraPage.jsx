@@ -73,7 +73,7 @@ export const InfraPage = () => {
 
     for (const row of rows) {
       const day = (row.day || '').slice(0, 10);
-      const cost = row.cost_usd || 0;
+      const cost = Number(row.cost_usd) || 0;
       mCost += cost;
       if (day === today) {
         tCost += cost;
