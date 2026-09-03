@@ -6,4 +6,5 @@ export { CollectionBuilderPage } from './CollectionBuilderPage';
 export { CampaignCreativePage } from './CampaignCreativePage';
 export { CreativePodPage } from './CreativePodPage';
 export { MetaMarketingPage } from './MetaMarketingPage';
+export { AdsInsightsPage } from './AdsInsightsPage';
 export { AgentSettingsPage } from './AgentSettingsPage';

@@ -51,7 +51,7 @@ export const SECTIONS = [
     routes: [
       '/agents/writer', '/agents/product-reviewer', '/agents/keywords',
       '/agents/naming-teams', '/agents/collections', '/agents/campaign-creative',
-      '/agents/creative-pod', '/agents/marketing', '/agents/settings',
+      '/agents/creative-pod', '/agents/marketing', '/agents/ads-insights', '/agents/settings',
     ],
   },
   {

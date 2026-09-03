@@ -440,6 +440,21 @@ export const agentsApi = {
 
   getMetaPortfolioRun: (runId) =>
     agentFetch(`/api/agent/marketing/meta/portfolio-runs/${runId}`),
+
+  getAdConfig: (adId) =>
+    agentFetch(`/api/agent/marketing/meta/ads/${adId}/config`),
+
+  getAdConfigVsPerformance: (adId, { since, until, breakdownDimension } = {}) => {
+    const q = new URLSearchParams({ since, until });
+    if (breakdownDimension) q.set('breakdown_dimension', breakdownDimension);
+    return agentFetch(`/api/agent/marketing/meta/ads/${adId}/config-vs-performance?${q}`);
+  },
+
+  listAdsRanked: (campaignId, { since, until, metric = 'spend', limit } = {}) => {
+    const q = new URLSearchParams({ since, until, metric });
+    if (limit != null) q.set('limit', String(limit));
+    return agentFetch(`/api/agent/marketing/meta/campaigns/${campaignId}/ads-ranked?${q}`);
+  },
 };
 
 export default agentsApi;
