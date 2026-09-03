@@ -19,8 +19,6 @@ export const AGENT_NAV_LINKS = [
   { to: '/agents/collections', label: 'Collection Builder' },
   { to: '/agents/campaign-creative', label: 'Campaign Creative' },
   { to: '/agents/creative-pod', label: 'Banner Generation' },
-  { to: '/agents/marketing', label: 'Meta Marketing' },
-  { to: '/agents/ads-insights', label: 'Ads Insights' },
   { to: '/agents/settings', label: 'Agent Settings' },
 ];
 

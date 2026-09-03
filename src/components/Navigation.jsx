@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe, Settings, RotateCcw, MessageSquare, Send, Server } from 'lucide-react';
+import { ShoppingCart, Package, FileText, User, Clock, Gem, Home, BarChart3, Menu, X, MapPin, Building2, LogOut, Shield, Lock, UserPlus, ShoppingBag, Users, LayoutDashboard, Calendar, MessageCircle, Sparkles, PenLine, Tags, HardDrive, TrendingUp, Link2, MapPinned, Bot, Search, Globe, Settings, RotateCcw, MessageSquare, Send, Server, Megaphone } from 'lucide-react';
 import {
   AppBar,
   Toolbar,
@@ -55,14 +55,15 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   const isHrActive = location.pathname.startsWith('/hr');
   const isAgentsActive = location.pathname.startsWith('/agents');
   const isSeoActive = location.pathname.startsWith('/seo');
-  const isWhatsappActive = ['/whatsapp-crm', '/shopify-winback', '/whatsapp-templates', '/crm-segments', '/crm-campaigns'].some(
-    (path) => location.pathname.startsWith(path),
-  );
+  const isMarketingActive = [
+    '/whatsapp-crm', '/shopify-winback', '/whatsapp-templates', '/crm-segments', '/crm-campaigns',
+    '/marketing',
+  ].some((path) => location.pathname.startsWith(path));
   const [hrNavOpen, setHrNavOpen] = useState(isHrActive);
   // Keep Agents expanded by default so lower-nav items stay discoverable once the sidebar scrolls.
   const [agentsNavOpen, setAgentsNavOpen] = useState(true);
   const [seoNavOpen, setSeoNavOpen] = useState(isSeoActive);
-  const [whatsappNavOpen, setWhatsappNavOpen] = useState(isWhatsappActive);
+  const [marketingNavOpen, setMarketingNavOpen] = useState(isMarketingActive);
   const hasItemsInCart = cartItemCount > 0;
 
   React.useEffect(() => {
@@ -74,8 +75,8 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
   }, [isAgentsActive]);
 
   React.useEffect(() => {
-    if (isWhatsappActive) setWhatsappNavOpen(true);
-  }, [isWhatsappActive]);
+    if (isMarketingActive) setMarketingNavOpen(true);
+  }, [isMarketingActive]);
 
   React.useEffect(() => {
     if (isSeoActive) setSeoNavOpen(true);
@@ -202,12 +203,14 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/hr/weekly-schedule', label: 'Weekly Schedule', icon: Calendar },
   ];
 
-  const whatsappNavItems = [
+  const marketingNavItems = [
     { path: '/whatsapp-crm', label: 'WhatsApp CRM', icon: MessageCircle },
     { path: '/shopify-winback', label: 'Abandoned Checkout Winback', icon: RotateCcw },
     { path: '/whatsapp-templates', label: 'WhatsApp Templates', icon: MessageSquare },
     { path: '/crm-segments', label: 'CRM Segments', icon: Users },
     { path: '/crm-campaigns', label: 'Campaigns', icon: Send },
+    { path: '/marketing/meta', label: 'Meta Marketing', icon: Sparkles },
+    { path: '/marketing/ads-insights', label: 'Ads Insights', icon: BarChart3 },
   ];
 
   const agentsNavItems = [
@@ -218,8 +221,6 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/collections', label: 'Collections', icon: LayoutDashboard },
     { path: '/agents/campaign-creative', label: 'Campaign Creative', icon: Sparkles },
     { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
-    { path: '/agents/marketing', label: 'Meta Marketing', icon: Sparkles },
-    { path: '/agents/ads-insights', label: 'Ads Insights', icon: BarChart3 },
     { path: '/agents/settings', label: 'Agent Settings', icon: Settings },
   ];
 
@@ -612,11 +613,11 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
             </Collapse>
             <Divider sx={{ my: 2, mx: 2 }} />
             <Typography variant="overline" sx={{ px: 2, py: 0.5, color: '#6b7280', fontSize: '0.7rem', letterSpacing: 1.2 }}>
-              WhatsApp
+              Marketing
             </Typography>
             <ListItem disablePadding sx={{ px: 1, mb: 0.25 }}>
               <ListItemButton
-                onClick={() => setWhatsappNavOpen(!whatsappNavOpen)}
+                onClick={() => setMarketingNavOpen(!marketingNavOpen)}
                 sx={{
                   borderRadius: '8px',
                   mx: 0.5,
@@ -627,22 +628,22 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
                   px: { xs: 1.5, sm: 1.5 },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isWhatsappActive ? '#8b6f47' : 'inherit' }}>
-                  <MessageCircle size={isMobile ? 22 : 20} />
+                <ListItemIcon sx={{ minWidth: { xs: 44, sm: 40 }, color: isMarketingActive ? '#8b6f47' : 'inherit' }}>
+                  <Megaphone size={isMobile ? 22 : 20} />
                 </ListItemIcon>
                 <ListItemText
-                  primary="WhatsApp"
+                  primary="Marketing"
                   primaryTypographyProps={{
-                    fontWeight: isWhatsappActive ? 600 : 500,
+                    fontWeight: isMarketingActive ? 600 : 500,
                     fontSize: { xs: '0.95rem', sm: '0.9rem' },
                   }}
                 />
-                <Typography variant="body2" sx={{ transform: whatsappNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
+                <Typography variant="body2" sx={{ transform: marketingNavOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: '#6b7280' }}>▼</Typography>
               </ListItemButton>
             </ListItem>
-            <Collapse in={whatsappNavOpen} timeout="auto" unmountOnExit>
+            <Collapse in={marketingNavOpen} timeout="auto" unmountOnExit>
               <List component="div" disablePadding sx={{ pl: 1 }}>
-                {whatsappNavItems.map((item) => {
+                {marketingNavItems.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   return (

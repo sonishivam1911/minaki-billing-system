@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { agentsApi } from '../../services/agentsApi';
-import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { AgentsHowTo } from '../../components/agents/AgentsHowTo';
 import { AGENT_HOW_TO } from '../../components/agents/agentHowToCopy';
 import { LoadingSpinner, ErrorMessage } from '../../components';
@@ -475,7 +474,6 @@ export const MetaMarketingPage = () => {
 
   return (
     <div className="screen-container agents-page">
-      <AgentsSubnav />
       <AgentsHowTo {...AGENT_HOW_TO.marketing} />
       <div className="agents-header">
         <div>
