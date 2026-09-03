@@ -1,4 +1,4 @@
-import { ShoppingBag, MessageCircle, Sparkles, TrendingUp, Users, Server } from 'lucide-react';
+import { ShoppingBag, Megaphone, Sparkles, TrendingUp, Users, Server } from 'lucide-react';
 
 /**
  * Single source of truth for the app's top-level sections.
@@ -30,15 +30,15 @@ export const SECTIONS = [
     routes: ['/hr/dashboard', '/hr/weekly-schedule'],
   },
   {
-    key: 'whatsapp-crm',
-    label: 'WhatsApp CRM',
-    description: 'WhatsApp messaging, abandoned checkout winback, segments, and campaigns.',
+    key: 'marketing',
+    label: 'Marketing',
+    description: 'WhatsApp messaging, abandoned checkout winback, segments, campaigns, and Meta ads.',
     path: '/whatsapp-crm',
-    icon: MessageCircle,
+    icon: Megaphone,
     color: '#25D366',
     routes: [
       '/whatsapp-crm', '/shopify-winback', '/whatsapp-templates',
-      '/crm-segments', '/crm-campaigns',
+      '/crm-segments', '/crm-campaigns', '/marketing/meta', '/marketing/ads-insights',
     ],
   },
   {
@@ -51,7 +51,7 @@ export const SECTIONS = [
     routes: [
       '/agents/writer', '/agents/product-reviewer', '/agents/keywords',
       '/agents/naming-teams', '/agents/collections', '/agents/campaign-creative',
-      '/agents/creative-pod', '/agents/marketing', '/agents/ads-insights', '/agents/settings',
+      '/agents/creative-pod', '/agents/settings',
     ],
   },
   {

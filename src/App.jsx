@@ -247,8 +247,24 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route 
-                  path="/walk-ins" 
+                <Route
+                  path="/marketing/meta"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <MetaMarketingPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/marketing/ads-insights"
+                  element={
+                    <ProtectedRoute requireAuth={true}>
+                      <AdsInsightsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/walk-ins"
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <WalkInPage />
@@ -476,22 +492,6 @@ function App() {
                   element={
                     <ProtectedRoute requireAuth={true}>
                       <CreativePodPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agents/marketing"
-                  element={
-                    <ProtectedRoute requireAuth={true}>
-                      <MetaMarketingPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agents/ads-insights"
-                  element={
-                    <ProtectedRoute requireAuth={true}>
-                      <AdsInsightsPage />
                     </ProtectedRoute>
                   }
                 />

@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { billingUiBuilder } from '../../ui/BillingUiBuilder';
-import { AgentsSubnav } from '../../components/agents/AgentsSubnav';
 import { LoadingSpinner, ErrorMessage } from '../../components';
 import { ReportTable } from '../../components/reports/ReportTable';
 import { agentsApi } from '../../services/agentsApi';
@@ -271,8 +270,6 @@ export const AdsInsightsPage = () => {
     description: 'What we set up (audience + creative) next to what happened (performance) — per ad.',
     children: (
       <Box>
-        <AgentsSubnav />
-
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Grid container spacing={2} alignItems="center">
