@@ -219,6 +219,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/agents/campaign-creative', label: 'Campaign Creative', icon: Sparkles },
     { path: '/agents/creative-pod', label: 'Banner Generation', icon: Sparkles },
     { path: '/agents/marketing', label: 'Meta Marketing', icon: Sparkles },
+    { path: '/agents/ads-insights', label: 'Ads Insights', icon: BarChart3 },
     { path: '/agents/settings', label: 'Agent Settings', icon: Settings },
   ];
 
