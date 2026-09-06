@@ -22,6 +22,10 @@ import {
   DialogTitle,
   DialogContent,
   IconButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import { Search, X, ImageOff, AlertCircle } from 'lucide-react';
 import { mdScraperApi } from '../services/mdScraperApi';
@@ -66,11 +70,20 @@ function DesignsTab() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [productType, setProductType] = useState('');
+  const [shape, setShape] = useState('');
+  const [filterOptions, setFilterOptions] = useState({ product_types: [], shapes: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [detail, setDetail] = useState(null);
 
-  const load = useCallback(async (pageNum, searchTerm) => {
+  useEffect(() => {
+    mdScraperApi.getFilterOptions()
+      .then((result) => setFilterOptions({ product_types: result.product_types || [], shapes: result.shapes || [] }))
+      .catch(() => {}); // filters are a convenience, not worth failing the page over
+  }, []);
+
+  const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter) => {
     setLoading(true);
     setError(null);
     try {
@@ -78,6 +91,8 @@ function DesignsTab() {
         limit: PAGE_SIZE,
         offset: (pageNum - 1) * PAGE_SIZE,
         search: searchTerm,
+        productType: productTypeFilter,
+        shape: shapeFilter,
       });
       setDesigns(result.designs || []);
       setTotal(result.total || 0);
@@ -89,39 +104,70 @@ function DesignsTab() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => load(page, search), search ? 400 : 0);
+    const timer = setTimeout(() => load(page, search, productType, shape), search ? 400 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, search, productType, shape]);
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [search, productType, shape]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <Box>
-      <TextField
-        fullWidth
-        placeholder="Search by title or handle..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 3, maxWidth: 480 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search size={18} />
-            </InputAdornment>
-          ),
-        }}
-      />
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+        <TextField
+          placeholder="Search by title or handle..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ minWidth: 280, flexGrow: 1, maxWidth: 480 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search size={18} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel id="product-type-filter-label">Product Type</InputLabel>
+          <Select
+            labelId="product-type-filter-label"
+            label="Product Type"
+            value={productType}
+            onChange={(e) => setProductType(e.target.value)}
+          >
+            <MenuItem value=""><em>All types</em></MenuItem>
+            {filterOptions.product_types.map((t) => (
+              <MenuItem key={t} value={t}>{t}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 180 }}>
+          <InputLabel id="shape-filter-label">Shape</InputLabel>
+          <Select
+            labelId="shape-filter-label"
+            label="Shape"
+            value={shape}
+            onChange={(e) => setShape(e.target.value)}
+          >
+            <MenuItem value=""><em>All shapes</em></MenuItem>
+            {filterOptions.shapes.map((s) => (
+              <MenuItem key={s} value={s}>{s}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
 
       {loading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} />}
 
       {!loading && !error && designs.length === 0 && (
-        <Typography color="text.secondary">No scraped designs found{search ? ' for that search' : ''}.</Typography>
+        <Typography color="text.secondary">
+          No scraped designs found{(search || productType || shape) ? ' for that search/filter' : ''}.
+        </Typography>
       )}
 
       {!loading && !error && designs.length > 0 && (
