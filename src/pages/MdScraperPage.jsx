@@ -234,12 +234,31 @@ function DesignDetailDialog({ design, onClose }) {
         <IconButton onClick={onClose} size="small"><X size={18} /></IconButton>
       </DialogTitle>
       <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           Shape: <strong>{design.shape_label}</strong> · Handle: {design.design_handle}
           {design.url && (
             <> · <a href={design.url} target="_blank" rel="noreferrer">Miadonna source</a></>
           )}
         </Typography>
+
+        {(design.min_carat != null || design.max_carat != null || (design.available_carats || []).length > 0) && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            {(design.min_carat != null && design.max_carat != null) && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`Carat range: ${design.min_carat}–${design.max_carat}ct`}
+              />
+            )}
+            {(design.available_carats || []).length > 0 && (
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`This shape: ${design.available_carats.join(', ')}ct`}
+              />
+            )}
+          </Box>
+        )}
 
         {Object.keys(assets).length === 0 && (
           <Typography color="text.secondary">No assets mirrored for this shape.</Typography>
