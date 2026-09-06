@@ -196,6 +196,7 @@ export const Navigation = ({ cartItemCount = 0, onCartClick, onSidebarToggle }) 
     { path: '/walk-ins', label: 'Walk-ins', icon: UserPlus },
     { path: '/custom-products', label: 'Custom Products', icon: ShoppingBag },
     { path: '/reports', label: 'Reports', icon: BarChart3 },
+    { path: '/md-scraper', label: 'Fine by MINAKI', icon: Gem },
   ];
 
   const hrNavItems = [

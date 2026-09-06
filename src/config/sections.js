@@ -1,4 +1,4 @@
-import { ShoppingBag, Megaphone, Sparkles, TrendingUp, Users, Server } from 'lucide-react';
+import { ShoppingBag, Megaphone, Sparkles, TrendingUp, Users, Server, Gem } from 'lucide-react';
 
 /**
  * Single source of truth for the app's top-level sections.
@@ -53,6 +53,15 @@ export const SECTIONS = [
       '/agents/naming-teams', '/agents/collections', '/agents/campaign-creative',
       '/agents/creative-pod', '/agents/settings',
     ],
+  },
+  {
+    key: 'fine-by-minaki',
+    label: 'Fine by MINAKI',
+    description: 'Scraped Miadonna reference designs for the diamond line — images, shapes, scrape run status.',
+    path: '/md-scraper',
+    icon: Gem,
+    color: '#1a6b6b',
+    routes: ['/md-scraper'],
   },
   {
     key: 'seo',
