@@ -20,13 +20,24 @@ export const mdScraperApi = {
    * Paginated list of scraped (design, shape) rows.
    * GET /md-scraper/designs
    *
-   * @param {Object} params - { limit, offset, search }
+   * @param {Object} params - { limit, offset, search, productType, shape }
    * @returns {Promise<{ total: number, designs: Array }>}
    */
-  listDesigns: async ({ limit = 50, offset = 0, search = '' } = {}) => {
+  listDesigns: async ({ limit = 50, offset = 0, search = '', productType = '', shape = '' } = {}) => {
     const params = { limit, offset };
     if (search) params.search = search;
+    if (productType) params.product_type = productType;
+    if (shape) params.shape = shape;
     return await apiRequest('GET', `${BASE_PATH}/designs`, null, { params });
+  },
+
+  /**
+   * Distinct product_type/shape values in the scraped catalog — for the
+   * filter dropdowns. Not hardcoded since Miadonna's vocabulary can shift.
+   * GET /md-scraper/designs/filter-options
+   */
+  getFilterOptions: async () => {
+    return await apiRequest('GET', `${BASE_PATH}/designs/filter-options`);
   },
 
   /**
