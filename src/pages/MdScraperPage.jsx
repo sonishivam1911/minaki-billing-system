@@ -26,8 +26,12 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Button,
+  Divider,
+  Stack,
+  Alert,
 } from '@mui/material';
-import { Search, X, ImageOff, AlertCircle } from 'lucide-react';
+import { Search, X, ImageOff, AlertCircle, Gem } from 'lucide-react';
 import { mdScraperApi } from '../services/mdScraperApi';
 import { LoadingSpinner, ErrorMessage } from '../components';
 
@@ -51,8 +55,8 @@ export const MdScraperPage = () => {
       <Typography variant="h4" sx={{ mb: 1 }}>Fine by MINAKI — Scraped Designs</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Designs discovered from Miadonna's catalog. Each shape shown here becomes a Fine by
-        MINAKI product once the gold/diamond breakdown is filled in — that intake step isn't
-        built yet, this is scrape visibility only.
+        MINAKI product once the gold/diamond breakdown is filled in — click a design, then
+        "Add Gold/Diamond Info" to fill it in.
       </Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
@@ -214,6 +218,14 @@ function DesignCard({ design, onClick }) {
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
           <Chip size="small" label={design.shape_label} />
           {design.product_type && <Chip size="small" variant="outlined" label={design.product_type} />}
+          {design.intake_status && (
+            <Chip
+              size="small"
+              icon={<Gem size={12} />}
+              label={design.intake_status}
+              color={design.intake_status === 'ready' || design.intake_status === 'pushed' ? 'success' : 'info'}
+            />
+          )}
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           {Object.keys(assets).length} metal color{Object.keys(assets).length === 1 ? '' : 's'} mirrored
@@ -224,6 +236,7 @@ function DesignCard({ design, onClick }) {
 }
 
 function DesignDetailDialog({ design, onClose }) {
+  const [intakeOpen, setIntakeOpen] = useState(false);
   if (!design) return null;
   const assets = design.assets || {};
 
@@ -240,6 +253,23 @@ function DesignDetailDialog({ design, onClose }) {
             <> · <a href={design.url} target="_blank" rel="noreferrer">Miadonna source</a></>
           )}
         </Typography>
+
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<Gem size={16} />}
+          onClick={() => setIntakeOpen(true)}
+          sx={{ mb: 2 }}
+        >
+          {design.intake_status ? 'Edit Gold/Diamond Info' : 'Add Gold/Diamond Info'}
+        </Button>
+        <GoldDiamondIntakeDialog
+          open={intakeOpen}
+          onClose={() => setIntakeOpen(false)}
+          designHandle={design.design_handle}
+          shapeKey={design.shape_key}
+          shapeLabel={design.shape_label}
+        />
 
         {(design.min_carat != null || design.max_carat != null || (design.available_carats || []).length > 0) && (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
@@ -281,6 +311,208 @@ function DesignDetailDialog({ design, onClose }) {
             )}
           </Box>
         ))}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const EMPTY_INTAKE = {
+  gold_karat: '', gold_color: '', gold_weight_grams: '',
+  diamond_shape: '', diamond_carat: '', diamond_color: '', diamond_clarity: '',
+  diamond_certification: '', diamond_count: '', price_override: '', notes: '', status: 'draft',
+};
+
+/**
+ * GoldDiamondIntakeDialog
+ * Ops' manual gold/diamond breakdown for one (design, shape) — this is what
+ * actually turns a mirrored Miadonna design into a sellable Fine by MINAKI
+ * product; nothing here is scraped. The variant reference panel shows what
+ * Miadonna itself exposed (metal karat, stone color/clarity/certification)
+ * per variant, purely so ops isn't re-typing values already visible on the
+ * source page — filling the form doesn't require picking from it.
+ */
+function GoldDiamondIntakeDialog({ open, onClose, designHandle, shapeKey, shapeLabel }) {
+  const [form, setForm] = useState(EMPTY_INTAKE);
+  const [variants, setVariants] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!open || !designHandle || !shapeKey) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setSaved(false);
+    Promise.all([
+      mdScraperApi.getGoldDiamondIntake(designHandle, shapeKey),
+      mdScraperApi.getDesignVariants(designHandle),
+    ])
+      .then(([intakeResult, variantsResult]) => {
+        if (cancelled) return;
+        const existing = intakeResult.intake;
+        setForm(existing
+          ? { ...EMPTY_INTAKE, ...existing, ...Object.fromEntries(
+              Object.entries(existing).map(([k, v]) => [k, v == null ? '' : v])
+            ) }
+          : { ...EMPTY_INTAKE, diamond_shape: shapeLabel || '' });
+        setVariants(variantsResult.variants || []);
+      })
+      .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load intake data'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [open, designHandle, shapeKey, shapeLabel]);
+
+  const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const handleSave = async (status) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const numeric = ['gold_weight_grams', 'diamond_carat', 'diamond_count', 'price_override'];
+      const payload = { ...form, status };
+      for (const key of numeric) {
+        payload[key] = form[key] === '' ? null : Number(form[key]);
+      }
+      Object.keys(payload).forEach((k) => { if (payload[k] === '') payload[k] = null; });
+      await mdScraperApi.saveGoldDiamondIntake(designHandle, shapeKey, payload);
+      setForm((f) => ({ ...f, status }));
+      setSaved(true);
+    } catch (err) {
+      setError(err.message || 'Failed to save gold/diamond info');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Distinct metal karat / stone grade combos Miadonna actually offers for
+  // this design — a compact reference, not every raw variant row.
+  const referenceOptions = React.useMemo(() => {
+    const seen = new Set();
+    const rows = [];
+    for (const v of variants) {
+      if (!v.metal_type && !v.stone_color) continue;
+      const key = `${v.metal_type}|${v.metal_color}|${v.stone_color}|${v.stone_clarity}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push(v);
+    }
+    return rows;
+  }, [variants]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        Gold/Diamond Info — {shapeLabel}
+        <IconButton onClick={onClose} size="small"><X size={18} /></IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
+        {loading ? (
+          <LoadingSpinner />
+        ) : (
+          <Stack spacing={2}>
+            {error && <Alert severity="error">{error}</Alert>}
+            {saved && <Alert severity="success">Saved.</Alert>}
+
+            {referenceOptions.length > 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Miadonna offers this design in:
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {referenceOptions.slice(0, 12).map((v) => (
+                    <Chip
+                      key={v.variant_id}
+                      size="small"
+                      variant="outlined"
+                      label={[v.metal_type, v.stone_color, v.stone_clarity].filter(Boolean).join(' · ')}
+                    />
+                  ))}
+                </Box>
+              </Box>
+            )}
+
+            <Divider />
+
+            <Stack direction="row" spacing={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="gold-karat-label">Gold Karat</InputLabel>
+                <Select labelId="gold-karat-label" label="Gold Karat" value={form.gold_karat} onChange={setField('gold_karat')}>
+                  <MenuItem value=""><em>Not set</em></MenuItem>
+                  <MenuItem value="14K">14K</MenuItem>
+                  <MenuItem value="18K">18K</MenuItem>
+                  <MenuItem value="Platinum">Platinum</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel id="gold-color-label">Gold Color</InputLabel>
+                <Select labelId="gold-color-label" label="Gold Color" value={form.gold_color} onChange={setField('gold_color')}>
+                  <MenuItem value=""><em>Not set</em></MenuItem>
+                  <MenuItem value="White">White</MenuItem>
+                  <MenuItem value="Yellow">Yellow</MenuItem>
+                  <MenuItem value="Rose">Rose</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+            <TextField
+              label="Gold Weight (grams)" type="number" size="small" fullWidth
+              value={form.gold_weight_grams} onChange={setField('gold_weight_grams')}
+            />
+
+            <Divider />
+
+            <TextField
+              label="Diamond Shape" size="small" fullWidth
+              value={form.diamond_shape} onChange={setField('diamond_shape')}
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Diamond Carat" type="number" size="small" fullWidth
+                value={form.diamond_carat} onChange={setField('diamond_carat')}
+              />
+              <TextField
+                label="Diamond Count" type="number" size="small" fullWidth
+                value={form.diamond_count} onChange={setField('diamond_count')}
+              />
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Diamond Color" size="small" fullWidth
+                value={form.diamond_color} onChange={setField('diamond_color')}
+              />
+              <TextField
+                label="Diamond Clarity" size="small" fullWidth
+                value={form.diamond_clarity} onChange={setField('diamond_clarity')}
+              />
+            </Stack>
+            <TextField
+              label="Diamond Certification" size="small" fullWidth
+              value={form.diamond_certification} onChange={setField('diamond_certification')}
+            />
+
+            <Divider />
+
+            <TextField
+              label="Price Override (optional)" type="number" size="small" fullWidth
+              value={form.price_override} onChange={setField('price_override')}
+              helperText="Leave blank to price from the gold/diamond breakdown later"
+            />
+            <TextField
+              label="Notes" size="small" fullWidth multiline minRows={2}
+              value={form.notes} onChange={setField('notes')}
+            />
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button variant="outlined" disabled={saving} onClick={() => handleSave('draft')}>
+                Save Draft
+              </Button>
+              <Button variant="contained" disabled={saving} onClick={() => handleSave('ready')}>
+                Mark Ready
+              </Button>
+            </Stack>
+          </Stack>
+        )}
       </DialogContent>
     </Dialog>
   );
