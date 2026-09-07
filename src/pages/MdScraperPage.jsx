@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Container,
@@ -306,6 +306,7 @@ function DesignWorkspaceDialog({ design, onClose }) {
   const [saved, setSaved] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
   const [pushUrl, setPushUrl] = useState(null);
+  const touchStartX = useRef(null);
 
   const assets = design?.assets || {};
   const availableMetals = METAL_COLORS.filter((m) => assets[m]);
@@ -393,6 +394,19 @@ function DesignWorkspaceDialog({ design, onClose }) {
   const addStone = () => setStones((prev) => [...prev, { ...EMPTY_STONE, position: 'Side Stone' }]);
   const removeStone = (index) => setStones((prev) => prev.filter((_, i) => i !== index));
 
+  const SWIPE_THRESHOLD_PX = 40;
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current == null || currentImages.length < 2) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(delta) > SWIPE_THRESHOLD_PX) {
+      setActiveImage((i) => (delta < 0
+        ? (i + 1) % currentImages.length
+        : (i - 1 + currentImages.length) % currentImages.length));
+    }
+    touchStartX.current = null;
+  };
+
   const handleSave = async (status) => {
     setSaving(true);
     setError(null);
@@ -478,7 +492,11 @@ function DesignWorkspaceDialog({ design, onClose }) {
 
               {currentImages.length > 0 && (
                 <>
-                  <Box sx={{ position: 'relative', mb: 1 }}>
+                  <Box
+                    sx={{ position: 'relative', mb: 1 }}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                  >
                     <img
                       src={currentImages[activeImage]}
                       alt={`${activeMetal} ${activeImage}`}
