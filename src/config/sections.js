@@ -57,7 +57,7 @@ export const SECTIONS = [
   {
     key: 'fine-by-minaki',
     label: 'Fine by MINAKI',
-    description: 'Scraped Miadonna reference designs for the diamond line — images, shapes, scrape run status.',
+    description: 'Discovered diamond designs — images, shapes, gold/diamond intake, and Shopify push status.',
     path: '/md-scraper',
     icon: Gem,
     color: '#1a6b6b',
