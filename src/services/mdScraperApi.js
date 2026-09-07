@@ -1,13 +1,14 @@
 /**
  * MD Scraper API Service
- * Browses what the Miadonna reference-catalog scraper (Fine by MINAKI
- * diamond line) has found — scraped designs/shapes with their mirrored
- * Contabo images/video, and scrape run history/status.
+ * Fine by MINAKI's discovered designs — shapes with their mirrored
+ * Contabo images/video, gold/diamond intake, pricing, Shopify push
+ * status, and run history.
  *
- * Read-only from here. Triggering an actual scrape run is deliberately
- * NOT exposed to the browser — that's the X-Internal-Sync-Key-protected
- * /internal/md-scraper/* endpoints, meant for the n8n cron, not a button
- * anyone signed into the hub could click.
+ * Discovery itself is not triggered from here — that's the
+ * X-Internal-Sync-Key-protected /internal/md-scraper/* endpoints, meant
+ * for the cron, not a button anyone signed into the hub could click.
+ * Everything below IS the ops-facing surface: browsing, filling in
+ * intake, previewing price, and pushing to Shopify.
  *
  * API Prefix: /md-scraper
  */
@@ -92,6 +93,32 @@ export const mdScraperApi = {
       `${BASE_PATH}/designs/${designHandle}/${shapeKey}/gold-diamond-intake`,
       payload
     );
+  },
+
+  /**
+   * Computes the full 6-variant (14K/18K x White/Yellow/Rose) priced
+   * matrix live, without saving anything.
+   * POST /md-scraper/pricing/preview
+   */
+  previewPricing: async ({ gold_weight_14k_grams, stones }) => {
+    return await apiRequest('POST', `${BASE_PATH}/pricing/preview`, { gold_weight_14k_grams, stones });
+  },
+
+  /**
+   * Kicks off an async push of one design_shape's saved intake to
+   * Shopify (creates a DRAFT product). Returns a push_run_id.
+   * POST /md-scraper/designs/:designHandle/:shapeKey/push
+   */
+  pushDesign: async (designHandle, shapeKey) => {
+    return await apiRequest('POST', `${BASE_PATH}/designs/${designHandle}/${shapeKey}/push`);
+  },
+
+  /**
+   * Status of one push run.
+   * GET /md-scraper/push-runs/:pushRunId
+   */
+  getPushRun: async (pushRunId) => {
+    return await apiRequest('GET', `${BASE_PATH}/push-runs/${pushRunId}`);
   },
 };
 

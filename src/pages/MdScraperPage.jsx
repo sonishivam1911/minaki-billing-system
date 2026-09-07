@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Container,
@@ -30,46 +30,51 @@ import {
   Divider,
   Stack,
   Alert,
+  Tooltip,
 } from '@mui/material';
-import { Search, X, ImageOff, AlertCircle, Gem } from 'lucide-react';
+import {
+  Search, X, ImageOff, AlertCircle, Gem, RefreshCw, ChevronLeft, ChevronRight,
+  Plus, Trash2, ExternalLink, CheckCircle2, Loader2,
+} from 'lucide-react';
 import { mdScraperApi } from '../services/mdScraperApi';
 import { LoadingSpinner, ErrorMessage } from '../components';
 
+const METAL_COLORS = ['whitegold', 'yellowgold', 'rosegold'];
 const METAL_LABELS = { whitegold: 'White Gold', yellowgold: 'Yellow Gold', rosegold: 'Rose Gold' };
+const METAL_SWATCH = { whitegold: '#d9d9d9', yellowgold: '#d4af37', rosegold: '#e0a89a' };
 const PAGE_SIZE = 24;
 
+const PUSH_STATUS_COLOR = { queued: 'info', running: 'info', succeeded: 'success', failed: 'error' };
+
 /**
- * MdScraperPage
- * Browses what the Miadonna reference-catalog scraper (Fine by MINAKI
- * diamond line) has found so far — scraped designs/shapes with their
- * mirrored Contabo images, and scrape run history/status. Read-only:
- * triggering an actual scrape is deliberately not a button here, it's
- * n8n's cron hitting the internal sync-key endpoint (see md_scraper_
- * controller.py's docstring for why).
+ * MdScraperPage — "Fine by MINAKI" hub section.
+ * Browses every design discovered for the diamond line — images, shapes,
+ * gold/diamond intake, and Shopify push status. The source these designs
+ * are discovered from is never surfaced here or anywhere downstream —
+ * this page shows only Fine by MINAKI's own data.
  */
 export const MdScraperPage = () => {
-  const [tab, setTab] = useState('designs');
+  const [tab, setTab] = useState('discovered');
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 1 }}>Fine by MINAKI — Scraped Designs</Typography>
+      <Typography variant="h4" sx={{ mb: 1 }}>Fine by MINAKI — Discovered</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Designs discovered from Miadonna's catalog. Each shape shown here becomes a Fine by
-        MINAKI product once the gold/diamond breakdown is filled in — click a design, then
-        "Add Gold/Diamond Info" to fill it in.
+        Each shape shown here becomes a Fine by MINAKI product once the gold/diamond
+        breakdown is filled in — click a design, fill in the form, and push it to Shopify.
       </Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab value="designs" label="Designs" />
-        <Tab value="runs" label="Scrape Runs" />
+        <Tab value="discovered" label="Discovered" />
+        <Tab value="runs" label="Runs" />
       </Tabs>
 
-      {tab === 'designs' ? <DesignsTab /> : <RunsTab />}
+      {tab === 'discovered' ? <DiscoveredTab /> : <RunsTab />}
     </Container>
   );
 };
 
-function DesignsTab() {
+function DiscoveredTab() {
   const [designs, setDesigns] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -101,7 +106,7 @@ function DesignsTab() {
       setDesigns(result.designs || []);
       setTotal(result.total || 0);
     } catch (err) {
-      setError(err.message || 'Failed to load scraped designs');
+      setError(err.message || 'Failed to load designs');
     } finally {
       setLoading(false);
     }
@@ -116,6 +121,23 @@ function DesignsTab() {
   useEffect(() => {
     setPage(1);
   }, [search, productType, shape]);
+
+  const refreshOne = async (shapeId, designHandle, shapeKey) => {
+    try {
+      const result = await mdScraperApi.getGoldDiamondIntake(designHandle, shapeKey);
+      const intake = result.intake;
+      setDesigns((prev) => prev.map((d) => (d.shape_id === shapeId
+        ? {
+          ...d,
+          intake_status: intake?.status || d.intake_status,
+          push_status: intake?.push_status ?? d.push_status,
+          shopify_product_url: intake?.shopify_product_url ?? d.shopify_product_url,
+        }
+        : d)));
+    } catch {
+      // a failed refresh just leaves the stale badge — not worth surfacing an error for
+    }
+  };
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -136,14 +158,14 @@ function DesignsTab() {
           }}
         />
         <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel id="product-type-filter-label">Product Type</InputLabel>
+          <InputLabel id="product-type-filter-label">Category</InputLabel>
           <Select
             labelId="product-type-filter-label"
-            label="Product Type"
+            label="Category"
             value={productType}
             onChange={(e) => setProductType(e.target.value)}
           >
-            <MenuItem value=""><em>All types</em></MenuItem>
+            <MenuItem value=""><em>All categories</em></MenuItem>
             {filterOptions.product_types.map((t) => (
               <MenuItem key={t} value={t}>{t}</MenuItem>
             ))}
@@ -170,19 +192,23 @@ function DesignsTab() {
 
       {!loading && !error && designs.length === 0 && (
         <Typography color="text.secondary">
-          No scraped designs found{(search || productType || shape) ? ' for that search/filter' : ''}.
+          Nothing discovered{(search || productType || shape) ? ' for that search/filter' : ''} yet.
         </Typography>
       )}
 
       {!loading && !error && designs.length > 0 && (
         <>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {total.toLocaleString()} design shape{total === 1 ? '' : 's'} found
+            {total.toLocaleString()} design{total === 1 ? '' : 's'} found
           </Typography>
           <Grid container spacing={2}>
             {designs.map((d) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={d.shape_id}>
-                <DesignCard design={d} onClick={() => setDetail(d)} />
+                <DesignCard
+                  design={d}
+                  onClick={() => setDetail(d)}
+                  onRefresh={() => refreshOne(d.shape_id, d.design_handle, d.shape_key)}
+                />
               </Grid>
             ))}
           </Grid>
@@ -192,203 +218,221 @@ function DesignsTab() {
         </>
       )}
 
-      <DesignDetailDialog design={detail} onClose={() => setDetail(null)} />
+      <DesignWorkspaceDialog design={detail} onClose={() => setDetail(null)} />
     </Box>
   );
 }
 
-function DesignCard({ design, onClick }) {
+function DesignCard({ design, onClick, onRefresh }) {
   const assets = design.assets || {};
-  const firstMetal = Object.keys(assets)[0];
+  const firstMetal = METAL_COLORS.find((m) => assets[m]) || Object.keys(assets)[0];
   const thumb = firstMetal ? assets[firstMetal]?.images?.[0] : null;
 
   return (
-    <Card sx={{ cursor: 'pointer', height: '100%' }} onClick={onClick}>
-      {thumb ? (
-        <CardMedia component="img" height="200" image={thumb} alt={design.title || design.design_handle} sx={{ objectFit: 'cover' }} />
-      ) : (
-        <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
-          <ImageOff size={32} color="#999" />
-        </Box>
-      )}
-      <CardContent>
-        <Typography variant="subtitle2" noWrap title={design.title}>
-          {design.title || design.design_handle}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
-          <Chip size="small" label={design.shape_label} />
-          {design.product_type && <Chip size="small" variant="outlined" label={design.product_type} />}
-          {design.intake_status && (
-            <Chip
-              size="small"
-              icon={<Gem size={12} />}
-              label={design.intake_status}
-              color={design.intake_status === 'ready' || design.intake_status === 'pushed' ? 'success' : 'info'}
-            />
-          )}
-        </Box>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          {Object.keys(assets).length} metal color{Object.keys(assets).length === 1 ? '' : 's'} mirrored
-        </Typography>
-      </CardContent>
+    <Card sx={{ height: '100%', position: 'relative' }}>
+      <Box sx={{ cursor: 'pointer' }} onClick={onClick}>
+        {thumb ? (
+          <CardMedia component="img" height="200" image={thumb} alt={design.title || design.design_handle} sx={{ objectFit: 'cover' }} />
+        ) : (
+          <Box sx={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'action.hover' }}>
+            <ImageOff size={32} color="#999" />
+          </Box>
+        )}
+        <CardContent>
+          <Typography variant="subtitle2" noWrap title={design.title}>
+            {design.title || design.design_handle}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
+            <Chip size="small" label={design.shape_label} />
+            {design.product_type && <Chip size="small" variant="outlined" label={design.product_type} />}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+            {design.intake_status && (
+              <Chip
+                size="small"
+                icon={<Gem size={12} />}
+                label={design.intake_status}
+                color={design.intake_status === 'ready' ? 'success' : 'default'}
+              />
+            )}
+            {design.push_status && (
+              <Chip
+                size="small"
+                icon={design.push_status === 'succeeded' ? <CheckCircle2 size={12} /> : <Loader2 size={12} />}
+                label={design.push_status}
+                color={PUSH_STATUS_COLOR[design.push_status] || 'default'}
+              />
+            )}
+          </Box>
+        </CardContent>
+      </Box>
+      <Tooltip title="Refresh status">
+        <IconButton
+          size="small"
+          onClick={(e) => { e.stopPropagation(); onRefresh(); }}
+          sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper', '&:hover': { bgcolor: 'background.paper' } }}
+        >
+          <RefreshCw size={14} />
+        </IconButton>
+      </Tooltip>
     </Card>
   );
 }
 
-function DesignDetailDialog({ design, onClose }) {
-  const [intakeOpen, setIntakeOpen] = useState(false);
-  if (!design) return null;
-  const assets = design.assets || {};
-
-  return (
-    <Dialog open={!!design} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {design.title || design.design_handle}
-        <IconButton onClick={onClose} size="small"><X size={18} /></IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Shape: <strong>{design.shape_label}</strong> · Handle: {design.design_handle}
-          {design.url && (
-            <> · <a href={design.url} target="_blank" rel="noreferrer">Miadonna source</a></>
-          )}
-        </Typography>
-
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<Gem size={16} />}
-          onClick={() => setIntakeOpen(true)}
-          sx={{ mb: 2 }}
-        >
-          {design.intake_status ? 'Edit Gold/Diamond Info' : 'Add Gold/Diamond Info'}
-        </Button>
-        <GoldDiamondIntakeDialog
-          open={intakeOpen}
-          onClose={() => setIntakeOpen(false)}
-          designHandle={design.design_handle}
-          shapeKey={design.shape_key}
-          shapeLabel={design.shape_label}
-        />
-
-        {(design.min_carat != null || design.max_carat != null || (design.available_carats || []).length > 0) && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-            {(design.min_carat != null && design.max_carat != null) && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`Carat range: ${design.min_carat}–${design.max_carat}ct`}
-              />
-            )}
-            {(design.available_carats || []).length > 0 && (
-              <Chip
-                size="small"
-                variant="outlined"
-                label={`This shape: ${design.available_carats.join(', ')}ct`}
-              />
-            )}
-          </Box>
-        )}
-
-        {Object.keys(assets).length === 0 && (
-          <Typography color="text.secondary">No assets mirrored for this shape.</Typography>
-        )}
-
-        {Object.entries(assets).map(([metal, data]) => (
-          <Box key={metal} sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>{METAL_LABELS[metal] || metal}</Typography>
-            <Grid container spacing={1}>
-              {(data.images || []).map((url, i) => (
-                <Grid item xs={4} sm={3} key={i}>
-                  <img src={url} alt={`${metal} ${i}`} style={{ width: '100%', borderRadius: 4 }} />
-                </Grid>
-              ))}
-            </Grid>
-            {data.video && (
-              <Box sx={{ mt: 1 }}>
-                <video src={data.video} controls style={{ maxWidth: '100%', maxHeight: 240 }} />
-              </Box>
-            )}
-          </Box>
-        ))}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const EMPTY_INTAKE = {
-  gold_karat: '', gold_color: '', gold_weight_grams: '',
-  diamond_shape: '', diamond_carat: '', diamond_color: '', diamond_clarity: '',
-  diamond_certification: '', diamond_count: '', price_override: '', notes: '', status: 'draft',
+const EMPTY_STONE = { position: 'Main', shape: '', carat: '', color: '', clarity: '', certification: '', stone_count: 1 };
+const EMPTY_FORM = {
+  gold_weight_grams: '', product_title: '', product_description: '',
+  price_override: '', notes: '', status: 'draft',
 };
 
 /**
- * GoldDiamondIntakeDialog
- * Ops' manual gold/diamond breakdown for one (design, shape) — this is what
- * actually turns a mirrored Miadonna design into a sellable Fine by MINAKI
- * product; nothing here is scraped. The variant reference panel shows what
- * Miadonna itself exposed (metal karat, stone color/clarity/certification)
- * per variant, purely so ops isn't re-typing values already visible on the
- * source page — filling the form doesn't require picking from it.
+ * DesignWorkspaceDialog
+ * One popup, two panels — images/color picker on the left, everything
+ * needed to push this design_shape to Shopify on the right. Replaces the
+ * old two-dialog (detail -> nested intake) flow with a single screen.
  */
-function GoldDiamondIntakeDialog({ open, onClose, designHandle, shapeKey, shapeLabel }) {
-  const [form, setForm] = useState(EMPTY_INTAKE);
+function DesignWorkspaceDialog({ design, onClose }) {
+  const [activeMetal, setActiveMetal] = useState(null);
+  const [activeImage, setActiveImage] = useState(0);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [stones, setStones] = useState([{ ...EMPTY_STONE }]);
   const [variants, setVariants] = useState([]);
+  const [pricing, setPricing] = useState(null);
+  const [pricingError, setPricingError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [pushStatus, setPushStatus] = useState(null);
+  const [pushUrl, setPushUrl] = useState(null);
+
+  const assets = design?.assets || {};
+  const availableMetals = METAL_COLORS.filter((m) => assets[m]);
 
   useEffect(() => {
-    if (!open || !designHandle || !shapeKey) return;
+    if (!design) return;
+    setActiveMetal(availableMetals[0] || null);
+    setActiveImage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [design?.shape_id]);
+
+  useEffect(() => {
+    if (!design) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
     setSaved(false);
     Promise.all([
-      mdScraperApi.getGoldDiamondIntake(designHandle, shapeKey),
-      mdScraperApi.getDesignVariants(designHandle),
+      mdScraperApi.getGoldDiamondIntake(design.design_handle, design.shape_key),
+      mdScraperApi.getDesignVariants(design.design_handle),
     ])
       .then(([intakeResult, variantsResult]) => {
         if (cancelled) return;
         const existing = intakeResult.intake;
-        setForm(existing
-          ? { ...EMPTY_INTAKE, ...existing, ...Object.fromEntries(
-              Object.entries(existing).map(([k, v]) => [k, v == null ? '' : v])
-            ) }
-          : { ...EMPTY_INTAKE, diamond_shape: shapeLabel || '' });
+        if (existing) {
+          setForm({
+            gold_weight_grams: existing.gold_weight_grams ?? '',
+            product_title: existing.product_title ?? '',
+            product_description: existing.product_description ?? '',
+            price_override: existing.price_override ?? '',
+            notes: existing.notes ?? '',
+            status: existing.status || 'draft',
+          });
+          setStones(existing.stones?.length ? existing.stones : [{ ...EMPTY_STONE, shape: design.shape_label || '' }]);
+          setPushStatus(existing.push_status || null);
+          setPushUrl(existing.shopify_product_url || null);
+        } else {
+          setForm(EMPTY_FORM);
+          setStones([{ ...EMPTY_STONE, shape: design.shape_label || '' }]);
+          setPushStatus(null);
+          setPushUrl(null);
+        }
         setVariants(variantsResult.variants || []);
       })
       .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load intake data'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [open, designHandle, shapeKey, shapeLabel]);
+  }, [design]);
+
+  // Live price preview — recomputes whenever gold weight or the stone
+  // table actually has enough to price (every stone needs shape/carat/
+  // color/clarity), debounced so it doesn't fire on every keystroke.
+  useEffect(() => {
+    const ready = form.gold_weight_grams
+      && stones.length > 0
+      && stones.every((s) => s.shape && s.carat && s.color && s.clarity);
+    if (!ready) {
+      setPricing(null);
+      setPricingError(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      mdScraperApi.previewPricing({
+        gold_weight_14k_grams: Number(form.gold_weight_grams),
+        stones: stones.map((s) => ({ ...s, carat: Number(s.carat), stone_count: Number(s.stone_count) || 1 })),
+      })
+        .then((result) => { setPricing(result.variants); setPricingError(null); })
+        .catch((err) => { setPricing(null); setPricingError(err.message || 'Pricing failed'); });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.gold_weight_grams, stones]);
+
+  if (!design) return null;
+
+  const currentImages = activeMetal ? (assets[activeMetal]?.images || []) : [];
+  const currentVideo = activeMetal ? assets[activeMetal]?.video : null;
 
   const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const setStoneField = (index, field) => (e) => {
+    const value = e.target.value;
+    setStones((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  };
+
+  const addStone = () => setStones((prev) => [...prev, { ...EMPTY_STONE, position: 'Side Stone' }]);
+  const removeStone = (index) => setStones((prev) => prev.filter((_, i) => i !== index));
 
   const handleSave = async (status) => {
     setSaving(true);
     setError(null);
     try {
-      const numeric = ['gold_weight_grams', 'diamond_carat', 'diamond_count', 'price_override'];
-      const payload = { ...form, status };
-      for (const key of numeric) {
-        payload[key] = form[key] === '' ? null : Number(form[key]);
-      }
-      Object.keys(payload).forEach((k) => { if (payload[k] === '') payload[k] = null; });
-      await mdScraperApi.saveGoldDiamondIntake(designHandle, shapeKey, payload);
+      const payload = {
+        ...form,
+        status,
+        gold_weight_grams: form.gold_weight_grams === '' ? null : Number(form.gold_weight_grams),
+        price_override: form.price_override === '' ? null : Number(form.price_override),
+        stones: stones
+          .filter((s) => s.shape && s.carat && s.color && s.clarity)
+          .map((s) => ({ ...s, carat: Number(s.carat), stone_count: Number(s.stone_count) || 1 })),
+      };
+      await mdScraperApi.saveGoldDiamondIntake(design.design_handle, design.shape_key, payload);
       setForm((f) => ({ ...f, status }));
       setSaved(true);
     } catch (err) {
-      setError(err.message || 'Failed to save gold/diamond info');
+      setError(err.message || 'Failed to save');
     } finally {
       setSaving(false);
     }
   };
 
-  // Distinct metal karat / stone grade combos Miadonna actually offers for
-  // this design — a compact reference, not every raw variant row.
-  const referenceOptions = React.useMemo(() => {
+  const handlePush = async () => {
+    setPushing(true);
+    setError(null);
+    try {
+      await handleSave('ready');
+      await mdScraperApi.pushDesign(design.design_handle, design.shape_key);
+      setPushStatus('queued');
+    } catch (err) {
+      setError(err.message || 'Failed to start push');
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  // Distinct metal karat / stone grade combos this design is already
+  // known to come in — reference only, not required to fill the form.
+  const referenceOptions = useMemo(() => {
     const seen = new Set();
     const rows = [];
     for (const v of variants) {
@@ -402,116 +446,239 @@ function GoldDiamondIntakeDialog({ open, onClose, designHandle, shapeKey, shapeL
   }, [variants]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={!!design} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        Gold/Diamond Info — {shapeLabel}
+        {design.shape_label} · {design.product_type}
         <IconButton onClick={onClose} size="small"><X size={18} /></IconButton>
       </DialogTitle>
       <DialogContent dividers>
-        {loading ? (
-          <LoadingSpinner />
-        ) : (
-          <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
-            {saved && <Alert severity="success">Saved.</Alert>}
-
-            {referenceOptions.length > 0 && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Miadonna offers this design in:
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                  {referenceOptions.slice(0, 12).map((v) => (
-                    <Chip
-                      key={v.variant_id}
-                      size="small"
-                      variant="outlined"
-                      label={[v.metal_type, v.stone_color, v.stone_clarity].filter(Boolean).join(' · ')}
+        {loading ? <LoadingSpinner /> : (
+          <Grid container spacing={3}>
+            {/* LEFT — color picker + gallery */}
+            <Grid item xs={12} md={5}>
+              <Typography variant="caption" color="text.secondary">Metal color</Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 2, mt: 0.5 }}>
+                {availableMetals.map((m) => (
+                  <Tooltip key={m} title={METAL_LABELS[m]}>
+                    <Box
+                      onClick={() => { setActiveMetal(m); setActiveImage(0); }}
+                      sx={{
+                        width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
+                        bgcolor: METAL_SWATCH[m],
+                        border: activeMetal === m ? '3px solid' : '1px solid',
+                        borderColor: activeMetal === m ? 'primary.main' : 'divider',
+                      }}
                     />
-                  ))}
+                  </Tooltip>
+                ))}
+                {availableMetals.length === 0 && (
+                  <Typography variant="caption" color="text.secondary">No images mirrored yet.</Typography>
+                )}
+              </Stack>
+
+              {currentImages.length > 0 && (
+                <>
+                  <Box sx={{ position: 'relative', mb: 1 }}>
+                    <img
+                      src={currentImages[activeImage]}
+                      alt={`${activeMetal} ${activeImage}`}
+                      style={{ width: '100%', borderRadius: 8, maxHeight: 360, objectFit: 'contain', background: '#f5f5f5' }}
+                    />
+                    {currentImages.length > 1 && (
+                      <>
+                        <IconButton
+                          size="small"
+                          onClick={() => setActiveImage((i) => (i - 1 + currentImages.length) % currentImages.length)}
+                          sx={{ position: 'absolute', left: 4, top: '50%', transform: 'translateY(-50%)', bgcolor: 'background.paper' }}
+                        >
+                          <ChevronLeft size={18} />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => setActiveImage((i) => (i + 1) % currentImages.length)}
+                          sx={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', bgcolor: 'background.paper' }}
+                        >
+                          <ChevronRight size={18} />
+                        </IconButton>
+                      </>
+                    )}
+                  </Box>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                    {currentImages.map((url, i) => (
+                      <Box
+                        key={url}
+                        component="img"
+                        src={url}
+                        onClick={() => setActiveImage(i)}
+                        sx={{
+                          width: 48, height: 48, objectFit: 'cover', borderRadius: 1, cursor: 'pointer',
+                          border: i === activeImage ? '2px solid' : '1px solid',
+                          borderColor: i === activeImage ? 'primary.main' : 'divider',
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                  {currentVideo && (
+                    <Box sx={{ mt: 2 }}>
+                      <video src={currentVideo} controls style={{ width: '100%', maxHeight: 240, borderRadius: 8 }} />
+                    </Box>
+                  )}
+                </>
+              )}
+
+              {(design.min_carat != null || (design.available_carats || []).length > 0) && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+                  {design.min_carat != null && design.max_carat != null && (
+                    <Chip size="small" variant="outlined" label={`Carat range: ${design.min_carat}–${design.max_carat}ct`} />
+                  )}
+                  {(design.available_carats || []).length > 0 && (
+                    <Chip size="small" variant="outlined" label={`Offered in: ${design.available_carats.join(', ')}ct`} />
+                  )}
                 </Box>
-              </Box>
-            )}
+              )}
+            </Grid>
 
-            <Divider />
+            {/* RIGHT — category info + editable form */}
+            <Grid item xs={12} md={7}>
+              <Stack spacing={2}>
+                {error && <Alert severity="error">{error}</Alert>}
+                {saved && !error && <Alert severity="success">Saved.</Alert>}
+                {pushStatus && (
+                  <Alert
+                    severity={pushStatus === 'succeeded' ? 'success' : pushStatus === 'failed' ? 'error' : 'info'}
+                    action={pushUrl && (
+                      <Button size="small" href={pushUrl} target="_blank" endIcon={<ExternalLink size={14} />}>
+                        View in Shopify
+                      </Button>
+                    )}
+                  >
+                    Push status: {pushStatus}
+                  </Alert>
+                )}
 
-            <Stack direction="row" spacing={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="gold-karat-label">Gold Karat</InputLabel>
-                <Select labelId="gold-karat-label" label="Gold Karat" value={form.gold_karat} onChange={setField('gold_karat')}>
-                  <MenuItem value=""><em>Not set</em></MenuItem>
-                  <MenuItem value="14K">14K</MenuItem>
-                  <MenuItem value="18K">18K</MenuItem>
-                  <MenuItem value="Platinum">Platinum</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl fullWidth size="small">
-                <InputLabel id="gold-color-label">Gold Color</InputLabel>
-                <Select labelId="gold-color-label" label="Gold Color" value={form.gold_color} onChange={setField('gold_color')}>
-                  <MenuItem value=""><em>Not set</em></MenuItem>
-                  <MenuItem value="White">White</MenuItem>
-                  <MenuItem value="Yellow">Yellow</MenuItem>
-                  <MenuItem value="Rose">Rose</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-            <TextField
-              label="Gold Weight (grams)" type="number" size="small" fullWidth
-              value={form.gold_weight_grams} onChange={setField('gold_weight_grams')}
-            />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Category / Shape</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                    <Chip size="small" label={design.product_type} />
+                    <Chip size="small" label={design.shape_label} />
+                  </Box>
+                </Box>
 
-            <Divider />
+                {referenceOptions.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Already known in:</Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                      {referenceOptions.slice(0, 8).map((v) => (
+                        <Chip
+                          key={v.variant_id}
+                          size="small"
+                          variant="outlined"
+                          label={[v.metal_type, v.stone_color, v.stone_clarity].filter(Boolean).join(' · ')}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
 
-            <TextField
-              label="Diamond Shape" size="small" fullWidth
-              value={form.diamond_shape} onChange={setField('diamond_shape')}
-            />
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Diamond Carat" type="number" size="small" fullWidth
-                value={form.diamond_carat} onChange={setField('diamond_carat')}
-              />
-              <TextField
-                label="Diamond Count" type="number" size="small" fullWidth
-                value={form.diamond_count} onChange={setField('diamond_count')}
-              />
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label="Diamond Color" size="small" fullWidth
-                value={form.diamond_color} onChange={setField('diamond_color')}
-              />
-              <TextField
-                label="Diamond Clarity" size="small" fullWidth
-                value={form.diamond_clarity} onChange={setField('diamond_clarity')}
-              />
-            </Stack>
-            <TextField
-              label="Diamond Certification" size="small" fullWidth
-              value={form.diamond_certification} onChange={setField('diamond_certification')}
-            />
+                <Divider />
 
-            <Divider />
+                <TextField
+                  label="Gold Weight — 14K (grams)" type="number" size="small" fullWidth required
+                  value={form.gold_weight_grams} onChange={setField('gold_weight_grams')}
+                  helperText="18K weight and all 6 metal/karat variants are computed automatically"
+                />
 
-            <TextField
-              label="Price Override (optional)" type="number" size="small" fullWidth
-              value={form.price_override} onChange={setField('price_override')}
-              helperText="Leave blank to price from the gold/diamond breakdown later"
-            />
-            <TextField
-              label="Notes" size="small" fullWidth multiline minRows={2}
-              value={form.notes} onChange={setField('notes')}
-            />
+                <Divider />
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button variant="outlined" disabled={saving} onClick={() => handleSave('draft')}>
-                Save Draft
-              </Button>
-              <Button variant="contained" disabled={saving} onClick={() => handleSave('ready')}>
-                Mark Ready
-              </Button>
-            </Stack>
-          </Stack>
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">Stones</Typography>
+                    <Button size="small" startIcon={<Plus size={14} />} onClick={addStone}>Add side stone</Button>
+                  </Box>
+                  <Stack spacing={1.5}>
+                    {stones.map((stone, i) => (
+                      <Box key={i} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                          <Chip size="small" label={stone.position} color={stone.position === 'Main' ? 'primary' : 'default'} />
+                          {stones.length > 1 && (
+                            <IconButton size="small" onClick={() => removeStone(i)}><Trash2 size={14} /></IconButton>
+                          )}
+                        </Box>
+                        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                          <TextField label="Shape" size="small" fullWidth value={stone.shape} onChange={setStoneField(i, 'shape')} />
+                          <TextField label="Carat" type="number" size="small" fullWidth value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                          <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
+                        </Stack>
+                        <Stack direction="row" spacing={1}>
+                          <TextField label="Color" size="small" fullWidth value={stone.color} onChange={setStoneField(i, 'color')} placeholder="e.g. E" />
+                          <TextField label="Clarity" size="small" fullWidth value={stone.clarity} onChange={setStoneField(i, 'clarity')} placeholder="e.g. VS1" />
+                          <TextField label="Certification" size="small" fullWidth value={stone.certification} onChange={setStoneField(i, 'certification')} />
+                        </Stack>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+
+                {pricingError && <Alert severity="warning">{pricingError}</Alert>}
+                {pricing && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Price preview</Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Karat</TableCell>
+                          <TableCell>Color</TableCell>
+                          <TableCell align="right">Final Price (₹)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {pricing.map((v) => (
+                          <TableRow key={`${v.karat}-${v.color}`}>
+                            <TableCell>{v.karat}</TableCell>
+                            <TableCell>{v.color}</TableCell>
+                            <TableCell align="right">{v.final_price.toLocaleString('en-IN')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
+
+                <Divider />
+
+                <TextField
+                  label="Product Title (optional)" size="small" fullWidth
+                  value={form.product_title} onChange={setField('product_title')}
+                  helperText="Leave blank for a plain default title"
+                />
+                <TextField
+                  label="Product Description (optional)" size="small" fullWidth multiline minRows={2}
+                  value={form.product_description} onChange={setField('product_description')}
+                />
+                <TextField
+                  label="Price Override (optional)" type="number" size="small" fullWidth
+                  value={form.price_override} onChange={setField('price_override')}
+                />
+                <TextField
+                  label="Notes" size="small" fullWidth multiline minRows={2}
+                  value={form.notes} onChange={setField('notes')}
+                />
+
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                  <Button variant="outlined" disabled={saving || pushing} onClick={() => handleSave('draft')}>
+                    Save Draft
+                  </Button>
+                  <Button
+                    variant="contained"
+                    disabled={saving || pushing || !pricing}
+                    onClick={handlePush}
+                  >
+                    {pushing ? 'Starting…' : 'Push to Shopify'}
+                  </Button>
+                </Stack>
+              </Stack>
+            </Grid>
+          </Grid>
         )}
       </DialogContent>
     </Dialog>
@@ -533,7 +700,7 @@ function RunsTab() {
         const result = await mdScraperApi.listRuns({ limit: 20 });
         if (!cancelled) setRuns(result.runs || []);
       } catch (err) {
-        if (!cancelled) setError(err.message || 'Failed to load scrape runs');
+        if (!cancelled) setError(err.message || 'Failed to load runs');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -563,7 +730,7 @@ function RunsTab() {
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
-  if (runs.length === 0) return <Typography color="text.secondary">No scrape runs yet.</Typography>;
+  if (runs.length === 0) return <Typography color="text.secondary">No runs yet.</Typography>;
 
   return (
     <Box>
@@ -574,7 +741,7 @@ function RunsTab() {
             <TableCell>Status</TableCell>
             <TableCell align="right">Discovered</TableCell>
             <TableCell align="right">New</TableCell>
-            <TableCell align="right">Scraped</TableCell>
+            <TableCell align="right">Processed</TableCell>
             <TableCell align="right">Failed</TableCell>
             <TableCell />
           </TableRow>
@@ -640,9 +807,7 @@ function RunsTab() {
               <TableBody>
                 {failures.map((f, i) => (
                   <TableRow key={i}>
-                    <TableCell>
-                      <a href={f.design_url} target="_blank" rel="noreferrer">{f.design_handle}</a>
-                    </TableCell>
+                    <TableCell>{f.design_handle}</TableCell>
                     <TableCell><Chip size="small" label={f.stage} /></TableCell>
                     <TableCell sx={{ maxWidth: 320 }}>
                       <Typography variant="caption" sx={{ wordBreak: 'break-word' }}>{f.error_message}</Typography>
