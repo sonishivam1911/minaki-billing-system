@@ -63,6 +63,36 @@ export const mdScraperApi = {
   getRunFailures: async (runId) => {
     return await apiRequest('GET', `${BASE_PATH}/runs/${runId}/failures`);
   },
+
+  /**
+   * Per-Shopify-variant metadata for one design — metal karat, stone
+   * color/clarity/certification, SKU, price. Reference data for the
+   * gold/diamond intake popup, not required to fill it in.
+   * GET /md-scraper/designs/:designHandle/variants
+   */
+  getDesignVariants: async (designHandle) => {
+    return await apiRequest('GET', `${BASE_PATH}/designs/${designHandle}/variants`);
+  },
+
+  /**
+   * Ops' existing gold/diamond breakdown for one (design, shape), if any.
+   * GET /md-scraper/designs/:designHandle/:shapeKey/gold-diamond-intake
+   */
+  getGoldDiamondIntake: async (designHandle, shapeKey) => {
+    return await apiRequest('GET', `${BASE_PATH}/designs/${designHandle}/${shapeKey}/gold-diamond-intake`);
+  },
+
+  /**
+   * Saves (upserts) ops' gold/diamond breakdown for one (design, shape).
+   * POST /md-scraper/designs/:designHandle/:shapeKey/gold-diamond-intake
+   */
+  saveGoldDiamondIntake: async (designHandle, shapeKey, payload) => {
+    return await apiRequest(
+      'POST',
+      `${BASE_PATH}/designs/${designHandle}/${shapeKey}/gold-diamond-intake`,
+      payload
+    );
+  },
 };
 
 export default mdScraperApi;
