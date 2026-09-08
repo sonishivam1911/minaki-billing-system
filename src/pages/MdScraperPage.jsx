@@ -379,6 +379,25 @@ function DesignWorkspaceDialog({ design, onClose }) {
     return () => clearTimeout(timer);
   }, [form.gold_weight_grams, stones]);
 
+  // Distinct metal karat / stone grade combos this design is already
+  // known to come in — reference only, not required to fill the form.
+  // Computed above the early return below: it's a hook (useMemo), and
+  // hooks can never run conditionally — the design==null early return
+  // was skipping this hook on some renders but not others, which is
+  // exactly React error #310 ("rendered more hooks than previous render").
+  const referenceOptions = useMemo(() => {
+    const seen = new Set();
+    const rows = [];
+    for (const v of variants) {
+      if (!v.metal_type && !v.stone_color) continue;
+      const key = `${v.metal_type}|${v.metal_color}|${v.stone_color}|${v.stone_clarity}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push(v);
+    }
+    return rows;
+  }, [variants]);
+
   if (!design) return null;
 
   const currentImages = activeMetal ? (assets[activeMetal]?.images || []) : [];
@@ -443,21 +462,6 @@ function DesignWorkspaceDialog({ design, onClose }) {
       setPushing(false);
     }
   };
-
-  // Distinct metal karat / stone grade combos this design is already
-  // known to come in — reference only, not required to fill the form.
-  const referenceOptions = useMemo(() => {
-    const seen = new Set();
-    const rows = [];
-    for (const v of variants) {
-      if (!v.metal_type && !v.stone_color) continue;
-      const key = `${v.metal_type}|${v.metal_color}|${v.stone_color}|${v.stone_clarity}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push(v);
-    }
-    return rows;
-  }, [variants]);
 
   return (
     <Dialog open={!!design} onClose={onClose} maxWidth="lg" fullWidth>
