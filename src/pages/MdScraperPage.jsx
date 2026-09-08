@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Container,
@@ -31,6 +31,9 @@ import {
   Stack,
   Alert,
   Tooltip,
+  Autocomplete,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Search, X, ImageOff, AlertCircle, Gem, RefreshCw, ChevronLeft, ChevronRight,
@@ -45,6 +48,24 @@ const METAL_SWATCH = { whitegold: '#d9d9d9', yellowgold: '#d4af37', rosegold: '#
 const PAGE_SIZE = 24;
 
 const PUSH_STATUS_COLOR = { queued: 'info', running: 'info', succeeded: 'success', failed: 'error' };
+
+// Confirmed live on fine-by-minaki's custom.setting_type metafield definition.
+const SETTING_TYPES = [
+  'Solitaire', 'Halo', 'Hidden Halo', 'Three-Stone', 'Pavé', 'Micro Pavé',
+  'Channel', 'Bezel', 'Half Bezel', 'Prong', 'Shared Prong', 'Flush',
+  'Tension', 'Cluster', 'Invisible', 'Cathedral', 'Basket', 'Other',
+];
+
+// shopify.ring-design / necklace-design / bracelet-design metaobject fields
+// are confirmed live; there's no earring-design field on fine-by-minaki yet.
+function designTypeLabel(productType) {
+  const t = (productType || '').toLowerCase();
+  if (t.includes('ring')) return 'Ring Design';
+  if (t.includes('earring')) return 'Earring Design';
+  if (t.includes('necklace') || t.includes('pendant')) return 'Necklace Design';
+  if (t.includes('bracelet')) return 'Bracelet Design';
+  return 'Design';
+}
 
 /**
  * MdScraperPage — "Fine by MINAKI" hub section.
@@ -279,11 +300,46 @@ function DesignCard({ design, onClick, onRefresh }) {
   );
 }
 
-const EMPTY_STONE = { position: 'Main', shape: '', carat: '', color: '', clarity: '', certification: '', stone_count: 1 };
+const EMPTY_STONE = {
+  position: 'Main', shape: '', carat: '', color: 'E', clarity: 'VS1',
+  certification: '', stone_count: 1, carat_options: [],
+};
 const EMPTY_FORM = {
   gold_weight_grams: '', product_title: '', product_description: '',
   price_override: '', notes: '', status: 'draft',
+  product_category: '', product_sub_category: '', jewelry_design_type: '', setting_type: '',
+  auto_generate_price: true, auto_generate_content: true,
 };
+
+// Prefills the Main stone's carat from whatever the scrape already knows —
+// available_carats when Miadonna listed more than one size (becomes a
+// second Shopify variant dimension when the ops user keeps more than one),
+// else the min of the carat range, else blank.
+function mainStoneForDesign(design) {
+  const carats = (design.available_carats || []).map(Number).filter((n) => !Number.isNaN(n));
+  if (carats.length > 0) {
+    return { ...EMPTY_STONE, shape: design.shape_label || '', carat: carats[0], carat_options: carats };
+  }
+  if (design.min_carat != null) {
+    return { ...EMPTY_STONE, shape: design.shape_label || '', carat: design.min_carat };
+  }
+  return { ...EMPTY_STONE, shape: design.shape_label || '' };
+}
+
+function toStonePayload(s) {
+  return {
+    ...s,
+    carat: Number(s.carat),
+    stone_count: Number(s.stone_count) || 1,
+    carat_options: (s.carat_options || []).map(Number),
+  };
+}
+
+function stoneTcw(s) {
+  const carat = Number(s.carat) || 0;
+  const count = Number(s.stone_count) || 1;
+  return carat * count;
+}
 
 /**
  * DesignWorkspaceDialog
@@ -296,7 +352,6 @@ function DesignWorkspaceDialog({ design, onClose }) {
   const [activeImage, setActiveImage] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
   const [stones, setStones] = useState([{ ...EMPTY_STONE }]);
-  const [variants, setVariants] = useState([]);
   const [pricing, setPricing] = useState(null);
   const [pricingError, setPricingError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -324,11 +379,8 @@ function DesignWorkspaceDialog({ design, onClose }) {
     setLoading(true);
     setError(null);
     setSaved(false);
-    Promise.all([
-      mdScraperApi.getGoldDiamondIntake(design.design_handle, design.shape_key),
-      mdScraperApi.getDesignVariants(design.design_handle),
-    ])
-      .then(([intakeResult, variantsResult]) => {
+    mdScraperApi.getGoldDiamondIntake(design.design_handle, design.shape_key)
+      .then((intakeResult) => {
         if (cancelled) return;
         const existing = intakeResult.intake;
         if (existing) {
@@ -339,17 +391,26 @@ function DesignWorkspaceDialog({ design, onClose }) {
             price_override: existing.price_override ?? '',
             notes: existing.notes ?? '',
             status: existing.status || 'draft',
+            product_category: existing.product_category ?? '',
+            product_sub_category: existing.product_sub_category ?? '',
+            jewelry_design_type: existing.jewelry_design_type ?? '',
+            setting_type: existing.setting_type ?? '',
+            auto_generate_price: existing.auto_generate_price ?? true,
+            auto_generate_content: existing.auto_generate_content ?? true,
           });
-          setStones(existing.stones?.length ? existing.stones : [{ ...EMPTY_STONE, shape: design.shape_label || '' }]);
+          setStones(
+            existing.stones?.length
+              ? existing.stones.map((s) => ({ ...s, carat_options: s.carat_options || [] }))
+              : [mainStoneForDesign(design)]
+          );
           setPushStatus(existing.push_status || null);
           setPushUrl(existing.shopify_product_url || null);
         } else {
-          setForm(EMPTY_FORM);
-          setStones([{ ...EMPTY_STONE, shape: design.shape_label || '' }]);
+          setForm({ ...EMPTY_FORM, product_category: design.product_type || '' });
+          setStones([mainStoneForDesign(design)]);
           setPushStatus(null);
           setPushUrl(null);
         }
-        setVariants(variantsResult.variants || []);
       })
       .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load intake data'); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -371,7 +432,7 @@ function DesignWorkspaceDialog({ design, onClose }) {
     const timer = setTimeout(() => {
       mdScraperApi.previewPricing({
         gold_weight_14k_grams: Number(form.gold_weight_grams),
-        stones: stones.map((s) => ({ ...s, carat: Number(s.carat), stone_count: Number(s.stone_count) || 1 })),
+        stones: stones.map(toStonePayload),
       })
         .then((result) => { setPricing(result.variants); setPricingError(null); })
         .catch((err) => { setPricing(null); setPricingError(err.message || 'Pricing failed'); });
@@ -379,35 +440,23 @@ function DesignWorkspaceDialog({ design, onClose }) {
     return () => clearTimeout(timer);
   }, [form.gold_weight_grams, stones]);
 
-  // Distinct metal karat / stone grade combos this design is already
-  // known to come in — reference only, not required to fill the form.
-  // Computed above the early return below: it's a hook (useMemo), and
-  // hooks can never run conditionally — the design==null early return
-  // was skipping this hook on some renders but not others, which is
-  // exactly React error #310 ("rendered more hooks than previous render").
-  const referenceOptions = useMemo(() => {
-    const seen = new Set();
-    const rows = [];
-    for (const v of variants) {
-      if (!v.metal_type && !v.stone_color) continue;
-      const key = `${v.metal_type}|${v.metal_color}|${v.stone_color}|${v.stone_clarity}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push(v);
-    }
-    return rows;
-  }, [variants]);
-
   if (!design) return null;
 
   const currentImages = activeMetal ? (assets[activeMetal]?.images || []) : [];
   const currentVideo = activeMetal ? assets[activeMetal]?.video : null;
 
   const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  const setCheckboxField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.checked }));
 
   const setStoneField = (index, field) => (e) => {
     const value = e.target.value;
     setStones((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  };
+  const setStoneCaratOptions = (index) => (_e, values) => {
+    const carats = values.map(Number).filter((n) => !Number.isNaN(n));
+    setStones((prev) => prev.map((s, i) => (i === index
+      ? { ...s, carat_options: carats, carat: carats[0] ?? s.carat }
+      : s)));
   };
 
   const addStone = () => setStones((prev) => [...prev, { ...EMPTY_STONE, position: 'Side Stone' }]);
@@ -437,7 +486,7 @@ function DesignWorkspaceDialog({ design, onClose }) {
         price_override: form.price_override === '' ? null : Number(form.price_override),
         stones: stones
           .filter((s) => s.shape && s.carat && s.color && s.clarity)
-          .map((s) => ({ ...s, carat: Number(s.carat), stone_count: Number(s.stone_count) || 1 })),
+          .map(toStonePayload),
       };
       await mdScraperApi.saveGoldDiamondIntake(design.design_handle, design.shape_key, payload);
       setForm((f) => ({ ...f, status }));
@@ -586,21 +635,33 @@ function DesignWorkspaceDialog({ design, onClose }) {
                   </Box>
                 </Box>
 
-                {referenceOptions.length > 0 && (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">Already known in:</Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                      {referenceOptions.slice(0, 8).map((v) => (
-                        <Chip
-                          key={v.variant_id}
-                          size="small"
-                          variant="outlined"
-                          label={[v.metal_type, v.stone_color, v.stone_clarity].filter(Boolean).join(' · ')}
-                        />
-                      ))}
-                    </Box>
-                  </Box>
-                )}
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    label="Category" size="small" fullWidth
+                    value={form.product_category} onChange={setField('product_category')}
+                  />
+                  <TextField
+                    label="Sub Category" size="small" fullWidth
+                    value={form.product_sub_category} onChange={setField('product_sub_category')}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <TextField
+                    label={designTypeLabel(design.product_type)} size="small" fullWidth
+                    value={form.jewelry_design_type} onChange={setField('jewelry_design_type')}
+                    placeholder="e.g. Halo"
+                  />
+                  <FormControl size="small" fullWidth>
+                    <InputLabel id="setting-type-label">Stone Setting</InputLabel>
+                    <Select
+                      labelId="setting-type-label" label="Stone Setting"
+                      value={form.setting_type} onChange={setField('setting_type')}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {SETTING_TYPES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Stack>
 
                 <Divider />
 
@@ -627,15 +688,31 @@ function DesignWorkspaceDialog({ design, onClose }) {
                           )}
                         </Box>
                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                          <TextField label="Shape" size="small" fullWidth value={stone.shape} onChange={setStoneField(i, 'shape')} />
-                          <TextField label="Carat" type="number" size="small" fullWidth value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                          <TextField label="Shape" size="small" fullWidth required value={stone.shape} onChange={setStoneField(i, 'shape')} />
+                          {stone.position === 'Main' ? (
+                            <Autocomplete
+                              multiple freeSolo size="small" fullWidth
+                              options={(design.available_carats || []).map(String)}
+                              value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
+                              onChange={setStoneCaratOptions(i)}
+                              renderInput={(params) => (
+                                <TextField {...params} label="Carat (select 1+)" required
+                                  helperText={stone.carat_options.length > 1 ? 'Multiple sizes → separate Shopify variant' : ' '} />
+                              )}
+                            />
+                          ) : (
+                            <TextField label="Carat" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                          )}
                           <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
                         </Stack>
                         <Stack direction="row" spacing={1}>
-                          <TextField label="Color" size="small" fullWidth value={stone.color} onChange={setStoneField(i, 'color')} placeholder="e.g. E" />
-                          <TextField label="Clarity" size="small" fullWidth value={stone.clarity} onChange={setStoneField(i, 'clarity')} placeholder="e.g. VS1" />
-                          <TextField label="Certification" size="small" fullWidth value={stone.certification} onChange={setStoneField(i, 'certification')} />
+                          <TextField label="Color" size="small" fullWidth required value={stone.color} onChange={setStoneField(i, 'color')} placeholder="e.g. E" />
+                          <TextField label="Clarity" size="small" fullWidth required value={stone.clarity} onChange={setStoneField(i, 'clarity')} placeholder="e.g. VS1" />
+                          <TextField label="Certification (optional)" size="small" fullWidth value={stone.certification} onChange={setStoneField(i, 'certification')} />
                         </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          TCW: {stoneTcw(stone).toFixed(2)} ct
+                        </Typography>
                       </Box>
                     ))}
                   </Stack>
@@ -648,6 +725,7 @@ function DesignWorkspaceDialog({ design, onClose }) {
                     <Table size="small">
                       <TableHead>
                         <TableRow>
+                          {pricing.some((v) => v.center_stone_carat != null) && <TableCell>Center Stone</TableCell>}
                           <TableCell>Karat</TableCell>
                           <TableCell>Color</TableCell>
                           <TableCell align="right">Final Price (₹)</TableCell>
@@ -655,7 +733,10 @@ function DesignWorkspaceDialog({ design, onClose }) {
                       </TableHead>
                       <TableBody>
                         {pricing.map((v) => (
-                          <TableRow key={`${v.karat}-${v.color}`}>
+                          <TableRow key={`${v.center_stone_carat ?? ''}-${v.karat}-${v.color}`}>
+                            {pricing.some((p) => p.center_stone_carat != null) && (
+                              <TableCell>{v.center_stone_carat != null ? `${v.center_stone_carat} ct` : '—'}</TableCell>
+                            )}
                             <TableCell>{v.karat}</TableCell>
                             <TableCell>{v.color}</TableCell>
                             <TableCell align="right">{v.final_price.toLocaleString('en-IN')}</TableCell>
@@ -668,19 +749,36 @@ function DesignWorkspaceDialog({ design, onClose }) {
 
                 <Divider />
 
-                <TextField
-                  label="Product Title (optional)" size="small" fullWidth
-                  value={form.product_title} onChange={setField('product_title')}
-                  helperText="Leave blank for a plain default title"
-                />
-                <TextField
-                  label="Product Description (optional)" size="small" fullWidth multiline minRows={2}
-                  value={form.product_description} onChange={setField('product_description')}
-                />
-                <TextField
-                  label="Price Override (optional)" type="number" size="small" fullWidth
-                  value={form.price_override} onChange={setField('price_override')}
-                />
+                <Stack direction="row" spacing={2}>
+                  <FormControlLabel
+                    control={<Checkbox checked={form.auto_generate_price} onChange={setCheckboxField('auto_generate_price')} />}
+                    label="Auto-generate price"
+                  />
+                  <FormControlLabel
+                    control={<Checkbox checked={form.auto_generate_content} onChange={setCheckboxField('auto_generate_content')} />}
+                    label="Auto-generate title/description"
+                  />
+                </Stack>
+
+                {!form.auto_generate_content && (
+                  <>
+                    <TextField
+                      label="Product Title" size="small" fullWidth required
+                      value={form.product_title} onChange={setField('product_title')}
+                    />
+                    <TextField
+                      label="Product Description" size="small" fullWidth multiline minRows={2} required
+                      value={form.product_description} onChange={setField('product_description')}
+                    />
+                  </>
+                )}
+                {!form.auto_generate_price && (
+                  <TextField
+                    label="Price Override" type="number" size="small" fullWidth required
+                    value={form.price_override} onChange={setField('price_override')}
+                    helperText="Used instead of the computed price on push"
+                  />
+                )}
                 <TextField
                   label="Notes" size="small" fullWidth multiline minRows={2}
                   value={form.notes} onChange={setField('notes')}
