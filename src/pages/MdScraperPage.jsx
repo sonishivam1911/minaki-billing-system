@@ -61,10 +61,15 @@ const SETTING_TYPES = [
 // this store yet, so that category always has an empty option list.
 function designTypeCategory(productType) {
   const t = (productType || '').toLowerCase();
-  if (t.includes('ring')) return 'ring';
+  // "earring" contains "ring" as a substring — must check before the ring
+  // match below, or every earring gets miscategorized as a ring.
   if (t.includes('earring')) return 'earring';
   if (t.includes('necklace') || t.includes('pendant')) return 'necklace';
   if (t.includes('bracelet')) return 'bracelet';
+  // Ring / Engagement Rings / Bridal Sets / Wedding are all rings in this
+  // catalog (confirmed live — matches the backend's own
+  // _SKU_PREFIX_BY_PRODUCT_TYPE grouping in md_push_service.py, all -> MFDR).
+  if (t.includes('ring') || t.includes('wedding') || t.includes('bridal') || t.includes('engagement')) return 'ring';
   return null;
 }
 
