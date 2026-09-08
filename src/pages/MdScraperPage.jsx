@@ -49,13 +49,6 @@ const PAGE_SIZE = 24;
 
 const PUSH_STATUS_COLOR = { queued: 'info', running: 'info', succeeded: 'success', failed: 'error' };
 
-// Confirmed live on fine-by-minaki's custom.setting_type metafield definition.
-const SETTING_TYPES = [
-  'Solitaire', 'Halo', 'Hidden Halo', 'Three-Stone', 'Pavé', 'Micro Pavé',
-  'Channel', 'Bezel', 'Half Bezel', 'Prong', 'Shared Prong', 'Flush',
-  'Tension', 'Cluster', 'Invisible', 'Cathedral', 'Basket', 'Other',
-];
-
 // shopify--ring-design / necklace-design / bracelet-design metaobjects are
 // confirmed live on fine-by-minaki; there's no earring-design field on
 // this store yet, so that category always has an empty option list.
@@ -115,6 +108,7 @@ function DiscoveredTab() {
   const [shape, setShape] = useState('');
   const [filterOptions, setFilterOptions] = useState({ product_types: [], shapes: [] });
   const [designTypeOptions, setDesignTypeOptions] = useState({ ring: [], necklace: [], bracelet: [], earring: [] });
+  const [settingTypeOptions, setSettingTypeOptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -124,8 +118,11 @@ function DiscoveredTab() {
       .then((result) => setFilterOptions({ product_types: result.product_types || [], shapes: result.shapes || [] }))
       .catch(() => {}); // filters are a convenience, not worth failing the page over
     mdScraperApi.getDesignTypeOptions()
-      .then((result) => setDesignTypeOptions(result.options || {}))
-      .catch(() => {}); // dropdown stays empty rather than failing the page
+      .then((result) => {
+        setDesignTypeOptions(result.options || {});
+        setSettingTypeOptions(result.setting_types || []);
+      })
+      .catch(() => {}); // dropdowns stay empty rather than failing the page
   }, []);
 
   const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter) => {
@@ -254,7 +251,10 @@ function DiscoveredTab() {
         </>
       )}
 
-      <DesignWorkspaceDialog design={detail} onClose={() => setDetail(null)} designTypeOptions={designTypeOptions} />
+      <DesignWorkspaceDialog
+        design={detail} onClose={() => setDetail(null)}
+        designTypeOptions={designTypeOptions} settingTypeOptions={settingTypeOptions}
+      />
     </Box>
   );
 }
@@ -380,7 +380,7 @@ function stoneTcw(s) {
  * needed to push this design_shape to Shopify on the right. Replaces the
  * old two-dialog (detail -> nested intake) flow with a single screen.
  */
-function DesignWorkspaceDialog({ design, onClose, designTypeOptions }) {
+function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingTypeOptions }) {
   const [activeMetal, setActiveMetal] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -702,7 +702,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions }) {
                       value={form.setting_type} onChange={setField('setting_type')}
                     >
                       <MenuItem value=""><em>None</em></MenuItem>
-                      {SETTING_TYPES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                      {settingTypeOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </Stack>
