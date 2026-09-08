@@ -42,6 +42,17 @@ export const mdScraperApi = {
   },
 
   /**
+   * Real ring/necklace/bracelet design choices, sourced live from
+   * fine-by-minaki's own Shopify metaobjects (the same picklist Shopify's
+   * admin uses). Earrings comes back empty — no matching field on that
+   * store yet.
+   * GET /md-scraper/design-type-options
+   */
+  getDesignTypeOptions: async () => {
+    return await apiRequest('GET', `${BASE_PATH}/design-type-options`);
+  },
+
+  /**
    * Recent scrape run history, newest first.
    * GET /md-scraper/runs
    */
