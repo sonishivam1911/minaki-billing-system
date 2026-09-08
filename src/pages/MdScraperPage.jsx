@@ -31,9 +31,9 @@ import {
   Stack,
   Alert,
   Tooltip,
-  Autocomplete,
   Checkbox,
   FormControlLabel,
+  FormHelperText,
 } from '@mui/material';
 import {
   Search, X, ImageOff, AlertCircle, Gem, RefreshCw, ChevronLeft, ChevronRight,
@@ -56,15 +56,21 @@ const SETTING_TYPES = [
   'Tension', 'Cluster', 'Invisible', 'Cathedral', 'Basket', 'Other',
 ];
 
-// shopify.ring-design / necklace-design / bracelet-design metaobject fields
-// are confirmed live; there's no earring-design field on fine-by-minaki yet.
-function designTypeLabel(productType) {
+// shopify--ring-design / necklace-design / bracelet-design metaobjects are
+// confirmed live on fine-by-minaki; there's no earring-design field on
+// this store yet, so that category always has an empty option list.
+function designTypeCategory(productType) {
   const t = (productType || '').toLowerCase();
-  if (t.includes('ring')) return 'Ring Design';
-  if (t.includes('earring')) return 'Earring Design';
-  if (t.includes('necklace') || t.includes('pendant')) return 'Necklace Design';
-  if (t.includes('bracelet')) return 'Bracelet Design';
-  return 'Design';
+  if (t.includes('ring')) return 'ring';
+  if (t.includes('earring')) return 'earring';
+  if (t.includes('necklace') || t.includes('pendant')) return 'necklace';
+  if (t.includes('bracelet')) return 'bracelet';
+  return null;
+}
+
+function designTypeLabel(productType) {
+  const category = designTypeCategory(productType);
+  return category ? `${category[0].toUpperCase()}${category.slice(1)} Design` : 'Design';
 }
 
 /**
@@ -103,6 +109,7 @@ function DiscoveredTab() {
   const [productType, setProductType] = useState('');
   const [shape, setShape] = useState('');
   const [filterOptions, setFilterOptions] = useState({ product_types: [], shapes: [] });
+  const [designTypeOptions, setDesignTypeOptions] = useState({ ring: [], necklace: [], bracelet: [], earring: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -111,6 +118,9 @@ function DiscoveredTab() {
     mdScraperApi.getFilterOptions()
       .then((result) => setFilterOptions({ product_types: result.product_types || [], shapes: result.shapes || [] }))
       .catch(() => {}); // filters are a convenience, not worth failing the page over
+    mdScraperApi.getDesignTypeOptions()
+      .then((result) => setDesignTypeOptions(result.options || {}))
+      .catch(() => {}); // dropdown stays empty rather than failing the page
   }, []);
 
   const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter) => {
@@ -239,7 +249,7 @@ function DiscoveredTab() {
         </>
       )}
 
-      <DesignWorkspaceDialog design={detail} onClose={() => setDetail(null)} />
+      <DesignWorkspaceDialog design={detail} onClose={() => setDetail(null)} designTypeOptions={designTypeOptions} />
     </Box>
   );
 }
@@ -326,6 +336,24 @@ function mainStoneForDesign(design) {
   return { ...EMPTY_STONE, shape: design.shape_label || '' };
 }
 
+// Strict dropdown options for the Main stone's carat — Miadonna's own
+// available_carats when we have them, else a 0.25ct-stepped range across
+// the scraped min/max. No free typing: ops picks from what's actually
+// plausible for this design, matching the real historical variant sizes.
+function caratDropdownOptions(design) {
+  const known = [...new Set((design.available_carats || []).map(Number).filter((n) => !Number.isNaN(n)))];
+  if (known.length > 0) return known.sort((a, b) => a - b);
+  if (design.min_carat != null && design.max_carat != null) {
+    const opts = [];
+    for (let c = design.min_carat; c <= design.max_carat + 1e-9; c += 0.25) {
+      opts.push(Math.round(c * 100) / 100);
+    }
+    return opts;
+  }
+  if (design.min_carat != null) return [design.min_carat];
+  return [];
+}
+
 function toStonePayload(s) {
   return {
     ...s,
@@ -347,7 +375,7 @@ function stoneTcw(s) {
  * needed to push this design_shape to Shopify on the right. Replaces the
  * old two-dialog (detail -> nested intake) flow with a single screen.
  */
-function DesignWorkspaceDialog({ design, onClose }) {
+function DesignWorkspaceDialog({ design, onClose, designTypeOptions }) {
   const [activeMetal, setActiveMetal] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -443,6 +471,7 @@ function DesignWorkspaceDialog({ design, onClose }) {
   if (!design) return null;
 
   const currentImages = activeMetal ? (assets[activeMetal]?.images || []) : [];
+  const designTypeChoices = designTypeOptions[designTypeCategory(design.product_type)] || [];
   const currentVideo = activeMetal ? assets[activeMetal]?.video : null;
 
   const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -452,7 +481,9 @@ function DesignWorkspaceDialog({ design, onClose }) {
     const value = e.target.value;
     setStones((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
-  const setStoneCaratOptions = (index) => (_e, values) => {
+  const setStoneCaratOptions = (index) => (e) => {
+    const raw = e.target.value;
+    const values = typeof raw === 'string' ? raw.split(',') : raw;
     const carats = values.map(Number).filter((n) => !Number.isNaN(n));
     setStones((prev) => prev.map((s, i) => (i === index
       ? { ...s, carat_options: carats, carat: carats[0] ?? s.carat }
@@ -646,11 +677,19 @@ function DesignWorkspaceDialog({ design, onClose }) {
                   />
                 </Stack>
                 <Stack direction="row" spacing={1}>
-                  <TextField
-                    label={designTypeLabel(design.product_type)} size="small" fullWidth
-                    value={form.jewelry_design_type} onChange={setField('jewelry_design_type')}
-                    placeholder="e.g. Halo"
-                  />
+                  <FormControl size="small" fullWidth disabled={designTypeChoices.length === 0}>
+                    <InputLabel id="design-type-label">{designTypeLabel(design.product_type)}</InputLabel>
+                    <Select
+                      labelId="design-type-label" label={designTypeLabel(design.product_type)}
+                      value={form.jewelry_design_type} onChange={setField('jewelry_design_type')}
+                    >
+                      <MenuItem value=""><em>None</em></MenuItem>
+                      {designTypeChoices.map((o) => <MenuItem key={o.handle} value={o.label}>{o.label}</MenuItem>)}
+                    </Select>
+                    {designTypeChoices.length === 0 && (
+                      <FormHelperText>No {designTypeLabel(design.product_type).toLowerCase()} options on Shopify yet</FormHelperText>
+                    )}
+                  </FormControl>
                   <FormControl size="small" fullWidth>
                     <InputLabel id="setting-type-label">Stone Setting</InputLabel>
                     <Select
@@ -690,16 +729,22 @@ function DesignWorkspaceDialog({ design, onClose }) {
                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                           <TextField label="Shape" size="small" fullWidth required value={stone.shape} onChange={setStoneField(i, 'shape')} />
                           {stone.position === 'Main' ? (
-                            <Autocomplete
-                              multiple freeSolo size="small" fullWidth
-                              options={(design.available_carats || []).map(String)}
-                              value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
-                              onChange={setStoneCaratOptions(i)}
-                              renderInput={(params) => (
-                                <TextField {...params} label="Carat (select 1+)" required
-                                  helperText={stone.carat_options.length > 1 ? 'Multiple sizes → separate Shopify variant' : ' '} />
+                            <FormControl size="small" fullWidth required>
+                              <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
+                              <Select
+                                labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
+                                value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
+                                onChange={setStoneCaratOptions(i)}
+                                renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
+                              >
+                                {caratDropdownOptions(design).map((c) => (
+                                  <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
+                                ))}
+                              </Select>
+                              {stone.carat_options.length > 1 && (
+                                <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
                               )}
-                            />
+                            </FormControl>
                           ) : (
                             <TextField label="Carat" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
                           )}
