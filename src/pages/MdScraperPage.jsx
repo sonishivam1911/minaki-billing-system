@@ -34,10 +34,15 @@ import {
   Checkbox,
   FormControlLabel,
   FormHelperText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Search, X, ImageOff, AlertCircle, Gem, RefreshCw, ChevronLeft, ChevronRight,
-  Plus, Trash2, ExternalLink, CheckCircle2, Loader2,
+  ChevronDown, Plus, Trash2, ExternalLink, CheckCircle2, Loader2,
 } from 'lucide-react';
 import { mdScraperApi } from '../services/mdScraperApi';
 import { LoadingSpinner, ErrorMessage } from '../components';
@@ -318,6 +323,10 @@ function DesignCard({ design, onClick, onRefresh }) {
 const EMPTY_STONE = {
   position: 'Main', shape: '', carat: '', color: 'E', clarity: 'VS1',
   certification: '', stone_count: 1, carat_options: [],
+  // entry_mode is a UI-only convenience — only carat + stone_count are ever
+  // saved. 'total_ctw' just changes which field ops fills in; total_ctw
+  // itself is derived back into carat before it ever reaches the API.
+  entry_mode: 'per_stone', total_ctw: '',
 };
 const EMPTY_FORM = {
   gold_weight_grams: '', product_title: '', product_description: '',
@@ -360,11 +369,45 @@ function caratDropdownOptions(design) {
 }
 
 function toStonePayload(s) {
+  // entry_mode/total_ctw are UI-only — carat is always the number of
+  // record by the time this reaches the API, whichever way ops entered it.
+  const { entry_mode, total_ctw, ...rest } = s;
   return {
-    ...s,
+    ...rest,
     carat: Number(s.carat),
     stone_count: Number(s.stone_count) || 1,
     carat_options: (s.carat_options || []).map(Number),
+  };
+}
+
+// Parses Miadonna's own variant-grade text ("D-E Color", "VS1 Clarity") down
+// to just the grade — strips a known trailing label word, nothing fancier.
+function stripGradeSuffix(text, suffix) {
+  if (!text) return '';
+  const re = new RegExp(`\\s*${suffix}\\s*$`, 'i');
+  return text.replace(re, '').trim();
+}
+
+// A design's variants sometimes carry side-stone/melee totals Miadonna
+// itself specified (additional_stone_total_ctw + additional_stone_count) —
+// the real source for "total carat weight x qty" rather than a per-stone
+// size ops would have to guess at. Picks the first variant that actually
+// has both.
+function sideStoneFromVariants(variants) {
+  const v = (variants || []).find((r) => r.additional_stone_total_ctw && r.additional_stone_count);
+  if (!v) return null;
+  const totalCtw = parseFloat(v.additional_stone_total_ctw);
+  const count = parseInt(v.additional_stone_count, 10);
+  if (!totalCtw || !count) return null;
+  return {
+    ...EMPTY_STONE,
+    position: 'Side Stone',
+    color: stripGradeSuffix(v.additional_stone_color, 'Color') || 'E',
+    clarity: stripGradeSuffix(v.additional_stone_clarity, 'Clarity') || 'VS1',
+    stone_count: count,
+    entry_mode: 'total_ctw',
+    total_ctw: totalCtw,
+    carat: Math.round((totalCtw / count) * 1000) / 1000,
   };
 }
 
@@ -394,6 +437,8 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
   const [saved, setSaved] = useState(false);
   const [pushStatus, setPushStatus] = useState(null);
   const [pushUrl, setPushUrl] = useState(null);
+  const [referenceInfo, setReferenceInfo] = useState(null);
+  const [referenceLoading, setReferenceLoading] = useState(false);
   const touchStartX = useRef(null);
 
   const assets = design?.assets || {};
@@ -410,12 +455,30 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
     if (!design) return;
     let cancelled = false;
     setLoading(true);
+    setReferenceLoading(true);
     setError(null);
     setSaved(false);
-    mdScraperApi.getGoldDiamondIntake(design.design_handle, design.shape_key)
-      .then((intakeResult) => {
+    setReferenceInfo(null);
+
+    const referencePromise = mdScraperApi.getReferenceInfo(design.design_handle, design.shape_key)
+      .then((result) => result.reference || null)
+      .catch(() => null); // reference accordion just shows "unavailable" — never blocks the form
+    referencePromise.finally(() => { if (!cancelled) setReferenceLoading(false); });
+
+    Promise.all([mdScraperApi.getGoldDiamondIntake(design.design_handle, design.shape_key), referencePromise])
+      .then(([intakeResult, reference]) => {
         if (cancelled) return;
+        setReferenceInfo(reference);
         const existing = intakeResult.intake;
+        // New designs only — a side stone Miadonna itself specified a real
+        // total-carat-weight x count for (melee/pave settings almost always
+        // are stated this way, not as one carat size) gets auto-added
+        // rather than making ops guess at a per-stone size from nothing.
+        const derivedSideStone = sideStoneFromVariants(reference?.variants);
+        const freshStones = derivedSideStone
+          ? [mainStoneForDesign(design), derivedSideStone]
+          : [mainStoneForDesign(design)];
+
         if (existing) {
           setForm({
             gold_weight_grams: existing.gold_weight_grams ?? '',
@@ -433,14 +496,16 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
           });
           setStones(
             existing.stones?.length
-              ? existing.stones.map((s) => ({ ...s, carat_options: s.carat_options || [] }))
-              : [mainStoneForDesign(design)]
+              ? existing.stones.map((s) => ({
+                ...s, carat_options: s.carat_options || [], entry_mode: 'per_stone', total_ctw: '',
+              }))
+              : freshStones
           );
           setPushStatus(existing.push_status || null);
           setPushUrl(existing.shopify_product_url || null);
         } else {
           setForm({ ...EMPTY_FORM, product_category: design.product_type || '' });
-          setStones([mainStoneForDesign(design)]);
+          setStones(freshStones);
           setPushStatus(null);
           setPushUrl(null);
         }
@@ -497,6 +562,37 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
 
   const addStone = () => setStones((prev) => [...prev, { ...EMPTY_STONE, position: 'Side Stone' }]);
   const removeStone = (index) => setStones((prev) => prev.filter((_, i) => i !== index));
+
+  // Side stones only — Main uses the carat dropdown above. Toggles between
+  // entering a per-diamond carat directly (the default) and entering a
+  // total carat weight + count instead, deriving carat = total / count.
+  // Real-world side-stone specs are almost always stated as a total ctw
+  // (see sideStoneFromVariants), so this saves ops doing that division.
+  const setStoneEntryMode = (index) => (_e, mode) => {
+    if (!mode) return;
+    setStones((prev) => prev.map((s, i) => (i === index ? { ...s, entry_mode: mode } : s)));
+  };
+  const setStoneTotalCtw = (index) => (e) => {
+    const value = e.target.value;
+    setStones((prev) => prev.map((s, i) => {
+      if (i !== index) return s;
+      const count = Number(s.stone_count) || 1;
+      const total = Number(value);
+      const carat = value !== '' && total >= 0 ? Math.round((total / count) * 1000) / 1000 : s.carat;
+      return { ...s, total_ctw: value, carat };
+    }));
+  };
+  const setStoneCount = (index) => (e) => {
+    const value = e.target.value;
+    setStones((prev) => prev.map((s, i) => {
+      if (i !== index) return s;
+      if (s.entry_mode !== 'total_ctw' || s.total_ctw === '') return { ...s, stone_count: value };
+      const count = Number(value) || 1;
+      const total = Number(s.total_ctw);
+      const carat = total >= 0 ? Math.round((total / count) * 1000) / 1000 : s.carat;
+      return { ...s, stone_count: value, carat };
+    }));
+  };
 
   const SWIPE_THRESHOLD_PX = 40;
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
@@ -734,27 +830,49 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                           <TextField label="Shape" size="small" fullWidth required value={stone.shape} onChange={setStoneField(i, 'shape')} />
                           {stone.position === 'Main' ? (
-                            <FormControl size="small" fullWidth required>
-                              <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
-                              <Select
-                                labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
-                                value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
-                                onChange={setStoneCaratOptions(i)}
-                                renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
-                              >
-                                {caratDropdownOptions(design).map((c) => (
-                                  <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
-                                ))}
-                              </Select>
-                              {stone.carat_options.length > 1 && (
-                                <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
-                              )}
-                            </FormControl>
+                            <>
+                              <FormControl size="small" fullWidth required>
+                                <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
+                                <Select
+                                  labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
+                                  value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
+                                  onChange={setStoneCaratOptions(i)}
+                                  renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
+                                >
+                                  {caratDropdownOptions(design).map((c) => (
+                                    <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
+                                  ))}
+                                </Select>
+                                {stone.carat_options.length > 1 && (
+                                  <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
+                                )}
+                              </FormControl>
+                              <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
+                            </>
                           ) : (
-                            <TextField label="Carat" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                            <>
+                              {stone.entry_mode === 'total_ctw' ? (
+                                <TextField
+                                  label="Total Carat Weight" type="number" size="small" fullWidth required
+                                  value={stone.total_ctw} onChange={setStoneTotalCtw(i)}
+                                  helperText={stone.carat ? `≈ ${stone.carat} ct each` : ' '}
+                                />
+                              ) : (
+                                <TextField label="Carat (per diamond)" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                              )}
+                              <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneCount(i)} />
+                            </>
                           )}
-                          <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
                         </Stack>
+                        {stone.position !== 'Main' && (
+                          <ToggleButtonGroup
+                            size="small" exclusive value={stone.entry_mode} onChange={setStoneEntryMode(i)}
+                            sx={{ mb: 1 }}
+                          >
+                            <ToggleButton value="per_stone">Carat × Qty</ToggleButton>
+                            <ToggleButton value="total_ctw">Total Carat Wt × Qty</ToggleButton>
+                          </ToggleButtonGroup>
+                        )}
                         <Stack direction="row" spacing={1}>
                           <TextField label="Color" size="small" fullWidth required value={stone.color} onChange={setStoneField(i, 'color')} placeholder="e.g. E" />
                           <TextField label="Clarity" size="small" fullWidth required value={stone.clarity} onChange={setStoneField(i, 'clarity')} placeholder="e.g. VS1" />
@@ -834,6 +952,8 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                   value={form.notes} onChange={setField('notes')}
                 />
 
+                <ReferenceAccordion reference={referenceInfo} loading={referenceLoading} />
+
                 <Stack direction="row" spacing={2} justifyContent="flex-end">
                   <Button variant="outlined" disabled={saving || pushing} onClick={() => handleSave('draft')}>
                     Save Draft
@@ -852,6 +972,111 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * ReferenceAccordion — structured, source-name-scrubbed view of what was
+ * actually scraped for this design_shape: title/description, carat range,
+ * the real variant matrix (metal/color/clarity per variant plus any
+ * side-stone/melee totals), and a button to open the source page. The
+ * source's name is never shown as text here (backend already strips it);
+ * the "Open source reference" link is a working URL ops explicitly
+ * clicks, not brand copy.
+ */
+function ReferenceAccordion({ reference, loading }) {
+  return (
+    <Accordion disableGutters sx={{ '&:before': { display: 'none' } }}>
+      <AccordionSummary expandIcon={<ChevronDown size={18} />}>
+        <Typography variant="subtitle2">Reference details</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        {loading ? (
+          <Typography variant="body2" color="text.secondary">Loading…</Typography>
+        ) : !reference ? (
+          <Typography variant="body2" color="text.secondary">Reference data unavailable.</Typography>
+        ) : (
+          <Stack spacing={1.5}>
+            {reference.source_url && (
+              <Button
+                size="small" variant="outlined" href={reference.source_url}
+                target="_blank" rel="noopener noreferrer" endIcon={<ExternalLink size={14} />}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Open source reference
+              </Button>
+            )}
+
+            {reference.title && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Reference title</Typography>
+                <Typography variant="body2">{reference.title}</Typography>
+              </Box>
+            )}
+            {reference.description && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Reference description</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{reference.description}</Typography>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+              {reference.product_type && <Chip size="small" label={reference.product_type} />}
+              {reference.shape_label && <Chip size="small" label={reference.shape_label} />}
+              {reference.min_carat != null && reference.max_carat != null && (
+                <Chip size="small" variant="outlined" label={`Carat range: ${reference.min_carat}–${reference.max_carat}ct`} />
+              )}
+              {(reference.available_carats || []).length > 0 && (
+                <Chip size="small" variant="outlined" label={`Offered in: ${reference.available_carats.join(', ')}ct`} />
+              )}
+            </Box>
+            {reference.tags && (
+              <Typography variant="caption" color="text.secondary">Tags: {reference.tags}</Typography>
+            )}
+
+            {(reference.variants || []).length > 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                  Scraped variant matrix ({reference.variants.length})
+                </Typography>
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Metal</TableCell>
+                        <TableCell>Stone Color</TableCell>
+                        <TableCell>Stone Clarity</TableCell>
+                        <TableCell>Cert</TableCell>
+                        <TableCell align="right">Price</TableCell>
+                        <TableCell>Side Stone</TableCell>
+                        <TableCell>Total CTW</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {reference.variants.map((v) => (
+                        <TableRow key={v.variant_id}>
+                          <TableCell>{[v.metal_type, v.metal_color].filter(Boolean).join(' ')}</TableCell>
+                          <TableCell>{v.stone_color}</TableCell>
+                          <TableCell>{v.stone_clarity}</TableCell>
+                          <TableCell>{v.stone_certification}</TableCell>
+                          <TableCell align="right">{v.price != null ? Number(v.price).toLocaleString('en-IN') : '—'}</TableCell>
+                          <TableCell>{[v.additional_stone_color, v.additional_stone_clarity].filter(Boolean).join(' / ')}</TableCell>
+                          <TableCell>
+                            {v.additional_stone_total_ctw
+                              ? `${v.additional_stone_total_ctw} ct × ${v.additional_stone_count || '?'}`
+                              : ''}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
+              </Box>
+            )}
+          </Stack>
+        )}
+      </AccordionDetails>
+    </Accordion>
   );
 }
 

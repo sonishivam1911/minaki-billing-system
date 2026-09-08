@@ -95,6 +95,17 @@ export const mdScraperApi = {
   },
 
   /**
+   * Structured, source-name-scrubbed scrape data for one (design, shape) —
+   * source URL, title/description, carat range, and the real variant
+   * matrix (incl. side-stone/melee totals). Powers the popup's
+   * "Reference details" accordion.
+   * GET /md-scraper/designs/:designHandle/:shapeKey/reference-info
+   */
+  getReferenceInfo: async (designHandle, shapeKey) => {
+    return await apiRequest('GET', `${BASE_PATH}/designs/${designHandle}/${shapeKey}/reference-info`);
+  },
+
+  /**
    * Saves (upserts) ops' gold/diamond breakdown for one (design, shape).
    * POST /md-scraper/designs/:designHandle/:shapeKey/gold-diamond-intake
    */
