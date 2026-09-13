@@ -333,6 +333,12 @@ const EMPTY_FORM = {
   price_override: '', notes: '', status: 'draft',
   product_category: '', product_sub_category: '', jewelry_design_type: '', setting_type: '',
   auto_generate_price: true, auto_generate_content: true,
+  // Per-carat override for the Main stone's carat_options -- a bigger
+  // center stone needs a bigger/heavier setting (confirmed live: Miadonna
+  // prices "1.5 ct Center" as its own distinct SKU, not the same setting
+  // re-used). Keyed by carat value as a string; a carat with no entry
+  // here falls back to the flat gold_weight_grams above.
+  gold_weight_by_carat: {},
 };
 
 // Prefills the Main stone's carat from whatever the scrape already knows —
@@ -390,6 +396,18 @@ function reconcileMainStone(stone, design) {
   }
   const fresh = mainStoneForDesign(design);
   return { ...stone, carat: fresh.carat, carat_options: fresh.carat_options };
+}
+
+// gold_weight_by_carat is edited as raw strings (same as any other numeric
+// input here); cast to real numbers only when it actually leaves the
+// component, and drop blanked-out entries rather than sending an empty
+// string as a "weight."
+function castGoldWeightByCarat(map) {
+  const out = {};
+  for (const [carat, grams] of Object.entries(map || {})) {
+    if (grams !== '' && grams != null && !Number.isNaN(Number(grams))) out[carat] = Number(grams);
+  }
+  return out;
 }
 
 function toStonePayload(s) {
@@ -517,6 +535,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
             setting_type: existing.setting_type ?? '',
             auto_generate_price: existing.auto_generate_price ?? true,
             auto_generate_content: existing.auto_generate_content ?? true,
+            gold_weight_by_carat: existing.gold_weight_by_carat || {},
           });
           setStones(
             existing.stones?.length
@@ -556,21 +575,26 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
       mdScraperApi.previewPricing({
         gold_weight_14k_grams: Number(form.gold_weight_grams),
         stones: stones.map(toStonePayload),
+        gold_weight_by_carat: castGoldWeightByCarat(form.gold_weight_by_carat),
       })
         .then((result) => { setPricing(result.variants); setPricingError(null); })
         .catch((err) => { setPricing(null); setPricingError(err.message || 'Pricing failed'); });
     }, 500);
     return () => clearTimeout(timer);
-  }, [form.gold_weight_grams, stones]);
+  }, [form.gold_weight_grams, form.gold_weight_by_carat, stones]);
 
   if (!design) return null;
 
   const currentImages = activeMetal ? (assets[activeMetal]?.images || []) : [];
   const designTypeChoices = designTypeOptions[designTypeCategory(design.product_type)] || [];
   const currentVideo = activeMetal ? assets[activeMetal]?.video : null;
+  const mainCaratOptions = stones.find((s) => s.position === 'Main')?.carat_options || [];
 
   const setField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   const setCheckboxField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.checked }));
+  const setGoldWeightForCarat = (caratKey) => (e) => setForm((f) => ({
+    ...f, gold_weight_by_carat: { ...f.gold_weight_by_carat, [caratKey]: e.target.value },
+  }));
 
   const setStoneField = (index, field) => (e) => {
     const value = e.target.value;
@@ -641,6 +665,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
         status,
         gold_weight_grams: form.gold_weight_grams === '' ? null : Number(form.gold_weight_grams),
         price_override: form.price_override === '' ? null : Number(form.price_override),
+        gold_weight_by_carat: castGoldWeightByCarat(form.gold_weight_by_carat),
         stones: stones
           .filter((s) => s.shape && s.carat && s.color && s.clarity)
           .map(toStonePayload),
@@ -833,8 +858,41 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                 <TextField
                   label="Gold Weight — 14K (grams)" type="number" size="small" fullWidth required
                   value={form.gold_weight_grams} onChange={setField('gold_weight_grams')}
-                  helperText="18K weight and all 6 metal/karat variants are computed automatically"
+                  helperText={mainCaratOptions.length > 1
+                    ? 'Default/fallback weight — override per carat size below if the setting scales with stone size'
+                    : '18K weight and all 6 metal/karat variants are computed automatically'}
                 />
+
+                {mainCaratOptions.length > 1 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Gold weight per carat size (optional — a bigger center stone often needs a bigger setting)
+                    </Typography>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Center Stone</TableCell>
+                          <TableCell align="right">Gold Weight — 14K (g)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {mainCaratOptions.map((c) => (
+                          <TableRow key={c}>
+                            <TableCell>{c} ct</TableCell>
+                            <TableCell align="right">
+                              <TextField
+                                type="number" size="small" sx={{ width: 140 }}
+                                placeholder={form.gold_weight_grams || '—'}
+                                value={form.gold_weight_by_carat[String(c)] ?? ''}
+                                onChange={setGoldWeightForCarat(String(c))}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
 
                 <Divider />
 
