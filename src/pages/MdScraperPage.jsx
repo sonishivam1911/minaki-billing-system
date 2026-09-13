@@ -112,7 +112,7 @@ function DiscoveredTab() {
   const [productType, setProductType] = useState('');
   const [shape, setShape] = useState('');
   const [intakeStatus, setIntakeStatus] = useState('');
-  const [singleVariant, setSingleVariant] = useState('');
+  const [caratStatus, setCaratStatus] = useState('');
   const [filterOptions, setFilterOptions] = useState({ product_types: [], shapes: [] });
   const [designTypeOptions, setDesignTypeOptions] = useState({ ring: [], necklace: [], bracelet: [], earring: [] });
   const [settingTypeOptions, setSettingTypeOptions] = useState([]);
@@ -132,7 +132,7 @@ function DiscoveredTab() {
       .catch(() => {}); // dropdowns stay empty rather than failing the page
   }, []);
 
-  const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter, intakeStatusFilter, singleVariantFilter) => {
+  const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter, intakeStatusFilter, caratStatusFilter) => {
     setLoading(true);
     setError(null);
     try {
@@ -143,7 +143,7 @@ function DiscoveredTab() {
         productType: productTypeFilter,
         shape: shapeFilter,
         intakeStatus: intakeStatusFilter,
-        singleVariant: singleVariantFilter === '' ? null : singleVariantFilter === 'true',
+        caratStatus: caratStatusFilter,
       });
       setDesigns(result.designs || []);
       setTotal(result.total || 0);
@@ -155,14 +155,14 @@ function DiscoveredTab() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => load(page, search, productType, shape, intakeStatus, singleVariant), search ? 400 : 0);
+    const timer = setTimeout(() => load(page, search, productType, shape, intakeStatus, caratStatus), search ? 400 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, productType, shape, intakeStatus, singleVariant]);
+  }, [page, search, productType, shape, intakeStatus, caratStatus]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, productType, shape, intakeStatus, singleVariant]);
+  }, [search, productType, shape, intakeStatus, caratStatus]);
 
   const refreshOne = async (shapeId, designHandle, shapeKey) => {
     try {
@@ -241,17 +241,19 @@ function DiscoveredTab() {
             <MenuItem value="ready">Ready to push</MenuItem>
           </Select>
         </FormControl>
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel id="single-variant-filter-label">Carat variants</InputLabel>
+        <FormControl sx={{ minWidth: 220 }}>
+          <InputLabel id="carat-status-filter-label">Carat weight</InputLabel>
           <Select
-            labelId="single-variant-filter-label"
-            label="Carat variants"
-            value={singleVariant}
-            onChange={(e) => setSingleVariant(e.target.value)}
+            labelId="carat-status-filter-label"
+            label="Carat weight"
+            value={caratStatus}
+            onChange={(e) => setCaratStatus(e.target.value)}
           >
             <MenuItem value=""><em>All</em></MenuItem>
-            <MenuItem value="true">Single carat only — simplest to intake</MenuItem>
-            <MenuItem value="false">Multi-carat / unknown</MenuItem>
+            <MenuItem value="single">Single fixed value — simplest to intake</MenuItem>
+            <MenuItem value="multiple">Multiple carat options</MenuItem>
+            <MenuItem value="range_only">Range only (no fixed list)</MenuItem>
+            <MenuItem value="no_data">No carat data yet</MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -261,7 +263,7 @@ function DiscoveredTab() {
 
       {!loading && !error && designs.length === 0 && (
         <Typography color="text.secondary">
-          Nothing discovered{(search || productType || shape || intakeStatus || singleVariant) ? ' for that search/filter' : ''} yet.
+          Nothing discovered{(search || productType || shape || intakeStatus || caratStatus) ? ' for that search/filter' : ''} yet.
         </Typography>
       )}
 
