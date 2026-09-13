@@ -368,6 +368,30 @@ function caratDropdownOptions(design) {
   return [];
 }
 
+// A saved intake's Main stone can predate real carat data for this design
+// (backfilled later — see real-time-minaki-poc#458/#488) or the design's
+// available_carats can simply have changed since it was saved. When the
+// saved value no longer appears in the design's CURRENT dropdown options,
+// MUI shows nothing selected at all -- confirmed live: a stone saved with
+// carat=1 against a design whose real range has since resolved to a fixed
+// 2ct shows a blank "Carat (select 1+)" field, because "1" isn't one of
+// the current options. Only touches the saved value when we actually have
+// current data to check it against (validOptions non-empty) and it
+// genuinely doesn't match anything -- a fixed-carat design with no known
+// picker at all (validOptions empty) has nothing to reconcile against, so
+// a manually-entered value there is left alone.
+function reconcileMainStone(stone, design) {
+  const validOptions = caratDropdownOptions(design).map(String);
+  if (validOptions.length === 0) return stone;
+  const selected = (stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String);
+  const stillValid = selected.filter((c) => validOptions.includes(c));
+  if (stillValid.length > 0) {
+    return { ...stone, carat_options: stillValid.map(Number), carat: Number(stillValid[0]) };
+  }
+  const fresh = mainStoneForDesign(design);
+  return { ...stone, carat: fresh.carat, carat_options: fresh.carat_options };
+}
+
 function toStonePayload(s) {
   // entry_mode/total_ctw are UI-only — carat is always the number of
   // record by the time this reaches the API, whichever way ops entered it.
@@ -496,9 +520,10 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
           });
           setStones(
             existing.stones?.length
-              ? existing.stones.map((s) => ({
-                ...s, carat_options: s.carat_options || [], entry_mode: 'per_stone', total_ctw: '',
-              }))
+              ? existing.stones.map((s) => {
+                const stone = { ...s, carat_options: s.carat_options || [], entry_mode: 'per_stone', total_ctw: '' };
+                return s.position === 'Main' ? reconcileMainStone(stone, design) : stone;
+              })
               : freshStones
           );
           setPushStatus(existing.push_status || null);
