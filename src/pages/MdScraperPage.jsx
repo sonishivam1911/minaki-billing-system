@@ -856,22 +856,34 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                           <TextField label="Shape" size="small" fullWidth required value={stone.shape} onChange={setStoneField(i, 'shape')} />
                           {stone.position === 'Main' ? (
                             <>
-                              <FormControl size="small" fullWidth required>
-                                <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
-                                <Select
-                                  labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
-                                  value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
-                                  onChange={setStoneCaratOptions(i)}
-                                  renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
-                                >
-                                  {caratDropdownOptions(design).map((c) => (
-                                    <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
-                                  ))}
-                                </Select>
-                                {stone.carat_options.length > 1 && (
-                                  <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
-                                )}
-                              </FormControl>
+                              {caratDropdownOptions(design).length > 0 ? (
+                                <FormControl size="small" fullWidth required>
+                                  <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
+                                  <Select
+                                    labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
+                                    value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
+                                    onChange={setStoneCaratOptions(i)}
+                                    renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
+                                  >
+                                    {caratDropdownOptions(design).map((c) => (
+                                      <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
+                                    ))}
+                                  </Select>
+                                  {stone.carat_options.length > 1 && (
+                                    <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
+                                  )}
+                                </FormControl>
+                              ) : (
+                                // No known sizes at all for this design (no picker Miadonna
+                                // exposed) — a strict dropdown would have zero options and
+                                // lock ops out entirely. Falls back to manual entry of the
+                                // real, single known carat weight instead.
+                                <TextField
+                                  label="Carat (enter manually)" type="number" size="small" fullWidth required
+                                  value={stone.carat} onChange={setStoneField(i, 'carat')}
+                                  helperText="No known sizes for this design"
+                                />
+                              )}
                               <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
                             </>
                           ) : (
