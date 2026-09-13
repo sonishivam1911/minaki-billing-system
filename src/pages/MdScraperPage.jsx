@@ -327,6 +327,11 @@ const EMPTY_STONE = {
   // saved. 'total_ctw' just changes which field ops fills in; total_ctw
   // itself is derived back into carat before it ever reaches the API.
   entry_mode: 'per_stone', total_ctw: '',
+  // Side stone only — opts this stone into tracking which Main-stone
+  // carat option gets picked (e.g. a bigger halo needs more/bigger
+  // melee). values_by_carat holds the real carat/count ops enters per
+  // Main carat option, keyed by carat value as a string.
+  scale_with_main_carat: false, values_by_carat: {},
 };
 const EMPTY_FORM = {
   gold_weight_grams: '', product_title: '', product_description: '',
@@ -414,11 +419,19 @@ function toStonePayload(s) {
   // entry_mode/total_ctw are UI-only — carat is always the number of
   // record by the time this reaches the API, whichever way ops entered it.
   const { entry_mode, total_ctw, ...rest } = s;
+  const valuesByCarat = {};
+  for (const [carat, v] of Object.entries(s.values_by_carat || {})) {
+    valuesByCarat[carat] = {
+      carat: v.carat !== '' && v.carat != null ? Number(v.carat) : undefined,
+      stone_count: v.stone_count !== '' && v.stone_count != null ? Number(v.stone_count) : undefined,
+    };
+  }
   return {
     ...rest,
     carat: Number(s.carat),
     stone_count: Number(s.stone_count) || 1,
     carat_options: (s.carat_options || []).map(Number),
+    values_by_carat: valuesByCarat,
   };
 }
 
@@ -540,7 +553,10 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
           setStones(
             existing.stones?.length
               ? existing.stones.map((s) => {
-                const stone = { ...s, carat_options: s.carat_options || [], entry_mode: 'per_stone', total_ctw: '' };
+                const stone = {
+                  ...s, carat_options: s.carat_options || [], entry_mode: 'per_stone', total_ctw: '',
+                  scale_with_main_carat: s.scale_with_main_carat || false, values_by_carat: s.values_by_carat || {},
+                };
                 return s.position === 'Main' ? reconcileMainStone(stone, design) : stone;
               })
               : freshStones
@@ -641,6 +657,22 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
       const carat = total >= 0 ? Math.round((total / count) * 1000) / 1000 : s.carat;
       return { ...s, stone_count: value, carat };
     }));
+  };
+
+  const setStoneScaleWithMain = (index) => (e) => setStones((prev) => prev.map((s, i) => (
+    i === index ? { ...s, scale_with_main_carat: e.target.checked } : s
+  )));
+  const setStoneValueByCarat = (index, caratKey, field) => (e) => {
+    const value = e.target.value;
+    setStones((prev) => prev.map((s, i) => (i === index
+      ? {
+        ...s,
+        values_by_carat: {
+          ...s.values_by_carat,
+          [caratKey]: { ...s.values_by_carat[caratKey], [field]: value },
+        },
+      }
+      : s)));
   };
 
   const SWIPE_THRESHOLD_PX = 40;
@@ -967,6 +999,52 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                             <ToggleButton value="per_stone">Carat × Qty</ToggleButton>
                             <ToggleButton value="total_ctw">Total Carat Wt × Qty</ToggleButton>
                           </ToggleButtonGroup>
+                        )}
+                        {stone.position !== 'Main' && mainCaratOptions.length > 1 && (
+                          <Box sx={{ mb: 1 }}>
+                            <FormControlLabel
+                              control={<Checkbox size="small" checked={stone.scale_with_main_carat} onChange={setStoneScaleWithMain(i)} />}
+                              label="Scales with center stone size?"
+                            />
+                            {stone.scale_with_main_carat && (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Center Stone</TableCell>
+                                    <TableCell align="right">Carat (per stone)</TableCell>
+                                    <TableCell align="right">Count</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {mainCaratOptions.map((c) => {
+                                    const key = String(c);
+                                    const row = stone.values_by_carat[key] || {};
+                                    return (
+                                      <TableRow key={key}>
+                                        <TableCell>{c} ct</TableCell>
+                                        <TableCell align="right">
+                                          <TextField
+                                            type="number" size="small" sx={{ width: 110 }}
+                                            placeholder={stone.carat || '—'}
+                                            value={row.carat ?? ''}
+                                            onChange={setStoneValueByCarat(i, key, 'carat')}
+                                          />
+                                        </TableCell>
+                                        <TableCell align="right">
+                                          <TextField
+                                            type="number" size="small" sx={{ width: 90 }}
+                                            placeholder={stone.stone_count || '—'}
+                                            value={row.stone_count ?? ''}
+                                            onChange={setStoneValueByCarat(i, key, 'stone_count')}
+                                          />
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Box>
                         )}
                         <Stack direction="row" spacing={1}>
                           <TextField label="Color" size="small" fullWidth required value={stone.color} onChange={setStoneField(i, 'color')} placeholder="e.g. E" />
