@@ -111,6 +111,7 @@ function DiscoveredTab() {
   const [search, setSearch] = useState('');
   const [productType, setProductType] = useState('');
   const [shape, setShape] = useState('');
+  const [intakeStatus, setIntakeStatus] = useState('');
   const [filterOptions, setFilterOptions] = useState({ product_types: [], shapes: [] });
   const [designTypeOptions, setDesignTypeOptions] = useState({ ring: [], necklace: [], bracelet: [], earring: [] });
   const [settingTypeOptions, setSettingTypeOptions] = useState([]);
@@ -130,7 +131,7 @@ function DiscoveredTab() {
       .catch(() => {}); // dropdowns stay empty rather than failing the page
   }, []);
 
-  const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter) => {
+  const load = useCallback(async (pageNum, searchTerm, productTypeFilter, shapeFilter, intakeStatusFilter) => {
     setLoading(true);
     setError(null);
     try {
@@ -140,6 +141,7 @@ function DiscoveredTab() {
         search: searchTerm,
         productType: productTypeFilter,
         shape: shapeFilter,
+        intakeStatus: intakeStatusFilter,
       });
       setDesigns(result.designs || []);
       setTotal(result.total || 0);
@@ -151,14 +153,14 @@ function DiscoveredTab() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => load(page, search, productType, shape), search ? 400 : 0);
+    const timer = setTimeout(() => load(page, search, productType, shape, intakeStatus), search ? 400 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, productType, shape]);
+  }, [page, search, productType, shape, intakeStatus]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, productType, shape]);
+  }, [search, productType, shape, intakeStatus]);
 
   const refreshOne = async (shapeId, designHandle, shapeKey) => {
     try {
@@ -223,6 +225,20 @@ function DiscoveredTab() {
             ))}
           </Select>
         </FormControl>
+        <FormControl sx={{ minWidth: 180 }}>
+          <InputLabel id="intake-status-filter-label">Status</InputLabel>
+          <Select
+            labelId="intake-status-filter-label"
+            label="Status"
+            value={intakeStatus}
+            onChange={(e) => setIntakeStatus(e.target.value)}
+          >
+            <MenuItem value=""><em>All statuses</em></MenuItem>
+            <MenuItem value="new">New — needs gold/diamond info</MenuItem>
+            <MenuItem value="draft">Draft — partially filled</MenuItem>
+            <MenuItem value="ready">Ready to push</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {loading && <LoadingSpinner />}
@@ -230,7 +246,7 @@ function DiscoveredTab() {
 
       {!loading && !error && designs.length === 0 && (
         <Typography color="text.secondary">
-          Nothing discovered{(search || productType || shape) ? ' for that search/filter' : ''} yet.
+          Nothing discovered{(search || productType || shape || intakeStatus) ? ' for that search/filter' : ''} yet.
         </Typography>
       )}
 

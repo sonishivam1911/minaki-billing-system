@@ -21,14 +21,15 @@ export const mdScraperApi = {
    * Paginated list of scraped (design, shape) rows.
    * GET /md-scraper/designs
    *
-   * @param {Object} params - { limit, offset, search, productType, shape }
+   * @param {Object} params - { limit, offset, search, productType, shape, intakeStatus }
    * @returns {Promise<{ total: number, designs: Array }>}
    */
-  listDesigns: async ({ limit = 50, offset = 0, search = '', productType = '', shape = '' } = {}) => {
+  listDesigns: async ({ limit = 50, offset = 0, search = '', productType = '', shape = '', intakeStatus = '' } = {}) => {
     const params = { limit, offset };
     if (search) params.search = search;
     if (productType) params.product_type = productType;
     if (shape) params.shape = shape;
+    if (intakeStatus) params.intake_status = intakeStatus;
     return await apiRequest('GET', `${BASE_PATH}/designs`, null, { params });
   },
 
