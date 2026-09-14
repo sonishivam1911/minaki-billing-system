@@ -44,6 +44,18 @@ export const mdScraperApi = {
   },
 
   /**
+   * Design families (style-id grouped shape-siblings, not one row per
+   * shape) ranked by estimated Shopify variant count — for prioritizing
+   * which designs to intake next when maximizing products x variants.
+   * GET /md-scraper/designs/prioritized
+   */
+  getPrioritizedDesigns: async ({ productType = '', limit = 100 } = {}) => {
+    const params = { limit };
+    if (productType) params.product_type = productType;
+    return await apiRequest('GET', `${BASE_PATH}/designs/prioritized`, null, { params });
+  },
+
+  /**
    * Real ring/necklace/bracelet design choices, sourced live from
    * fine-by-minaki's own Shopify metaobjects (the same picklist Shopify's
    * admin uses). Earrings comes back empty — no matching field on that

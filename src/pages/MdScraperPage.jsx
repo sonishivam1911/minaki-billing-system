@@ -112,10 +112,13 @@ export const MdScraperPage = () => {
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab value="discovered" label="Discovered" />
+        <Tab value="prioritized" label="Prioritized" />
         <Tab value="runs" label="Runs" />
       </Tabs>
 
-      {tab === 'discovered' ? <DiscoveredTab /> : <RunsTab />}
+      {tab === 'discovered' && <DiscoveredTab />}
+      {tab === 'prioritized' && <PrioritizedTab />}
+      {tab === 'runs' && <RunsTab />}
     </Container>
   );
 };
@@ -1393,6 +1396,129 @@ function ReferenceAccordion({ reference, loading }) {
         )}
       </AccordionDetails>
     </Accordion>
+  );
+}
+
+/**
+ * PrioritizedTab — design FAMILIES (style-id grouped shape-siblings, not
+ * one row per shape) ranked by estimated Shopify variant count, so ops
+ * can work through "which designs maximize products x variants" directly
+ * in the app instead of cross-referencing a spreadsheet. Clicking a shape
+ * row opens the same DesignWorkspaceDialog the Discovered tab uses.
+ */
+function PrioritizedTab() {
+  const [families, setFamilies] = useState([]);
+  const [totalFamilies, setTotalFamilies] = useState(0);
+  const [productType, setProductType] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [designTypeOptions, setDesignTypeOptions] = useState({ ring: [], necklace: [], bracelet: [], earring: [] });
+  const [settingTypeOptions, setSettingTypeOptions] = useState([]);
+
+  useEffect(() => {
+    mdScraperApi.getDesignTypeOptions()
+      .then((result) => {
+        setDesignTypeOptions(result.options || {});
+        setSettingTypeOptions(result.setting_types || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  const load = useCallback(async (productTypeFilter) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await mdScraperApi.getPrioritizedDesigns({ productType: productTypeFilter, limit: 100 });
+      setFamilies(result.families || []);
+      setTotalFamilies(result.total_families || 0);
+    } catch (err) {
+      setError(err.message || 'Failed to load prioritized designs');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(productType); }, [load, productType]);
+
+  return (
+    <Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Ranked by estimated Shopify variant count — (metal colors with real photos) × 2 karats (14K/18K)
+        × known carat options. One row per design family (shape-siblings grouped together, not
+        listed as separate products); expand a row to see its shapes and open one to start intake.
+        {totalFamilies > 0 && ` Showing top ${families.length} of ${totalFamilies} qualifying designs.`}
+      </Typography>
+
+      <FormControl size="small" sx={{ minWidth: 220, mb: 2 }}>
+        <InputLabel id="prioritized-product-type-label">Category</InputLabel>
+        <Select
+          labelId="prioritized-product-type-label" label="Category"
+          value={productType} onChange={(e) => setProductType(e.target.value)}
+        >
+          <MenuItem value=""><em>Earrings, Bracelet, Necklace (default)</em></MenuItem>
+          <MenuItem value="Earrings">Earrings</MenuItem>
+          <MenuItem value="Bracelet">Bracelet</MenuItem>
+          <MenuItem value="Necklace">Necklace</MenuItem>
+        </Select>
+      </FormControl>
+
+      {loading && <LoadingSpinner />}
+      {error && <ErrorMessage message={error} />}
+
+      {!loading && !error && families.length === 0 && (
+        <Typography color="text.secondary">No qualifying designs found.</Typography>
+      )}
+
+      <Stack spacing={1}>
+        {families.map((family, rank) => (
+          <Accordion key={family.style_id || family.representative_title} disableGutters>
+            <AccordionSummary expandIcon={<ChevronDown size={18} />}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', flexWrap: 'wrap' }}>
+                <Chip size="small" label={`#${rank + 1}`} color="primary" />
+                <Chip size="small" variant="outlined" label={family.product_type} />
+                <Typography variant="body2" sx={{ flexGrow: 1 }}>{family.representative_title}</Typography>
+                <Chip size="small" label={`${family.shape_count} shape${family.shape_count === 1 ? '' : 's'}`} />
+                <Chip size="small" color="success" label={`${family.total_est_variants} est. variants`} />
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Shape</TableCell>
+                    <TableCell align="right">Colors w/ photos</TableCell>
+                    <TableCell align="right">Carat options</TableCell>
+                    <TableCell align="right">Est. variants</TableCell>
+                    <TableCell>Intake status</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {family.shapes.map((shape) => (
+                    <TableRow key={shape.shape_id}>
+                      <TableCell>{shape.shape_label}</TableCell>
+                      <TableCell align="right">{shape.color_count}</TableCell>
+                      <TableCell align="right">{shape.carat_count}</TableCell>
+                      <TableCell align="right">{shape.est_variants}</TableCell>
+                      <TableCell>{shape.intake_status || 'new'}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => setDetail(shape)}>Open</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </Stack>
+
+      <DesignWorkspaceDialog
+        design={detail} onClose={() => setDetail(null)}
+        designTypeOptions={designTypeOptions} settingTypeOptions={settingTypeOptions}
+      />
+    </Box>
   );
 }
 
