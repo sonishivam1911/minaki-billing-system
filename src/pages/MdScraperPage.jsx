@@ -54,6 +54,22 @@ const PAGE_SIZE = 24;
 
 const PUSH_STATUS_COLOR = { queued: 'info', running: 'info', succeeded: 'success', failed: 'error' };
 
+// carat_status from the backend (see md_scrape_service.py's
+// _CARAT_STATUS_EXPR) — surfaced on the card so ops can see intake
+// readiness without opening the filter first.
+const CARAT_STATUS_LABEL = {
+  single: 'single carat',
+  multiple: 'multi carat',
+  range_only: 'range only',
+  no_data: 'no carat data',
+};
+const CARAT_STATUS_COLOR = {
+  single: 'success',
+  multiple: 'default',
+  range_only: 'warning',
+  no_data: 'error',
+};
+
 // shopify--ring-design / necklace-design / bracelet-design metaobjects are
 // confirmed live on fine-by-minaki; there's no earring-design field on
 // this store yet, so that category always has an empty option list.
@@ -321,6 +337,15 @@ function DesignCard({ design, onClick, onRefresh }) {
             {design.product_type && <Chip size="small" variant="outlined" label={design.product_type} />}
           </Box>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+            {design.carat_status && (
+              <Chip
+                size="small"
+                icon={design.carat_status === 'no_data' || design.carat_status === 'range_only'
+                  ? <AlertCircle size={12} /> : <Gem size={12} />}
+                label={CARAT_STATUS_LABEL[design.carat_status] || design.carat_status}
+                color={CARAT_STATUS_COLOR[design.carat_status] || 'default'}
+              />
+            )}
             {design.intake_status && (
               <Chip
                 size="small"
@@ -424,16 +449,37 @@ function caratDropdownOptions(design) {
 // genuinely doesn't match anything -- a fixed-carat design with no known
 // picker at all (validOptions empty) has nothing to reconcile against, so
 // a manually-entered value there is left alone.
+//
+// Compares numerically (within a tight epsilon), not by string equality --
+// available_carats now regularly holds repeating-decimal values (e.g.
+// 2.6666666666666665, from a "2 ⅔ ctw" variant option divided out
+// server-side). Two independently-computed floats that are the SAME real
+// number can still print as different strings in edge cases, and a saved
+// value re-hydrated from JSON is exactly that kind of independent
+// computation -- string comparison is the wrong tool for float identity.
 function reconcileMainStone(stone, design) {
-  const validOptions = caratDropdownOptions(design).map(String);
+  const validOptions = caratDropdownOptions(design);
   if (validOptions.length === 0) return stone;
-  const selected = (stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String);
-  const stillValid = selected.filter((c) => validOptions.includes(c));
+  const selected = stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : []);
+  const stillValid = selected
+    .map(Number)
+    .filter((c) => !Number.isNaN(c) && validOptions.some((v) => Math.abs(v - c) < 1e-9));
   if (stillValid.length > 0) {
-    return { ...stone, carat_options: stillValid.map(Number), carat: Number(stillValid[0]) };
+    return { ...stone, carat_options: stillValid, carat: stillValid[0] };
   }
   const fresh = mainStoneForDesign(design);
   return { ...stone, carat: fresh.carat, carat_options: fresh.carat_options };
+}
+
+// available_carats can be a repeating decimal ("2 ⅔ ctw" -> 2.6666666666666665
+// after the server divides it out) -- fine to store/key by, unreadable to
+// show ops. Rounds to 2dp for display only; the underlying value (used for
+// the Select's value/keys) is untouched.
+function formatCarat(c) {
+  const n = Number(c);
+  if (!Number.isFinite(n)) return String(c);
+  const rounded = Math.round(n * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 }
 
 // gold_weight_by_carat is edited as raw strings (same as any other numeric
@@ -943,7 +989,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                       <TableBody>
                         {mainCaratOptions.map((c) => (
                           <TableRow key={c}>
-                            <TableCell>{c} ct</TableCell>
+                            <TableCell>{formatCarat(c)} ct</TableCell>
                             <TableCell align="right">
                               <TextField
                                 type="number" size="small" sx={{ width: 140 }}
@@ -986,10 +1032,10 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                                     labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
                                     value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
                                     onChange={setStoneCaratOptions(i)}
-                                    renderValue={(selected) => selected.map((c) => `${c}ct`).join(', ')}
+                                    renderValue={(selected) => selected.map((c) => `${formatCarat(c)}ct`).join(', ')}
                                   >
                                     {caratDropdownOptions(design).map((c) => (
-                                      <MenuItem key={c} value={String(c)}>{c} ct</MenuItem>
+                                      <MenuItem key={c} value={String(c)}>{formatCarat(c)} ct</MenuItem>
                                     ))}
                                   </Select>
                                   {stone.carat_options.length > 1 && (
@@ -1054,7 +1100,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                                     const row = stone.values_by_carat[key] || {};
                                     return (
                                       <TableRow key={key}>
-                                        <TableCell>{c} ct</TableCell>
+                                        <TableCell>{formatCarat(c)} ct</TableCell>
                                         <TableCell align="right">
                                           <TextField
                                             type="number" size="small" sx={{ width: 110 }}
