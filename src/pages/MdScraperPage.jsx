@@ -404,26 +404,14 @@ const EMPTY_FORM = {
   gold_weight_by_carat: {},
 };
 
-// Prefills the Main stone's carat from whatever the scrape already knows —
-// available_carats when Miadonna listed more than one size (becomes a
-// second Shopify variant dimension when the ops user keeps more than one),
-// else the min of the carat range, else blank.
-function mainStoneForDesign(design) {
-  const carats = (design.available_carats || []).map(Number).filter((n) => !Number.isNaN(n));
-  if (carats.length > 0) {
-    return { ...EMPTY_STONE, shape: design.shape_label || '', carat: carats[0], carat_options: carats };
-  }
-  if (design.min_carat != null) {
-    return { ...EMPTY_STONE, shape: design.shape_label || '', carat: design.min_carat };
-  }
-  return { ...EMPTY_STONE, shape: design.shape_label || '' };
-}
-
-// Strict dropdown options for the Main stone's carat — Miadonna's own
-// available_carats when we have them, else a 0.25ct-stepped range across
-// the scraped min/max. No free typing: ops picks from what's actually
-// plausible for this design, matching the real historical variant sizes.
-function caratDropdownOptions(design) {
+// Seeds the Main stone's carat table from whatever the scrape already
+// knows — Miadonna's own available_carats when we have them, else a
+// 0.25ct-stepped range across the scraped min/max (a starting guess ops
+// prunes/edits in the table below), else just the single min_carat, else
+// nothing. This is a starting point, not a constraint: the table lets ops
+// add or delete any row freely, so it's fine to seed generously and let
+// them remove what doesn't apply.
+function seedCaratOptions(design) {
   const known = [...new Set((design.available_carats || []).map(Number).filter((n) => !Number.isNaN(n)))];
   if (known.length > 0) return known.sort((a, b) => a - b);
   if (design.min_carat != null && design.max_carat != null) {
@@ -437,38 +425,28 @@ function caratDropdownOptions(design) {
   return [];
 }
 
-// A saved intake's Main stone can predate real carat data for this design
-// (backfilled later — see real-time-minaki-poc#458/#488) or the design's
-// available_carats can simply have changed since it was saved. When the
-// saved value no longer appears in the design's CURRENT dropdown options,
-// MUI shows nothing selected at all -- confirmed live: a stone saved with
-// carat=1 against a design whose real range has since resolved to a fixed
-// 2ct shows a blank "Carat (select 1+)" field, because "1" isn't one of
-// the current options. Only touches the saved value when we actually have
-// current data to check it against (validOptions non-empty) and it
-// genuinely doesn't match anything -- a fixed-carat design with no known
-// picker at all (validOptions empty) has nothing to reconcile against, so
-// a manually-entered value there is left alone.
-//
-// Compares numerically (within a tight epsilon), not by string equality --
-// available_carats now regularly holds repeating-decimal values (e.g.
-// 2.6666666666666665, from a "2 ⅔ ctw" variant option divided out
-// server-side). Two independently-computed floats that are the SAME real
-// number can still print as different strings in edge cases, and a saved
-// value re-hydrated from JSON is exactly that kind of independent
-// computation -- string comparison is the wrong tool for float identity.
+function mainStoneForDesign(design) {
+  const carats = seedCaratOptions(design);
+  return {
+    ...EMPTY_STONE,
+    shape: design.shape_label || '',
+    carat: carats[0] ?? '',
+    carat_options: carats,
+  };
+}
+
+// The Main stone's carat sizes are now a freely-editable table (add/remove
+// any row ops wants — see the carat-table UI below), not a dropdown
+// constrained to Miadonna's own known values. So a saved selection is
+// never "invalid" the way it could be against a fixed dropdown — ops has
+// explicit add/delete control and nothing here should silently overwrite
+// what they set. Only prefills from the design's scraped data when a
+// saved stone genuinely has nothing yet (a legacy record predating carat
+// fields, or a fresh stone) — never clobbers an existing selection, custom
+// or not.
 function reconcileMainStone(stone, design) {
-  const validOptions = caratDropdownOptions(design);
-  if (validOptions.length === 0) return stone;
-  const selected = stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : []);
-  const stillValid = selected
-    .map(Number)
-    .filter((c) => !Number.isNaN(c) && validOptions.some((v) => Math.abs(v - c) < 1e-9));
-  if (stillValid.length > 0) {
-    return { ...stone, carat_options: stillValid, carat: stillValid[0] };
-  }
-  const fresh = mainStoneForDesign(design);
-  return { ...stone, carat: fresh.carat, carat_options: fresh.carat_options };
+  if ((stone.carat_options || []).length > 0 || stone.carat !== '') return stone;
+  return mainStoneForDesign(design);
 }
 
 // available_carats can be a repeating decimal ("2 ⅔ ctw" -> 2.6666666666666665
@@ -573,6 +551,14 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
   const [pushUrl, setPushUrl] = useState(null);
   const [referenceInfo, setReferenceInfo] = useState(null);
   const [referenceLoading, setReferenceLoading] = useState(false);
+  // Both UI-only -- never sent to the API. gold_weight_scales_with_carat
+  // just shows/hides the per-carat table; the actual saved state is
+  // whether form.gold_weight_by_carat is non-empty (cleared on uncheck).
+  // gold_weight_step_grams only drives the "Apply defaults" suggestion,
+  // resets to the default each time the dialog opens rather than being
+  // remembered per design.
+  const [goldWeightScalesWithCarat, setGoldWeightScalesWithCarat] = useState(false);
+  const [goldWeightStepGrams, setGoldWeightStepGrams] = useState(0.1);
   const touchStartX = useRef(null);
 
   const assets = design?.assets || {};
@@ -629,6 +615,8 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
             auto_generate_content: existing.auto_generate_content ?? true,
             gold_weight_by_carat: existing.gold_weight_by_carat || {},
           });
+          setGoldWeightScalesWithCarat(Object.keys(existing.gold_weight_by_carat || {}).length > 0);
+          setGoldWeightStepGrams(0.1);
           setStones(
             existing.stones?.length
               ? existing.stones.map((s) => {
@@ -644,6 +632,8 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
           setPushUrl(existing.shopify_product_url || null);
         } else {
           setForm({ ...EMPTY_FORM, product_category: design.product_type || '' });
+          setGoldWeightScalesWithCarat(false);
+          setGoldWeightStepGrams(0.1);
           setStones(freshStones);
           setPushStatus(null);
           setPushUrl(null);
@@ -690,28 +680,69 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
   const setGoldWeightForCarat = (caratKey) => (e) => setForm((f) => ({
     ...f, gold_weight_by_carat: { ...f.gold_weight_by_carat, [caratKey]: e.target.value },
   }));
+  // Default rule (confirmed with ops): +0.1g of gold per +0.5ct increase in
+  // the center stone, scaled continuously so it still makes sense for a
+  // custom row that isn't exactly a 0.5ct multiple away from the smallest
+  // size. The step itself is editable (goldWeightStepGrams) — "for more
+  // intricate designs this can change" — so this only fills in a starting
+  // suggestion ops can hand-edit per row afterward, never locks it in.
+  const applyGoldWeightDefaults = () => {
+    const validCarats = mainCaratOptions.map(Number).filter((n) => !Number.isNaN(n) && n > 0);
+    if (validCarats.length === 0) return;
+    const base = Number(form.gold_weight_grams) || 0;
+    const step = Number(goldWeightStepGrams) || 0;
+    const smallest = Math.min(...validCarats);
+    const next = {};
+    for (const c of mainCaratOptions) {
+      const n = Number(c);
+      if (Number.isNaN(n)) continue;
+      next[String(c)] = Math.round((base + ((n - smallest) / 0.5) * step) * 1000) / 1000;
+    }
+    setForm((f) => ({ ...f, gold_weight_by_carat: next }));
+  };
 
   const setStoneField = (index, field) => (e) => {
     const value = e.target.value;
     setStones((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
-  const setStoneCaratOptions = (index) => (e) => {
-    const raw = e.target.value;
-    const values = typeof raw === 'string' ? raw.split(',') : raw;
-    const carats = values.map(Number).filter((n) => !Number.isNaN(n));
-    setStones((prev) => prev.map((s, i) => (i === index
-      ? { ...s, carat_options: carats, carat: carats[0] ?? s.carat }
-      : s)));
+  // Main stone's carat sizes are an editable table (one row per Shopify
+  // variant) — ops can add a custom row or delete one Miadonna's own data
+  // doesn't actually apply to, no longer constrained to a fixed dropdown.
+  // carat (singular) always mirrors row 0, matching every other place in
+  // this file that reads stone.carat as "the" carat (TCW display, pricing
+  // preview readiness check).
+  const setMainCaratRow = (index, rowIndex) => (e) => {
+    const value = e.target.value;
+    setStones((prev) => prev.map((s, i) => {
+      if (i !== index) return s;
+      const options = [...s.carat_options];
+      options[rowIndex] = value === '' ? '' : Number(value);
+      return { ...s, carat_options: options, carat: options[0] === '' || options[0] == null ? s.carat : options[0] };
+    }));
+  };
+  const addMainCaratRow = (index) => () => {
+    setStones((prev) => prev.map((s, i) => (i === index ? { ...s, carat_options: [...s.carat_options, ''] } : s)));
+  };
+  const removeMainCaratRow = (index, rowIndex) => () => {
+    setStones((prev) => prev.map((s, i) => {
+      if (i !== index) return s;
+      const options = s.carat_options.filter((_, idx) => idx !== rowIndex);
+      return { ...s, carat_options: options, carat: options[0] ?? '' };
+    }));
   };
 
   const addStone = () => setStones((prev) => [...prev, { ...EMPTY_STONE, position: 'Side Stone' }]);
   const removeStone = (index) => setStones((prev) => prev.filter((_, i) => i !== index));
 
-  // Side stones only — Main uses the carat dropdown above. Toggles between
-  // entering a per-diamond carat directly (the default) and entering a
-  // total carat weight + count instead, deriving carat = total / count.
-  // Real-world side-stone specs are almost always stated as a total ctw
-  // (see sideStoneFromVariants), so this saves ops doing that division.
+  // Toggles between entering a per-diamond carat directly (Main: the carat
+  // table above; side stones: a single carat field) and entering a total
+  // carat weight + count instead, deriving carat = total / count. Real-
+  // world specs (both Miadonna's side-stone data — see sideStoneFromVariants
+  // — and earrings, where a pair's total weight is what's actually stated)
+  // are often given this way, saving ops doing the division by hand. For
+  // the Main stone this collapses carat_options to the single derived
+  // value, since a total+qty entry describes one specific SKU, not a
+  // multi-size variant table.
   const setStoneEntryMode = (index) => (_e, mode) => {
     if (!mode) return;
     setStones((prev) => prev.map((s, i) => (i === index ? { ...s, entry_mode: mode } : s)));
@@ -723,7 +754,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
       const count = Number(s.stone_count) || 1;
       const total = Number(value);
       const carat = value !== '' && total >= 0 ? Math.round((total / count) * 1000) / 1000 : s.carat;
-      return { ...s, total_ctw: value, carat };
+      return { ...s, total_ctw: value, carat, ...(s.position === 'Main' ? { carat_options: carat !== '' ? [carat] : [] } : {}) };
     }));
   };
   const setStoneCount = (index) => (e) => {
@@ -734,7 +765,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
       const count = Number(value) || 1;
       const total = Number(s.total_ctw);
       const carat = total >= 0 ? Math.round((total / count) * 1000) / 1000 : s.carat;
-      return { ...s, stone_count: value, carat };
+      return { ...s, stone_count: value, carat, ...(s.position === 'Main' ? { carat_options: carat !== '' ? [carat] : [] } : {}) };
     }));
   };
 
@@ -969,16 +1000,38 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                 <TextField
                   label="Gold Weight — 14K (grams)" type="number" size="small" fullWidth required
                   value={form.gold_weight_grams} onChange={setField('gold_weight_grams')}
-                  helperText={mainCaratOptions.length > 1
-                    ? 'Default/fallback weight — override per carat size below if the setting scales with stone size'
+                  helperText={goldWeightScalesWithCarat
+                    ? 'Base/smallest-size weight — the per-carat table below overrides this per row'
                     : '18K weight and all 6 metal/karat variants are computed automatically'}
                 />
 
-                {mainCaratOptions.length > 1 && (
+                <FormControlLabel
+                  control={(
+                    <Checkbox
+                      size="small"
+                      checked={goldWeightScalesWithCarat}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setGoldWeightScalesWithCarat(checked);
+                        if (!checked) setForm((f) => ({ ...f, gold_weight_by_carat: {} }));
+                      }}
+                    />
+                  )}
+                  label="Metal weight differs per diamond?"
+                />
+
+                {goldWeightScalesWithCarat && mainCaratOptions.length > 0 && (
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                      Gold weight per carat size (optional — a bigger center stone often needs a bigger setting)
+                      Gold weight per carat size — a bigger center stone needs a bigger setting
                     </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                      <TextField
+                        label="Weight step per 0.5ct (g)" type="number" size="small" sx={{ width: 200 }}
+                        value={goldWeightStepGrams} onChange={(e) => setGoldWeightStepGrams(e.target.value)}
+                      />
+                      <Button size="small" onClick={applyGoldWeightDefaults}>Apply defaults</Button>
+                    </Stack>
                     <Table size="small">
                       <TableHead>
                         <TableRow>
@@ -987,9 +1040,9 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {mainCaratOptions.map((c) => (
-                          <TableRow key={c}>
-                            <TableCell>{formatCarat(c)} ct</TableCell>
+                        {mainCaratOptions.map((c, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>{c === '' ? '—' : `${formatCarat(c)} ct`}</TableCell>
                             <TableCell align="right">
                               <TextField
                                 type="number" size="small" sx={{ width: 140 }}
@@ -1023,61 +1076,59 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                         </Box>
                         <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
                           <TextField label="Shape" size="small" fullWidth required value={stone.shape} onChange={setStoneField(i, 'shape')} />
-                          {stone.position === 'Main' ? (
-                            <>
-                              {caratDropdownOptions(design).length > 0 ? (
-                                <FormControl size="small" fullWidth required>
-                                  <InputLabel id={`carat-label-${i}`}>Carat (select 1+)</InputLabel>
-                                  <Select
-                                    labelId={`carat-label-${i}`} label="Carat (select 1+)" multiple
-                                    value={(stone.carat_options.length ? stone.carat_options : (stone.carat !== '' ? [stone.carat] : [])).map(String)}
-                                    onChange={setStoneCaratOptions(i)}
-                                    renderValue={(selected) => selected.map((c) => `${formatCarat(c)}ct`).join(', ')}
-                                  >
-                                    {caratDropdownOptions(design).map((c) => (
-                                      <MenuItem key={c} value={String(c)}>{formatCarat(c)} ct</MenuItem>
-                                    ))}
-                                  </Select>
-                                  {stone.carat_options.length > 1 && (
-                                    <FormHelperText>Multiple sizes → separate Shopify variant</FormHelperText>
-                                  )}
-                                </FormControl>
-                              ) : (
-                                // No known sizes at all for this design (no picker Miadonna
-                                // exposed) — a strict dropdown would have zero options and
-                                // lock ops out entirely. Falls back to manual entry of the
-                                // real, single known carat weight instead.
-                                <TextField
-                                  label="Carat (enter manually)" type="number" size="small" fullWidth required
-                                  value={stone.carat} onChange={setStoneField(i, 'carat')}
-                                  helperText="No known sizes for this design"
-                                />
-                              )}
-                              <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneField(i, 'stone_count')} />
-                            </>
-                          ) : (
-                            <>
-                              {stone.entry_mode === 'total_ctw' ? (
-                                <TextField
-                                  label="Total Carat Weight" type="number" size="small" fullWidth required
-                                  value={stone.total_ctw} onChange={setStoneTotalCtw(i)}
-                                  helperText={stone.carat ? `≈ ${stone.carat} ct each` : ' '}
-                                />
-                              ) : (
-                                <TextField label="Carat (per diamond)" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
-                              )}
-                              <TextField label="Count" type="number" size="small" sx={{ minWidth: 90 }} value={stone.stone_count} onChange={setStoneCount(i)} />
-                            </>
-                          )}
+                          {stone.entry_mode === 'total_ctw' ? (
+                            <TextField
+                              label="Total Carat Weight" type="number" size="small" fullWidth required
+                              value={stone.total_ctw} onChange={setStoneTotalCtw(i)}
+                              helperText={stone.carat ? `≈ ${stone.carat} ct each` : ' '}
+                            />
+                          ) : stone.position !== 'Main' ? (
+                            <TextField label="Carat (per diamond)" type="number" size="small" fullWidth required value={stone.carat} onChange={setStoneField(i, 'carat')} />
+                          ) : null}
+                          <TextField
+                            label="Count" type="number" size="small" sx={{ minWidth: 90 }}
+                            value={stone.stone_count}
+                            onChange={stone.entry_mode === 'total_ctw' ? setStoneCount(i) : setStoneField(i, 'stone_count')}
+                          />
                         </Stack>
-                        {stone.position !== 'Main' && (
-                          <ToggleButtonGroup
-                            size="small" exclusive value={stone.entry_mode} onChange={setStoneEntryMode(i)}
-                            sx={{ mb: 1 }}
-                          >
-                            <ToggleButton value="per_stone">Carat × Qty</ToggleButton>
-                            <ToggleButton value="total_ctw">Total Carat Wt × Qty</ToggleButton>
-                          </ToggleButtonGroup>
+                        <ToggleButtonGroup
+                          size="small" exclusive value={stone.entry_mode} onChange={setStoneEntryMode(i)}
+                          sx={{ mb: 1 }}
+                        >
+                          <ToggleButton value="per_stone">{stone.position === 'Main' ? 'Carat table' : 'Carat × Qty'}</ToggleButton>
+                          <ToggleButton value="total_ctw">Total Carat Wt × Qty</ToggleButton>
+                        </ToggleButtonGroup>
+                        {stone.position === 'Main' && stone.entry_mode === 'per_stone' && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                              Carat sizes — one row per Shopify variant. Add or remove rows freely.
+                            </Typography>
+                            <Table size="small">
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Carat</TableCell>
+                                  <TableCell align="right">Actions</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {stone.carat_options.map((c, rowIdx) => (
+                                  <TableRow key={rowIdx}>
+                                    <TableCell>
+                                      <TextField type="number" size="small" value={c} onChange={setMainCaratRow(i, rowIdx)} />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <IconButton size="small" onClick={removeMainCaratRow(i, rowIdx)}>
+                                        <Trash2 size={14} />
+                                      </IconButton>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                            <Button size="small" startIcon={<Plus size={14} />} onClick={addMainCaratRow(i)} sx={{ mt: 0.5 }}>
+                              Add carat row
+                            </Button>
+                          </Box>
                         )}
                         {stone.position !== 'Main' && mainCaratOptions.length > 1 && (
                           <Box sx={{ mb: 1 }}>
@@ -1095,11 +1146,11 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                                   </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                  {mainCaratOptions.map((c) => {
+                                  {mainCaratOptions.map((c, rowIdx) => {
                                     const key = String(c);
                                     const row = stone.values_by_carat[key] || {};
                                     return (
-                                      <TableRow key={key}>
+                                      <TableRow key={rowIdx}>
                                         <TableCell>{formatCarat(c)} ct</TableCell>
                                         <TableCell align="right">
                                           <TextField
@@ -1281,9 +1332,22 @@ function ReferenceAccordion({ reference, loading }) {
               {(reference.available_carats || []).length > 0 && (
                 <Chip size="small" variant="outlined" label={`Offered in: ${reference.available_carats.join(', ')}ct`} />
               )}
+              {reference.style_id && (
+                <Chip size="small" variant="outlined" label={`Style family: ${reference.style_id}`} />
+              )}
             </Box>
             {reference.tags && (
               <Typography variant="caption" color="text.secondary">Tags: {reference.tags}</Typography>
+            )}
+            {(reference.sibling_handles || []).length > 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Same style family, other shapes ({reference.sibling_handles.length})
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                  {reference.sibling_handles.map((h) => <Chip key={h} size="small" label={h} />)}
+                </Box>
+              </Box>
             )}
 
             {(reference.variants || []).length > 0 && (
