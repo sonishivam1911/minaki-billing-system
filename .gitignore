@@ -9,6 +9,8 @@ dist/
 .firebaserc
 firebase.json
 *.md
+!README.md
 !CLAUDE.md
 !AGENTS.md
 !.cursor/rules/**
+!.claude/skills/**
