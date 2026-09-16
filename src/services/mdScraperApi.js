@@ -141,8 +141,10 @@ export const mdScraperApi = {
   },
 
   /**
-   * Kicks off an async push of one design_shape's saved intake to
-   * Shopify (creates a DRAFT product). Returns a push_run_id.
+   * Kicks off an async push of designHandle's WHOLE style family (every
+   * sibling shape sharing its style_id) to Shopify, each as its own
+   * DRAFT product -- not just shapeKey alone. Returns { queued: [...],
+   * skipped: [...] }, one entry per shape either way.
    * POST /md-scraper/designs/:designHandle/:shapeKey/push
    */
   pushDesign: async (designHandle, shapeKey) => {

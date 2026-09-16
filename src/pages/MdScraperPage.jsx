@@ -573,6 +573,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
   const [saved, setSaved] = useState(false);
   const [copyResult, setCopyResult] = useState(null);
   const [pushStatus, setPushStatus] = useState(null);
+  const [pushResult, setPushResult] = useState(null);
   const [pushUrl, setPushUrl] = useState(null);
   const [referenceInfo, setReferenceInfo] = useState(null);
   const [referenceLoading, setReferenceLoading] = useState(false);
@@ -604,6 +605,7 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
     setError(null);
     setSaved(false);
     setCopyResult(null);
+    setPushResult(null);
     setReferenceInfo(null);
 
     const referencePromise = mdScraperApi.getReferenceInfo(design.design_handle, design.shape_key)
@@ -898,8 +900,16 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
     setError(null);
     try {
       await handleSave('ready');
-      await mdScraperApi.pushDesign(design.design_handle, design.shape_key);
+      const result = await mdScraperApi.pushDesign(design.design_handle, design.shape_key);
       setPushStatus('queued');
+      // Pushes the whole style family now, not just this one shape -- see
+      // create_family_push_run. Surface what actually got queued vs.
+      // skipped (already pushed, already mid-push, missing fields) the
+      // same way handleSave already does for the sibling copy.
+      setPushResult({
+        queuedCount: (result.queued || []).length,
+        skipped: result.skipped || [],
+      });
     } catch (err) {
       setError(err.message || 'Failed to start push');
     } finally {
@@ -1025,6 +1035,9 @@ function DesignWorkspaceDialog({ design, onClose, designTypeOptions, settingType
                     )}
                   >
                     Push status: {pushStatus}
+                    {pushResult?.queuedCount > 1 && ` — ${pushResult.queuedCount} shapes in this family queued.`}
+                    {pushResult?.skipped?.length > 0 &&
+                      ` ${pushResult.skipped.length} skipped (${pushResult.skipped.map((s) => s.shape_key).join(', ')}) — already pushed or mid-push.`}
                   </Alert>
                 )}
 
